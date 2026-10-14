@@ -7,6 +7,16 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      # Graph tests run against a real FalkorDB, the same image as docker-compose.yml.
+      falkordb:
+        image: falkordb/falkordb:latest
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      FALKORDB_URL: redis://localhost:6380
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
