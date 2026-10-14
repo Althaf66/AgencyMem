@@ -61,8 +61,8 @@ describe("one token check per route group", () => {
       expect(res.status).toBe(401);
       expect(await res.json()).toMatchObject({ error: { code: "UNAUTHORIZED" } });
     }
-    // Past the token check: no route exists yet in this task, so 404.
-    expect((await get(path, own)).status).toBe(404);
+    // Past the token check: whatever the route says next, it is not 401.
+    expect((await get(path, own)).status).not.toBe(401);
   });
 
   it("answers an unknown path with the contract's NOT_FOUND body", async () => {

@@ -1,0 +1,44 @@
+import { Client, Project, text, type Mode, type PersonActor } from "@agencymem/contracts";
+import { REGISTRY_GRAPH, clientGraphName, type FalkorDB } from "@agencymem/graph";
+import { writeQuery } from "@agencymem/graph/write";
+import { ulid } from "ulid";
+import { applySchema } from "./schema";
+
+type Row = {
+  c: { properties: Record<string, unknown> };
+  p: { properties: Record<string, unknown> };
+};
+
+/**
+ * Writes a Client (found by name, or new) and a Project to the registry, then creates the client
+ * graph's indexes, so the project's graph is usable at once.
+ */
+export async function createProject(
+  db: FalkorDB,
+  input: {
+    clientName: string;
+    projectName: string;
+    mode: Mode;
+    createdBy: PersonActor;
+    now: number;
+  },
+): Promise<{ client: Client; project: Project }> {
+  // Check before writing, so a bad name never reaches the registry (contracts: name ≤80).
+  const clientName = text(80).min(1).parse(input.clientName);
+  const projectName = text(80).min(1).parse(input.projectName);
+  const rows = await writeQuery<Row>(db, REGISTRY_GRAPH, "write/create-project", {
+    clientId: ulid(),
+    projectId: ulid(),
+    clientName,
+    projectName,
+    mode: input.mode,
+    createdBy: input.createdBy,
+    now: input.now,
+  });
+  const row = rows[0];
+  if (!row) throw new Error("create-project returned no row");
+  const client = Client.parse(row.c.properties);
+  const project = Project.parse(row.p.properties);
+  await applySchema(db, clientGraphName(client.id), "client");
+  return { client, project };
+}

@@ -2,12 +2,13 @@
 // serves /mcp, /api, /ws, /hooks/commit and /healthz.
 import { createServer, type Server } from "node:http";
 import { pathToFileURL } from "node:url";
-import express, { type RequestHandler } from "express";
+import express, { type ErrorRequestHandler, type RequestHandler } from "express";
 import { WebSocketServer } from "ws";
 import { loadConfig, type Config, type ErrorBody, type HealthResponse } from "@agencymem/contracts";
-import { isReachable } from "@agencymem/graph";
+import { connect, isReachable } from "@agencymem/graph";
 import pkg from "../package.json" with { type: "json" };
 import { requireToken, tokenMatches } from "./auth";
+import { mcpRouter } from "./mcp/server";
 
 /** The technical design binds the gateway to 127.0.0.1 by default. */
 const HOST = "127.0.0.1";
@@ -22,6 +23,26 @@ function required(value: string | undefined, name: string): string {
 const notFound: RequestHandler = (_req, res) => {
   const body: ErrorBody = { error: { code: "NOT_FOUND", reason: "No such route." } };
   res.status(404).json(body);
+};
+
+/**
+ * Last in the chain: every error answers with the contract's `{ error: Rejection }` as JSON, never
+ * Express's HTML page with a stack trace. A client error from body parsing (bad JSON, over the size
+ * limit) is VALIDATION_FAILED, 400: the contracts' status table has no 413.
+ */
+const onError: ErrorRequestHandler = (err, _req, res, next) => {
+  if (res.headersSent) return next(err);
+  const clientError = typeof err?.status === "number" && err.status >= 400 && err.status < 500;
+  const body: ErrorBody = clientError
+    ? {
+        error: {
+          code: "VALIDATION_FAILED",
+          reason: "The request body is not valid JSON or is too large.",
+        },
+      }
+    : { error: { code: "INTERNAL", reason: "Internal error." } };
+  if (!clientError) console.error(`gateway: ${err instanceof Error ? err.message : String(err)}`);
+  res.status(clientError ? 400 : 500).json(body);
 };
 
 export function createGateway(cfg: Config): Server {
@@ -46,8 +67,10 @@ export function createGateway(cfg: Config): Server {
   app.use("/api/runs", requireToken(agent), notFound);
   app.use("/api", requireToken(ui), notFound);
   app.use("/hooks", requireToken(hook), notFound);
-  app.use("/mcp", requireToken(agent, ui), notFound);
+  const db = () => connect(falkordbUrl);
+  app.use("/mcp", requireToken(agent, ui), mcpRouter({ agentToken: agent, db }), notFound);
   app.use(notFound); // any other path, with the contract's error body
+  app.use(onError);
 
   const server = createServer(app);
 
