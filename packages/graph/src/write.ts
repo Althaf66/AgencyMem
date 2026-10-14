@@ -1,7 +1,19 @@
 // The write entry of packages/graph. Only packages/memory may import it (AGENTS.md rule 3,
 // enforced by .dependency-cruiser.cjs).
 import type { FalkorDB } from "falkordb";
-import { queryText } from "./queries";
+import { queryText, type Params } from "./queries";
+
+/** Runs one `write/` query: one query per write, so FalkorDB applies it as one unit. */
+export async function writeQuery<T>(
+  db: FalkorDB,
+  graph: string,
+  name: string,
+  params: Params,
+): Promise<T[]> {
+  if (!name.startsWith("write/")) throw new Error(`${name}: not a write/ query`);
+  const reply = await db.selectGraph(graph).query<T>(queryText(name), { params });
+  return reply.data ?? [];
+}
 
 /**
  * Runs each `;`-separated statement of a `schema/` file. FalkorDB has no CREATE INDEX IF NOT

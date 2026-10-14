@@ -11,6 +11,10 @@
   },
   "dependencies": {
     "@agencymem/contracts": "workspace:*",
-    "@agencymem/graph": "workspace:*"
+    "@agencymem/graph": "workspace:*",
+    "ulid": "3.0.2"
+  },
+  "devDependencies": {
+    "falkordb": "6.8.0"
   }
 }
