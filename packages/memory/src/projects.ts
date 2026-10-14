@@ -1,4 +1,11 @@
-import { Client, Project, text, type Mode, type PersonActor } from "@agencymem/contracts";
+import {
+  Client,
+  Project,
+  text,
+  type Mode,
+  type PersonActor,
+  type RejectionCounter,
+} from "@agencymem/contracts";
 import { REGISTRY_GRAPH, clientGraphName, type FalkorDB } from "@agencymem/graph";
 import { writeQuery } from "@agencymem/graph/write";
 import { ulid } from "ulid";
@@ -8,6 +15,19 @@ type Row = {
   c: { properties: Record<string, unknown> };
   p: { properties: Record<string, unknown> };
 };
+
+/** Adds 1 to one rejection counter of the Project. Returns the new value, or null for no project. */
+export async function countRejection(
+  db: FalkorDB,
+  projectId: string,
+  counter: RejectionCounter,
+): Promise<number | null> {
+  const rows = await writeQuery<{ value: number }>(db, REGISTRY_GRAPH, "write/count-rejection", {
+    projectId,
+    counter,
+  });
+  return rows[0]?.value ?? null;
+}
 
 /**
  * Writes a Client (found by name, or new) and a Project to the registry, then creates the client
