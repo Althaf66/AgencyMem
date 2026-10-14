@@ -1,0 +1,37 @@
+{
+  "name": "agencymem",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.28.0",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @agencymem/gateway --filter @agencymem/runner --filter @agencymem/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck && tsc --noEmit -p scripts/tsconfig.json",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write .",
+    "deps": "depcruise apps packages --config .dependency-cruiser.cjs",
+    "check:cypher": "tsx scripts/no-inline-cypher.ts",
+    "test": "vitest run",
+    "seed": "tsx scripts/stub.ts seed 1.3",
+    "sim:run": "tsx scripts/stub.ts sim:run 5.5",
+    "test:load": "tsx scripts/stub.ts test:load 6.1",
+    "test:restart": "tsx scripts/stub.ts test:restart 6.2",
+    "test:isolation": "tsx scripts/stub.ts test:isolation 6.3",
+    "eval:discovery": "tsx scripts/stub.ts eval:discovery 6.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.5",
+    "dependency-cruiser": "18.4.0",
+    "eslint": "10.11.0",
+    "globals": "17.13.0",
+    "prettier": "3.9.9",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.1",
+    "vitest": "5.0.2"
+  }
+}

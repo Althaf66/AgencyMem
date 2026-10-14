@@ -1,0 +1,12 @@
+{
+  "name": "@agencymem/simulator",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@agencymem/contracts": "workspace:*"
+  }
+}

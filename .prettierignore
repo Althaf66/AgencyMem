@@ -1,0 +1,8 @@
+node_modules
+dist
+pnpm-lock.yaml
+docs
+.claude
+AGENTS.md
+CLAUDE.md
+START-HERE.md

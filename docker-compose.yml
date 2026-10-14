@@ -1,0 +1,17 @@
+services:
+  falkordb:
+    image: falkordb/falkordb:latest
+    ports:
+      # 6380 on the host because 6379 is often taken by another local Redis
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - falkordb-data:/var/lib/falkordb/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  falkordb-data:
