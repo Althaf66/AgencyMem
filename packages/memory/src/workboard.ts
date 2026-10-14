@@ -1,9 +1,11 @@
-// Work items: open, claim, renew, complete and expire. Each function is one Cypher query, so a
-// claim or a lease check and its change cannot split.
+// Work items: open, claim, renew, complete, expire and hand off. Each function is one Cypher query,
+// so a claim or a lease check and its change cannot split.
 import {
+  Id,
   WorkItem,
   type Actor,
   type AgentId,
+  type ReadinessCheck,
   type RunInput,
   type WorkItemKind,
 } from "@agencymem/contracts";
@@ -26,7 +28,7 @@ export async function openItem(
     id: ulid(),
     projectId: ctx.projectId,
     kind: input.kind,
-    subjectId: input.subjectId ?? null,
+    subjectId: Id.nullable().parse(input.subjectId ?? null), // checked before it is written
     createdBy: input.createdBy,
     now: input.now,
   });
@@ -121,4 +123,40 @@ export async function expireLeases(ctx: Ctx, input: { now: number }): Promise<Wo
     now: input.now,
   });
   return rows.map((row) => WorkItem.parse(row.w.properties));
+}
+
+/**
+ * Sets the handoff summary and output ids on a WorkItem. With `report` (launch only, C8), also
+ * writes a ReadinessReport: `checks` as a JSON string (C10), `passed` when every check passed.
+ * Null when the project has no such item.
+ */
+export async function writeHandoff(
+  ctx: Ctx,
+  input: {
+    itemId: string;
+    summary: string;
+    outputIds: string[];
+    report?: { checks: ReadinessCheck[] };
+    createdBy: Actor;
+    now: number;
+  },
+): Promise<{ item: WorkItem; reportId: string | null } | null> {
+  const report = input.report
+    ? {
+        id: ulid(),
+        passed: input.report.checks.every((c) => c.passed),
+        checks: JSON.stringify(input.report.checks),
+      }
+    : null;
+  const rows = await writeQuery<NodeRow>(ctx.db, ctx.graph, "write/write-handoff", {
+    projectId: ctx.projectId,
+    itemId: input.itemId,
+    summary: input.summary,
+    outputIds: input.outputIds,
+    report,
+    createdBy: input.createdBy,
+    now: input.now,
+  });
+  const item = toItem(rows[0]);
+  return item ? { item, reportId: report?.id ?? null } : null;
 }

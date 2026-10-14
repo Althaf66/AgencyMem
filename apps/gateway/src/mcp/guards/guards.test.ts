@@ -3,9 +3,10 @@
 // fixtures (technical design "Unit: guards"); the counting is a real write.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { RejectionCounter } from "@agencymem/contracts";
+import type { Envelope, RejectionCounter } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, close, connect, readQuery, type FalkorDB } from "@agencymem/graph";
 import { createProject } from "@agencymem/memory";
+import { createEvents } from "../../events/bus";
 import {
   CLAIMS,
   OWNS,
@@ -69,7 +70,14 @@ async function counters(): Promise<Record<RejectionCounter, number>> {
 async function expectCounted(result: GuardResult | null, counter: RejectionCounter | null) {
   expect(result).not.toBeNull();
   const before = await counters();
-  const rejection = await rejectAndCount(db, projectId, result!);
+  const events = createEvents();
+  const sent: Envelope[] = [];
+  events.on((e) => sent.push(e));
+  const rejection = await rejectAndCount(db, projectId, result!, {
+    events,
+    tool: "test_tool",
+    agent: "intake",
+  });
   expect(rejection).toMatchObject({
     code: "GUARD_REJECTED",
     guard: result!.guard,
@@ -77,6 +85,13 @@ async function expectCounted(result: GuardResult | null, counter: RejectionCount
   });
   const after = await counters();
   for (const c of COUNTERS) expect(after[c] - before[c]).toBe(c === counter ? 1 : 0);
+  // A counted rejection sends write.rejected, then metrics.updated with the new count.
+  if (counter) {
+    expect(sent.map((e) => e.type)).toEqual(["write.rejected", "metrics.updated"]);
+    expect(sent[1]?.data).toEqual({ metric: counter, value: after[counter] });
+  } else {
+    expect(sent).toEqual([]);
+  }
 }
 
 const intake = { kind: "agent", agent: "intake" } as const;

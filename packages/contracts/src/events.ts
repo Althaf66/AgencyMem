@@ -68,6 +68,8 @@ export const EventType = z.enum(
   Object.keys(eventData) as [keyof typeof eventData, ...(keyof typeof eventData)[]],
 );
 export type EventType = z.infer<typeof EventType>;
+/** The `data` an emitter passes for one event type. */
+export type EventData<T extends EventType> = z.input<(typeof eventData)[T]>;
 
 const envelope = <T extends EventType>(type: T) =>
   z.object({

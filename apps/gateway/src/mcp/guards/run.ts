@@ -2,12 +2,14 @@
 // section 6). Each guard is a pure function over the facts it needs; tools read those facts first.
 import {
   rejectionCounter,
+  type Actor,
   type GuardName,
   type ReasonCode,
   type Rejection,
 } from "@agencymem/contracts";
 import type { FalkorDB } from "@agencymem/graph";
 import { countRejection } from "@agencymem/memory";
+import type { Events } from "../../events/bus";
 
 export type GuardResult = {
   guard: GuardName;
@@ -62,16 +64,28 @@ export async function runGuards(checks: GuardCheck[]): Promise<GuardResult | nul
 }
 
 /**
- * Turns a guard result into the contract's Rejection and adds 1 to the Project counter it belongs
- * to. RUN_PENDING means "wait", so it is not counted.
+ * Turns a guard result into the contract's Rejection, adds 1 to the Project counter it belongs to,
+ * then sends write.rejected and metrics.updated (contracts.md section 6, "Counting"). RUN_PENDING
+ * means "wait", not "wrong": it is neither counted nor sent.
  */
 export async function rejectAndCount(
   db: FalkorDB,
   projectId: string,
   result: GuardResult,
+  at: { events: Events; tool: string; agent: Actor },
 ): Promise<Rejection> {
   const counter = rejectionCounter(result.guard, result.reasonCode);
-  if (counter) await countRejection(db, projectId, counter);
+  if (counter) {
+    const value = await countRejection(db, projectId, counter);
+    at.events.emit(projectId, "write.rejected", {
+      tool: at.tool,
+      guard: result.guard,
+      reasonCode: result.reasonCode,
+      reason: result.reason,
+      agent: at.agent,
+    });
+    if (value !== null) at.events.emit(projectId, "metrics.updated", { metric: counter, value });
+  }
   return {
     code: "GUARD_REJECTED",
     guard: result.guard,

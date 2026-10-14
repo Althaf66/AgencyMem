@@ -126,6 +126,25 @@ describe("openItem", () => {
     expect(await open("intake", subjectId)).not.toBeNull();
     expect(await open("intake", subjectId)).toBeNull();
   });
+
+  it("refuses a subjectId that is not an id, before writing anything", async () => {
+    const project = { ...ctx, projectId: ulid() };
+    await expect(
+      openItem(project, {
+        kind: "intake",
+        subjectId: "not-an-id",
+        createdBy: "human:test",
+        now: T0,
+      }),
+    ).rejects.toThrow();
+    const none = await claimItem(project, {
+      kinds: ["intake"],
+      workerId: "intake-1",
+      now: T0,
+      leaseMs: LEASE,
+    });
+    expect(none).toBeNull(); // nothing was written
+  });
 });
 
 describe("renew", () => {

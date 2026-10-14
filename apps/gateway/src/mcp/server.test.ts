@@ -5,11 +5,14 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ToolName, loadConfig } from "@agencymem/contracts";
 import { close, connect } from "@agencymem/graph";
 import { createProject } from "@agencymem/memory";
+import { createEvents } from "../events/bus";
 import { createGateway } from "../main";
+import { createMcpServer } from "./server";
 
 const TOKENS = { AM_AGENT_TOKEN: "agent-t", AM_UI_TOKEN: "ui-t", AM_HOOK_TOKEN: "hook-t" };
 const FALKORDB_URL = process.env.FALKORDB_URL ?? "redis://localhost:6380";
@@ -185,6 +188,46 @@ describe("bad request bodies get the contract's error body, never an HTML stack 
     const text = await res.text();
     expect(text).not.toMatch(/at .*\.(js|ts):\d+/); // no stack trace
     expect(JSON.parse(text)).toMatchObject({ error: { code: "VALIDATION_FAILED" } });
+  });
+});
+
+describe("a call that throws still answers in the contract shape", () => {
+  // One session's server, linked to a client in memory, with FalkorDB unreachable.
+  async function downClient(up: boolean): Promise<Client> {
+    const binding = {
+      kind: "agent",
+      agent: "intake",
+      workerId: "intake-1",
+      projectId: UNKNOWN_PROJECT,
+      graph: "client_x",
+    } as const;
+    const server = createMcpServer(binding, {
+      db: () => Promise.reject(new Error("connect ECONNREFUSED")),
+      isUp: async () => up,
+      events: createEvents(),
+      leaseMs: 1000,
+      recallMaxChars: 40000,
+    });
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverSide);
+    const client = new Client({ name: "test", version: "0" });
+    await client.connect(clientSide);
+    clients.push(client);
+    return client;
+  }
+
+  it("answers GRAPH_UNAVAILABLE when FalkorDB is down", async () => {
+    const client = await downClient(false);
+    const result = await client.callTool({ name: "claim_item", arguments: {} });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({ error: { code: "GRAPH_UNAVAILABLE" } });
+  });
+
+  it("answers INTERNAL for any other error", async () => {
+    const client = await downClient(true);
+    const result = await client.callTool({ name: "claim_item", arguments: {} });
+    expect(result.isError).toBe(true);
+    expect(result.structuredContent).toMatchObject({ error: { code: "INTERNAL" } });
   });
 });
 

@@ -13,7 +13,11 @@ import { ToolName, tools, type ErrorBody, type Rejection } from "@agencymem/cont
 import type { FalkorDB } from "@agencymem/graph";
 import pkg from "../../package.json" with { type: "json" };
 import { tokenMatches } from "../auth";
+import type { Events } from "../events/bus";
+import { ownership } from "./guards";
 import { bindSession, type Binding, type TokenKind } from "./session";
+import { HANDLERS, type Outcome, type ToolCtx } from "./tools";
+import { guardFail } from "./tools/common";
 
 /** One line per tool (from the contracts tool table), and the task that builds it. */
 const TOOL_INFO: Record<ToolName, { description: string; task: string }> = {
@@ -80,8 +84,30 @@ export function failure(error: Rejection): CallToolResult {
   };
 }
 
-/** An MCP server with all 21 tools, so tools/list returns every tool to every session. */
-export function createMcpServer(): McpServer {
+/** The contract's success shape: `structuredContent` = the output, and the same JSON as text. */
+function success(output: unknown): CallToolResult {
+  return {
+    structuredContent: output as Record<string, unknown>,
+    content: [{ type: "text", text: JSON.stringify(output) }],
+  };
+}
+
+/** What every session's tools need from the gateway. */
+export type ToolDeps = {
+  db: () => Promise<FalkorDB>;
+  /** Whether FalkorDB answers now: a failed call is then GRAPH_UNAVAILABLE, not INTERNAL. */
+  isUp: () => Promise<boolean>;
+  events: Events;
+  leaseMs: number;
+  recallMaxChars: number;
+};
+
+/**
+ * An MCP server for one session, with all 21 tools, so tools/list returns every tool to every
+ * session. Calls run: input schema, then (UI session) ownership, then the tool's own guards, its
+ * write and its events, then the output schema.
+ */
+export function createMcpServer(binding: Binding, deps: ToolDeps): McpServer {
   const server = new McpServer({ name: "agencymem", version: pkg.version });
   for (const name of ToolName.options) {
     server.registerTool(
@@ -113,10 +139,50 @@ export function createMcpServer(): McpServer {
         },
       });
     }
-    return failure({
-      code: "INTERNAL",
-      reason: `${name.data} is not built yet (task ${TOOL_INFO[name.data].task}).`,
-    });
+    const handler = HANDLERS[name.data] as
+      | ((ctx: ToolCtx, input: unknown) => Promise<Outcome<unknown>>) // the map pairs each tool with its input type
+      | undefined;
+    if (!handler) {
+      return failure({
+        code: "INTERNAL",
+        reason: `${name.data} is not built yet (task ${TOOL_INFO[name.data].task}).`,
+      });
+    }
+
+    // Anything that throws below (FalkorDB down, a parse of graph data) still answers in the
+    // contract's shape; otherwise the SDK would send a bare JSON-RPC error.
+    try {
+      const ctx: ToolCtx = {
+        tool: name.data,
+        binding,
+        db: await deps.db(),
+        events: deps.events,
+        leaseMs: deps.leaseMs,
+        recallMaxChars: deps.recallMaxChars,
+        now: Date.now,
+      };
+      // contracts.md section 7: a UI session may call only read_query; ownership rejects the rest.
+      const uiRefused = binding.kind === "ui" ? ownership({ kind: "ui" }, name.data) : null;
+      if (uiRefused) return failure((await guardFail(ctx, uiRefused)).error);
+
+      const outcome = await handler(ctx, input.data);
+      if (!outcome.ok) return failure(outcome.error);
+      // The SDK checked successful output against the output schema; this handler does it now.
+      if (!tools[name.data].output.safeParse(outcome.output).success) {
+        return failure({
+          code: "INTERNAL",
+          reason: `${name.data} produced output that breaks its contract.`,
+        });
+      }
+      return success(outcome.output);
+    } catch (e) {
+      if (!(await deps.isUp())) {
+        return failure({ code: "GRAPH_UNAVAILABLE", reason: "FalkorDB is not reachable." });
+      }
+      // Message only: no stack, and nothing from the request.
+      console.error(`gateway: ${name.data} failed: ${e instanceof Error ? e.message : String(e)}`);
+      return failure({ code: "INTERNAL", reason: `${name.data} failed on the server.` });
+    }
   });
   return server;
 }
@@ -132,7 +198,7 @@ function send(res: Response, status: number, error: Rejection): void {
  * The /mcp router. It runs behind requireToken(agent, ui). An initialize request binds the X-AM-*
  * headers and opens a session; later requests find their session by Mcp-Session-Id.
  */
-export function mcpRouter(opts: { agentToken: string; db: () => Promise<FalkorDB> }): Router {
+export function mcpRouter(opts: { agentToken: string } & ToolDeps): Router {
   const sessions = new Map<string, Session>();
   const router = express.Router();
   // write_fact takes up to 200 facts, more than Express's 100 kB default.
@@ -174,7 +240,7 @@ export function mcpRouter(opts: { agentToken: string; db: () => Promise<FalkorDB
     transport.onclose = () => {
       if (transport.sessionId) sessions.delete(transport.sessionId);
     };
-    await createMcpServer().connect(transport);
+    await createMcpServer(bound.binding, opts).connect(transport);
     await transport.handleRequest(req, res, req.body);
   });
 

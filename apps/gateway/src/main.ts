@@ -8,6 +8,7 @@ import { loadConfig, type Config, type ErrorBody, type HealthResponse } from "@a
 import { connect, isReachable } from "@agencymem/graph";
 import pkg from "../package.json" with { type: "json" };
 import { requireToken, tokenMatches } from "./auth";
+import { createEvents, type Events } from "./events/bus";
 import { mcpRouter } from "./mcp/server";
 
 /** The technical design binds the gateway to 127.0.0.1 by default. */
@@ -15,8 +16,8 @@ const HOST = "127.0.0.1";
 
 /** loadConfig(…, "gateway") requires or defaults these, but the Config type leaves them optional.
  * An empty token would let an empty header through, so refuse to start without one. */
-function required(value: string | undefined, name: string): string {
-  if (!value) throw new Error(`${name} is required`);
+function required<T extends string | number>(value: T | undefined, name: string): T {
+  if (value === undefined || value === "") throw new Error(`${name} is required`);
   return value;
 }
 
@@ -45,7 +46,9 @@ const onError: ErrorRequestHandler = (err, _req, res, next) => {
   res.status(clientError ? 400 : 500).json(body);
 };
 
-export function createGateway(cfg: Config): Server {
+/** `opts.events` lets a test listen to the bus; the gateway makes its own otherwise. */
+export function createGateway(cfg: Config, opts: { events?: Events } = {}): Server {
+  const events = opts.events ?? createEvents();
   const agent = required(cfg.AM_AGENT_TOKEN, "AM_AGENT_TOKEN");
   const ui = required(cfg.AM_UI_TOKEN, "AM_UI_TOKEN");
   const hook = required(cfg.AM_HOOK_TOKEN, "AM_HOOK_TOKEN");
@@ -68,7 +71,15 @@ export function createGateway(cfg: Config): Server {
   app.use("/api", requireToken(ui), notFound);
   app.use("/hooks", requireToken(hook), notFound);
   const db = () => connect(falkordbUrl);
-  app.use("/mcp", requireToken(agent, ui), mcpRouter({ agentToken: agent, db }), notFound);
+  const mcp = mcpRouter({
+    agentToken: agent,
+    db,
+    isUp: () => isReachable(falkordbUrl),
+    events,
+    leaseMs: required(cfg.LEASE_MS, "LEASE_MS"),
+    recallMaxChars: required(cfg.CONTEXT_RECALL_MAX_CHARS, "CONTEXT_RECALL_MAX_CHARS"),
+  });
+  app.use("/mcp", requireToken(agent, ui), mcp, notFound);
   app.use(notFound); // any other path, with the contract's error body
   app.use(onError);
 

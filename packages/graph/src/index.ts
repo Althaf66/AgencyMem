@@ -1,6 +1,6 @@
 export type { FalkorDB } from "falkordb";
 export { close, connect, isReachable } from "./connection";
-export { listQueries, readQuery, type Params } from "./queries";
+export { listQueries, readQuery, runReadOnly, type Params, type ReadOnlyResult } from "./queries";
 export {
   AGENCY_GRAPH,
   REGISTRY_GRAPH,

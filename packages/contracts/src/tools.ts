@@ -670,3 +670,7 @@ export const ToolName = z.enum(
   Object.keys(tools) as [keyof typeof tools, ...(keyof typeof tools)[]],
 );
 export type ToolName = z.infer<typeof ToolName>;
+
+/** What a tool handler receives (after parsing) and returns (before the output schema checks it). */
+export type ToolInput<K extends ToolName> = z.output<(typeof tools)[K]["input"]>;
+export type ToolOutput<K extends ToolName> = z.input<(typeof tools)[K]["output"]>;

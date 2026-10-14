@@ -50,3 +50,42 @@ export async function readQuery<T>(
     throw e;
   }
 }
+
+export type ReadOnlyResult = {
+  columns: string[];
+  rows: unknown[][];
+  ms: number;
+  truncated: boolean;
+};
+
+/**
+ * Runs a person's read query (read_query, POST /api/query) with GRAPH.RO_QUERY, so FalkorDB itself
+ * refuses any write, a timeout, and at most `maxRows` rows. The read-only guard has already checked
+ * the text. Columns come from the first row, so a query with no rows reports no columns.
+ */
+export async function runReadOnly(
+  db: FalkorDB,
+  graph: string,
+  cypher: string,
+  params: Params,
+  limits: { timeoutMs: number; maxRows: number },
+): Promise<ReadOnlyResult> {
+  const started = performance.now();
+  let data: Record<string, unknown>[];
+  try {
+    const reply = await db
+      .selectGraph(graph)
+      .roQuery<Record<string, unknown>>(cypher, { params, TIMEOUT: limits.timeoutMs });
+    data = reply.data ?? [];
+  } catch (e) {
+    if (!(e instanceof Error && e.message.includes("empty key"))) throw e;
+    data = []; // a graph that was never written holds no rows
+  }
+  const columns = data[0] ? Object.keys(data[0]) : [];
+  return {
+    columns,
+    rows: data.slice(0, limits.maxRows).map((row) => columns.map((c) => row[c])),
+    ms: Math.round(performance.now() - started),
+    truncated: data.length > limits.maxRows,
+  };
+}
