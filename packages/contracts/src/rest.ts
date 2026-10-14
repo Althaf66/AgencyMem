@@ -423,6 +423,7 @@ export const HealthResponse = z.object({
   falkordb: z.enum(["up", "down"]),
   version: z.string(),
 });
+export type HealthResponse = z.infer<typeof HealthResponse>;
 
 // Git hook route (hook token)
 
