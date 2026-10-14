@@ -24,7 +24,6 @@ describe("root scripts", () => {
   });
 
   it.each([
-    ["seed", "1.3"],
     ["sim:run", "5.5"],
     ["test:load", "6.1"],
     ["test:restart", "6.2"],

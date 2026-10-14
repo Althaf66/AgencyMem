@@ -3,6 +3,7 @@ import type { FalkorDB } from "falkordb";
 import { readQuery } from "./queries";
 
 export const REGISTRY_GRAPH = "registry";
+export const AGENCY_GRAPH = "agency";
 
 export class UnknownProjectError extends Error {
   constructor(readonly projectId: string) {

@@ -23,6 +23,13 @@ export function listQueries(): string[] {
   return [...queries.keys()].sort();
 }
 
+/** The text of one loaded query. Not exported from the package: callers run queries by name. */
+export function queryText(name: string): string {
+  const cypher = queries.get(name);
+  if (cypher === undefined) throw new Error(`Unknown query ${name}`);
+  return cypher;
+}
+
 /** Runs a `read/` query with GRAPH.RO_QUERY, so FalkorDB itself refuses any write. */
 export async function readQuery<T>(
   db: FalkorDB,
@@ -33,8 +40,7 @@ export async function readQuery<T>(
   if (!name.startsWith("read/")) {
     throw new Error(`${name}: only read/ queries run on the read path`);
   }
-  const cypher = queries.get(name);
-  if (cypher === undefined) throw new Error(`Unknown query ${name}`);
+  const cypher = queryText(name);
   try {
     const reply = await db.selectGraph(graph).roQuery<T>(cypher, { params });
     return reply.data ?? [];

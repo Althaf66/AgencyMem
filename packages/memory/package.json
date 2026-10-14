@@ -8,5 +8,9 @@
   "scripts": {
     "build": "tsc --noEmit -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@agencymem/contracts": "workspace:*",
+    "@agencymem/graph": "workspace:*"
   }
 }

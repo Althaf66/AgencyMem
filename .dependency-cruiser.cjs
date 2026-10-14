@@ -46,7 +46,7 @@ module.exports = {
     ...importRules,
     {
       // Rule 3. Only packages/memory sends write Cypher, so only it may import the write entry of
-      // packages/graph. The path is a placeholder until task 1.2 builds packages/graph.
+      // packages/graph (`@agencymem/graph/write`, packages/graph/src/write.ts).
       name: "write-cypher-only-in-memory",
       severity: "error",
       comment: "Only packages/memory may import the write entry of packages/graph.",
