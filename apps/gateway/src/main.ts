@@ -9,6 +9,8 @@ import { connect, isReachable } from "@agencymem/graph";
 import pkg from "../package.json" with { type: "json" };
 import { requireToken, tokenMatches } from "./auth";
 import { createEvents, type Events } from "./events/bus";
+import { startLeaseSweeper } from "./events/sweeper";
+import { attachEventSocket } from "./events/ws";
 import { mcpRouter } from "./mcp/server";
 
 /** The technical design binds the gateway to 127.0.0.1 by default. */
@@ -87,7 +89,8 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
 
   // Browsers cannot set headers on a WebSocket, so the UI token comes as ?token= (contracts.md
   // section 10). Any other path or token is refused before the upgrade.
-  const wss = new WebSocketServer({ noServer: true });
+  // A client only sends subscribe messages, so 16 kB is plenty; ws refuses anything larger.
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
   server.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname !== "/ws" || !tokenMatches(url.searchParams.get("token") ?? undefined, ui)) {
@@ -96,6 +99,18 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
     }
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit("connection", ws, req));
   });
+
+  const stopSocket = attachEventSocket(wss, { events, db });
+  const stopSweeper = startLeaseSweeper({ db, events });
+  // server.close() waits for every connection to end, and upgraded sockets never end on their own,
+  // so the sockets must go before the close, not on its 'close' event.
+  const closeServer = server.close.bind(server);
+  server.close = (callback) => {
+    stopSocket();
+    stopSweeper();
+    for (const ws of wss.clients) ws.terminate();
+    return closeServer(callback);
+  };
 
   return server;
 }
