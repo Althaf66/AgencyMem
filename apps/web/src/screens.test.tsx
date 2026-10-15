@@ -3,14 +3,15 @@
 // closed drop zone after intake.
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { GateView, ProjectInfo, QuestionView } from "@agencymem/contracts";
+import type { FeatureView, GateView, ProjectInfo, QuestionView } from "@agencymem/contracts";
 import type { Api } from "./api";
+import { DocsView } from "./docs/Docs";
 import { GatesView } from "./gates/Gates";
 import { FilesView } from "./intake/Files";
 import { ProjectsView } from "./projects/Projects";
 import { QuestionnaireView, SourcePair } from "./questionnaire/Questionnaire";
 import { StageStepper } from "./shell/Shell";
-import { createAppStore, type AppState, type Slice } from "./store";
+import { createAppStore, type AppState, type Docs, type Slice } from "./store";
 
 const base = createAppStore({} as Api).getState();
 const ready = <T,>(data: T): Slice<T> => ({ data, seq: 1, status: "ready", error: null });
@@ -204,5 +205,78 @@ describe("files", () => {
     );
     expect(html).toContain("Uploads closed: Discovery has started.");
     expect(html).not.toContain('type="file"');
+  });
+});
+
+const section = (
+  order: number,
+  title: string,
+  over: Partial<Docs["prd"]["sections"][number]> = {},
+) => ({
+  id: `01JA00000000000000000000S${order}`,
+  order,
+  title,
+  body: "Text.",
+  stale: false,
+  renders: [],
+  ...over,
+});
+const FEAT = "01JA00000000000000000000F3";
+const docs = (prd: Docs["prd"]["sections"]): Docs => ({
+  prd: { doc: "prd", sections: prd, designVersion: 1 },
+  tdd: { doc: "tdd", sections: [], designVersion: 1 },
+  plan: { doc: "plan", sections: [], designVersion: 1 },
+});
+const feature = {
+  id: FEAT,
+  key: "FEAT-03",
+  name: "Slot calendar",
+  featureKind: "calendar",
+  productVersion: 1,
+  requirementKeys: [],
+  actualHours: null,
+  estimate: {
+    hours: 13.5,
+    rawHours: 7,
+    basis: "raw 7 h × 1.91 (lesson low, n=1) = 13.5 h",
+    lessons: [],
+  },
+} as unknown as FeatureView;
+
+describe("documents", () => {
+  it("says the documents come after the proposal while there are none", () => {
+    const html = renderToString(<DocsView s={state({ docs: ready(docs([])) })} doc="prd" />);
+    expect(html).toContain("The documents appear after the proposal is approved.");
+  });
+
+  it("shows the tabs, the summary first, stale sections, feature estimates and G3", () => {
+    const html = renderToString(
+      <DocsView
+        doc="prd"
+        s={state({
+          docs: ready(
+            docs([
+              section(0, "Summary", { body: "**Lotus** clinic books online." }),
+              section(2, "Requirements", { stale: true }),
+              section(3, "Features and estimates", {
+                renders: [{ label: "Feature", id: FEAT, key: "FEAT-03", text: "Slot calendar" }],
+              }),
+            ]),
+          ),
+          features: ready([feature]),
+          gates: ready([gate({ key: "G3", blockedBy: ["Architect still working"] })]),
+        })}
+      />,
+    );
+    for (const tab of ["Final PRD", "Technical Design", "Implementation Plan"]) {
+      expect(html).toContain(tab);
+    }
+    expect(html.indexOf("Summary")).toBeLessThan(html.indexOf("Requirements"));
+    expect(html).toContain('<span class="chip warn">stale</span>');
+    expect(html).toContain("13.5 h · raw 7 h × 1.91 (lesson low, n=1) = 13.5 h");
+    expect(html).toContain("blocked: Architect still working");
+    // No DOM here, so no DOMPurify: the Markdown shows as text, never as unchecked HTML.
+    expect(html).toContain("**Lotus** clinic books online.");
+    expect(html).not.toContain("<strong>Lotus");
   });
 });

@@ -412,3 +412,62 @@ tr.episodes ul {
 .blocked {
   color: var(--warn);
 }
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.tabs a {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+}
+.tabs a.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.docs-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  gap: 16px;
+  align-items: start;
+}
+.doc-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.doc-section h3 {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.renders {
+  padding-left: 16px;
+}
+.chat {
+  position: sticky;
+  top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+.chat ul {
+  list-style: none;
+  padding: 0;
+}
+.chat textarea {
+  width: 100%;
+  min-height: 80px;
+}
+@media (max-width: 800px) {
+  .docs-body {
+    grid-template-columns: 1fr;
+  }
+}

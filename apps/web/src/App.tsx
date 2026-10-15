@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Docs } from "./docs/Docs";
 import { Gates } from "./gates/Gates";
 import { Files } from "./intake/Files";
 import { Projects } from "./projects/Projects";
@@ -22,6 +23,7 @@ export function App({ store }: { store: AppStore }) {
       {route.screen === "files" && <Files store={store} />}
       {route.screen === "questions" && <Questionnaire store={store} />}
       {route.screen === "gates" && <Gates store={store} />}
+      {route.screen === "docs" && <Docs store={store} doc={route.doc} />}
     </Shell>
   );
 }

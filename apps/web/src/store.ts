@@ -3,8 +3,11 @@
 // a label it shows; nothing on screen changes without a gateway event or a snapshot.
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type {
+  Doc,
+  DocResponse,
   DocumentInfo,
   Envelope,
+  FeatureView,
   GateView,
   Mode,
   ProjectInfo,
@@ -20,7 +23,9 @@ export type Slice<T> = {
   status: "idle" | "loading" | "ready" | "error";
   error: Rejection | null;
 };
-export type SliceName = "project" | "documents" | "questions" | "gates";
+export type SliceName = "project" | "documents" | "questions" | "gates" | "docs" | "features";
+/** The three documents of route 20, without their seq. */
+export type Docs = Record<Doc, Omit<DocResponse, "seq">>;
 export type RunStep = { itemId: string; agent: string; step: string; text: string; at: number };
 export type Toast = { id: number; text: string };
 
@@ -31,6 +36,8 @@ export type AppState = {
   documents: Slice<DocumentInfo[]>;
   questions: Slice<QuestionView[]>;
   gates: Slice<GateView[]>;
+  docs: Slice<Docs>;
+  features: Slice<FeatureView[]>;
   /** The last 50 run steps per work item. */
   runLog: Record<string, RunStep[]>;
   toasts: Toast[];
@@ -53,13 +60,34 @@ export type AppState = {
   node(nodeId: string): ReturnType<Api["node"]>;
   answer(question: QuestionView, accept: boolean, text?: string): Promise<boolean>;
   decide(gate: GateView, decision: "approve" | "reject", reason?: string): Promise<boolean>;
+  /** Route 21: the reply line saying where the text went, or null after a rejection (a toast). */
+  chat(text: string, docSectionId?: string): Promise<string | null>;
   toast(text: string): void;
   dismiss(id: number): void;
 };
 export type AppStore = StoreApi<AppState>;
 
 const empty = <T>(): Slice<T> => ({ data: null, seq: 0, status: "idle", error: null });
-export const SLICES: SliceName[] = ["project", "documents", "questions", "gates"];
+export const SLICES: SliceName[] = [
+  "project",
+  "documents",
+  "questions",
+  "gates",
+  "docs",
+  "features",
+];
+const DOCS: Doc[] = ["prd", "tdd", "plan"];
+// The labels a document section renders: a write to one changes the documents.
+const DESIGN = [
+  "DocSection",
+  "Requirement",
+  "Decision",
+  "Component",
+  "Screen",
+  "DataEntity",
+  "Endpoint",
+  "Risk",
+];
 const TOAST_MS = 6000;
 const RUN_LOG = 50;
 
@@ -67,8 +95,13 @@ const RUN_LOG = 50;
  * project (its stage). */
 function staleSlices(event: Envelope): SliceName[] {
   if (event.type === "gate.changed") return ["gates", "project"];
+  if (event.type === "doc.stale") return ["docs"];
   if (event.type !== "node.written") return [];
+  if (DESIGN.includes(event.data.label)) return ["docs"];
   switch (event.data.label) {
+    case "Feature":
+    case "Estimate":
+      return ["features", "docs"];
     case "Document":
       return ["documents"];
     case "Question":
@@ -124,6 +157,8 @@ export function createAppStore(api: Api): AppStore {
       documents: empty(),
       questions: empty(),
       gates: empty(),
+      docs: empty(),
+      features: empty(),
       runLog: {},
       toasts: [],
       connection: "closed",
@@ -158,6 +193,8 @@ export function createAppStore(api: Api): AppStore {
           documents: empty(),
           questions: empty(),
           gates: empty(),
+          docs: empty(),
+          features: empty(),
           runLog: {},
           lastSeq: 0,
         });
@@ -233,6 +270,19 @@ export function createAppStore(api: Api): AppStore {
         return result.ok || rejected(result.error, "gates");
       },
 
+      async chat(text, docSectionId) {
+        const id = get().projectId;
+        if (!id) return null;
+        const result = await api.chat(id, docSectionId ? { text, docSectionId } : { text });
+        if (!result.ok) {
+          get().toast(result.error.reason);
+          return null;
+        }
+        return result.data.route === "doc_revision"
+          ? "Sent to the Architect as a revision"
+          : "Recorded as a change request";
+      },
+
       toast(text) {
         const id = ++toastId;
         set((s) => ({ toasts: [...s.toasts, { id, text }] }));
@@ -268,6 +318,24 @@ async function snapshot(
     case "gates": {
       const r = await api.gates(id);
       return r.ok ? { ok: true, data: { seq: r.data.seq, data: r.data.gates } } : r;
+    }
+    case "features": {
+      const r = await api.features(id);
+      return r.ok ? { ok: true, data: { seq: r.data.seq, data: r.data.features } } : r;
+    }
+    case "docs": {
+      const all = await Promise.all(DOCS.map((doc) => api.doc(id, doc)));
+      const failed = all.find((r) => !r.ok);
+      if (failed && !failed.ok) return failed;
+      const docs = {} as Docs;
+      let seq = Infinity;
+      for (const r of all) {
+        if (!r.ok) continue;
+        const { seq: s, ...doc } = r.data;
+        docs[doc.doc] = doc;
+        seq = Math.min(seq, s); // the oldest: an event newer than any of the three reloads them
+      }
+      return { ok: true, data: { seq, data: docs } };
     }
   }
 }

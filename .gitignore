@@ -5,7 +5,7 @@ data/
 sim-state/
 *.log
 .gstack/
-docs/
+/docs/
 *.md
 .claude
 # Agent prompts are code: the runner reads them at run time.

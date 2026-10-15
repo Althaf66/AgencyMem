@@ -75,8 +75,8 @@ export function Shell(props: { store: AppStore; route: Route; children: ReactNod
   const s = useStore(props.store);
   const { route } = props;
   const projectId = route.screen === "projects" ? null : route.projectId;
-  const nav = (screen: string, label: string) => (
-    <a href={`#/p/${projectId}/${screen}`} className={route.screen === screen ? "active" : ""}>
+  const nav = (screen: string, label: string, path = screen) => (
+    <a href={`#/p/${projectId}/${path}`} className={route.screen === screen ? "active" : ""}>
       {label}
     </a>
   );
@@ -94,6 +94,7 @@ export function Shell(props: { store: AppStore; route: Route; children: ReactNod
         <nav className="sidenav">
           {nav("files", "Files")}
           {nav("questions", "Questions")}
+          {nav("docs", "Docs", "docs/prd")}
           {nav("gates", "Gates")}
         </nav>
       )}

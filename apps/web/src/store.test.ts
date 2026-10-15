@@ -20,7 +20,10 @@ function stubApi(seq = { value: 5 }) {
     documents: () => ok("documents", { documents: [] }),
     questions: () => ok("questions", { questions: [] }),
     gates: () => ok("gates", { gates: [] }),
+    doc: (_id: string, doc: string) => ok("doc", { doc, sections: [], designVersion: 0 }),
+    features: () => ok("features", { features: [] }),
     answer: vi.fn(),
+    chat: vi.fn(),
   } as unknown as Api;
   return { api, calls, seq };
 }
@@ -38,7 +41,16 @@ describe("store", () => {
     const store = createAppStore(api);
     await store.getState().open(P);
     await store.getState().open(P); // opening it again loads nothing more
-    expect(calls.sort()).toEqual(["documents", "gates", "project", "questions"]);
+    expect(calls.sort()).toEqual([
+      "doc",
+      "doc",
+      "doc",
+      "documents",
+      "features",
+      "gates",
+      "project",
+      "questions",
+    ]);
     expect(store.getState().questions).toMatchObject({ status: "ready", seq: 5, data: [] });
   });
 
@@ -85,7 +97,16 @@ describe("store", () => {
     });
     store.getState().receive({ type: "reset", projectId: P, seq: 20 });
     await tick();
-    expect(calls.sort()).toEqual(["documents", "gates", "project", "questions"]);
+    expect(calls.sort()).toEqual([
+      "doc",
+      "doc",
+      "doc",
+      "documents",
+      "features",
+      "gates",
+      "project",
+      "questions",
+    ]);
   });
 
   it("keeps the run log per item, and shows a write.rejected as a toast", async () => {
@@ -156,6 +177,65 @@ describe("store", () => {
     await tick();
     expect(store.getState().toasts.map((t) => t.text)).toEqual(["Changed on another screen"]);
     expect(calls).toEqual(["questions"]);
+  });
+});
+
+describe("documents", () => {
+  it("holds the three documents in one slice; doc.stale and design writes reload it", async () => {
+    const { api, calls, seq } = stubApi();
+    const store = createAppStore(api);
+    await store.getState().open(P);
+    expect(Object.keys(store.getState().docs.data ?? {})).toEqual(["prd", "tdd", "plan"]);
+    expect(store.getState().docs.seq).toBe(5);
+
+    calls.length = 0;
+    seq.value = 8;
+    store.getState().receive(event(6, "doc.stale", { docSectionId: "S1", crId: "C1" }));
+    await tick();
+    expect(calls).toEqual(["doc", "doc", "doc"]);
+
+    calls.length = 0;
+    seq.value = 9;
+    store.getState().receive(event(9, "node.written", { label: "DocSection" }));
+    await tick();
+    expect(calls).toEqual(["doc", "doc", "doc"]);
+
+    calls.length = 0;
+    seq.value = 10;
+    store.getState().receive(event(10, "node.written", { label: "Estimate" }));
+    await tick();
+    expect(calls.sort()).toEqual(["doc", "doc", "doc", "features"]);
+  });
+
+  it("sends a chat with its section and says where it went", async () => {
+    const { api } = stubApi();
+    const store = createAppStore(api);
+    await store.getState().open(P);
+    vi.mocked(api.chat).mockResolvedValue({
+      ok: true,
+      data: { episodeId: "E1", route: "doc_revision", workItemId: "W1" },
+    });
+    expect(await store.getState().chat("Say the clinic name first.", "S1")).toBe(
+      "Sent to the Architect as a revision",
+    );
+    expect(api.chat).toHaveBeenCalledWith(P, {
+      text: "Say the clinic name first.",
+      docSectionId: "S1",
+    });
+
+    vi.mocked(api.chat).mockResolvedValue({
+      ok: true,
+      data: { episodeId: "E2", route: "change_request", workItemId: "W2", crId: "C1" },
+    });
+    expect(await store.getState().chat("Add a waiting list.")).toBe("Recorded as a change request");
+    expect(api.chat).toHaveBeenLastCalledWith(P, { text: "Add a waiting list." });
+
+    vi.mocked(api.chat).mockResolvedValue({
+      ok: false,
+      error: { code: "GUARD_REJECTED", guard: "gate", reason: "Chat is closed." },
+    });
+    expect(await store.getState().chat("Too late.")).toBeNull();
+    expect(store.getState().toasts.map((t) => t.text)).toContain("Chat is closed.");
   });
 });
 

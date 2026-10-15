@@ -22,6 +22,7 @@ type Row = {
   }[];
   openProposal: number;
   lastProposal: { createdAt: unknown; doneAt: unknown } | null;
+  lastRevision: { createdAt: unknown; doneAt: unknown } | null;
   unopenedEdits: { episodeId: unknown; text: unknown; createdBy: unknown }[];
   changeRequests: (Omit<StageState["changeRequests"][number], "id" | "status" | "createdBy"> & {
     id: unknown;
@@ -57,17 +58,27 @@ export async function readStageState(
     decidedAt: EpochMs.nullable().parse(g.decidedAt ?? null),
     decidedBy: Actor.nullable().parse(g.decidedBy ?? null),
   }));
-  const g2 = gates.find((g) => g.key === "G2");
-  const last = state?.lastProposal ?? null;
+  const gate = (key: GateKey) => {
+    const g = gates.find((x) => x.key === key);
+    return g
+      ? { status: g.status, reason: g.reason, decidedAt: g.decidedAt, decidedBy: g.decidedBy }
+      : null;
+  };
+  const times = (t: { createdAt: unknown; doneAt: unknown } | null | undefined) =>
+    t
+      ? {
+          createdAt: EpochMs.parse(t.createdAt),
+          doneAt: EpochMs.nullable().parse(t.doneAt ?? null),
+        }
+      : null;
   return {
     stage: project.stage,
     createdBy: project.createdBy,
     gates: gates.map((g) => g.key),
     g1: gates.find((g) => g.key === "G1")?.status ?? null,
     openIntakeAnswer: state?.openIntakeAnswer ?? 0,
-    g2: g2
-      ? { status: g2.status, reason: g2.reason, decidedAt: g2.decidedAt, decidedBy: g2.decidedBy }
-      : null,
+    g2: gate("G2"),
+    g3: gate("G3"),
     openProposal: state?.openProposal ?? 0,
     unopenedEdits: (state?.unopenedEdits ?? []).map((e) => ({
       episodeId: Id.parse(e.episodeId),
@@ -80,12 +91,8 @@ export async function readStageState(
       status: ChangeRequestStatus.parse(cr.status),
       createdBy: Actor.parse(cr.createdBy),
     })),
-    lastProposal: last
-      ? {
-          createdAt: EpochMs.parse(last.createdAt),
-          doneAt: EpochMs.nullable().parse(last.doneAt ?? null),
-        }
-      : null,
+    lastProposal: times(state?.lastProposal),
+    lastRevision: times(state?.lastRevision),
     unopenedAnswers: (state?.unopenedAnswers ?? []).map((a) => ({
       episodeId: Id.parse(a.episodeId),
       createdBy: Actor.parse(a.createdBy),

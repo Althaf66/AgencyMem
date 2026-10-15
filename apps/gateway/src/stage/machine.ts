@@ -1,7 +1,7 @@
 // The stage machine (stage-machine.md): one pure function from the project state and an event to a
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
 // T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2), C1 and C2
-// (task 3.3), T12 (task 3.4).
+// (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5).
 import type {
   Actor,
   ChangeRequestStatus,
@@ -33,12 +33,7 @@ export type StageState = {
   openIntakeAnswer: number;
   /** Answer Episodes with no intake_answer item, each with the actor who answered. */
   unopenedAnswers: { episodeId: Id; createdBy: Actor }[];
-  g2: {
-    status: GateStatus;
-    reason: string | null;
-    decidedAt: EpochMs | null;
-    decidedBy: Actor | null;
-  } | null;
+  g2: GateState | null;
   /** proposal items open or claimed. */
   openProposal: number;
   /** The newest proposal item (startup repair of T8 and T9). */
@@ -61,6 +56,16 @@ export type StageState = {
   }[];
   /** human_edit Episodes with no architect_revise item (startup repair of T12). */
   unopenedEdits: { episodeId: Id; text: string; createdBy: Actor }[];
+  g3: GateState | null;
+  /** The newest architect_revise with no subject: a G3 revision (T13 and its repair). */
+  lastRevision: { createdAt: EpochMs; doneAt: EpochMs | null } | null;
+};
+
+type GateState = {
+  status: GateStatus;
+  reason: string | null;
+  decidedAt: EpochMs | null;
+  decidedBy: Actor | null;
 };
 
 export type StageEvent =
@@ -150,6 +155,29 @@ const startDesign = (createdBy: Actor): StageResult => ({
   effects: [{ type: "open_item", kind: "architect", subjectId: null, createdBy }],
 });
 
+// T14: the Planner starts; the project moves to planning.
+const startPlanning = (createdBy: Actor): StageResult => ({
+  stage: "planning",
+  effects: [{ type: "open_item", kind: "planner", subjectId: null, createdBy }],
+});
+
+// T13: the Architect revises with the rejection reason as the item's note. No subject: a chat
+// item has its Episode, a change request's item its ChangeRequest.
+const reviseDesign = (reason: string, createdBy: Actor): Effect => ({
+  type: "open_item",
+  kind: "architect_revise",
+  subjectId: null,
+  createdBy,
+  note: reason,
+});
+
+/** T13's return: G3 was rejected and the revision opened after the rejection is done. */
+const g3Revised = (s: StageState) =>
+  s.g3?.status === "rejected" &&
+  s.lastRevision !== null &&
+  s.lastRevision.doneAt !== null &&
+  s.lastRevision.createdAt >= (s.g3.decidedAt ?? 0);
+
 /** T8's condition: G2 was rejected and a proposal item made after the rejection is done. */
 const revisionDone = (s: StageState) =>
   s.g2?.status === "rejected" &&
@@ -230,6 +258,11 @@ export function next(state: StageState, event: StageEvent): StageResult {
       if (event.kind === "proposal" && state.g2?.status === "rejected") {
         return { effects: [{ type: "reopen_gate", key: "G2" }] };
       }
+      // T13: the G3 revision is done; G3 waits for a decision again. T11 needs nothing here: the
+      // gate route reads whether an architect item is still open.
+      if (event.kind === "architect_revise" && g3Revised(state)) {
+        return { effects: [{ type: "reopen_gate", key: "G3" }] };
+      }
       return { effects: [] };
 
     // T12: the Architect revises with the chat text (and its section) as the item's note.
@@ -264,6 +297,11 @@ export function next(state: StageState, event: StageEvent): StageResult {
         return { effects: [reviseProposal(event.reason, event.actor)] };
       }
       if (event.key === "G2" && event.decision === "approve") return startDesign(event.actor);
+      // T13 and T14, the same way for G3.
+      if (event.key === "G3" && event.decision === "reject" && event.reason) {
+        return { effects: [reviseDesign(event.reason, event.actor)] };
+      }
+      if (event.key === "G3" && event.decision === "approve") return startPlanning(event.actor);
       return { effects: [] };
 
     // Rule 3: repair what a crash between a write and its effects left half done.
@@ -309,6 +347,21 @@ export function next(state: StageState, event: StageEvent): StageResult {
           (state.lastProposal?.createdAt ?? 0) < (g2.decidedAt ?? 0)
         ) {
           effects.push(reviseProposal(g2.reason, by));
+        }
+      } else if (state.stage === "design" && state.g3) {
+        const { g3 } = state;
+        const by = g3.decidedBy ?? state.createdBy;
+        if (g3.status === "approved") {
+          const planning = startPlanning(by);
+          return { stage: planning.stage, effects: [...effects, ...planning.effects] };
+        }
+        if (g3Revised(state)) effects.push({ type: "reopen_gate", key: "G3" });
+        else if (
+          g3.status === "rejected" &&
+          g3.reason &&
+          (state.lastRevision?.createdAt ?? 0) < (g3.decidedAt ?? 0)
+        ) {
+          effects.push(reviseDesign(g3.reason, by));
         }
       }
       return { effects };

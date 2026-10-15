@@ -354,6 +354,7 @@ export const DocResponse = z.object({
   designVersion: Count,
   seq: Seq,
 });
+export type DocResponse = z.infer<typeof DocResponse>;
 // 21 POST /api/chat
 export const ChatBody = z.object({
   text: z.string().min(1).max(2000),

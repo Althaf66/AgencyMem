@@ -16,7 +16,7 @@ const NAMES: Record<GateKey, string> = {
 // stage-machine.md section 5: G1 and G5 cannot be rejected.
 const REJECTABLE: GateKey[] = ["G2", "G3", "G6"];
 
-function GateRow({ gate, s }: { gate: GateView; s: AppState }) {
+export function GateRow({ gate, s }: { gate: GateView; s: AppState }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, run] = useBusy(gate.version);

@@ -19,7 +19,7 @@ export function connectLive(store: AppStore, url: string): () => void {
   const subscribe = () => {
     const s = store.getState();
     if (!socket || socket.readyState !== WebSocket.OPEN || !loaded(s)) return;
-    const since = Math.min(s.project.seq, s.documents.seq, s.questions.seq, s.gates.seq);
+    const since = Math.min(...SLICES.map((name) => s[name].seq));
     socket.send(JSON.stringify({ type: "subscribe", projectId: s.projectId, since }));
   };
 

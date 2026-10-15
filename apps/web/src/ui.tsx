@@ -45,6 +45,7 @@ const TONE: Record<string, string> = {
   waiting: "warn",
   open: "warn",
   pending: "warn",
+  stale: "warn",
   rejected: "danger",
   failed: "danger",
   no_text: "danger",

@@ -1,11 +1,14 @@
-// The gateway's REST routes the Phase 2 screens use (contracts.md section 8), each answer checked
+// The gateway's REST routes the screens use (contracts.md section 8), each answer checked
 // with its contracts schema. In the browser `base` is "" and the Vite dev proxy adds the UI token;
 // tests pass the gateway URL and the token in `headers`.
 import {
   AnswerResponse,
+  ChatResponse,
   CreateProjectResponse,
+  DocResponse,
   DocumentsResponse,
   ErrorBody,
+  FeaturesResponse,
   GateDecisionResponse,
   GatesResponse,
   GetProjectResponse,
@@ -13,6 +16,7 @@ import {
   NodeResponse,
   QuestionsResponse,
   UploadFilesResponse,
+  type Doc,
   type Mode,
   type Rejection,
 } from "@agencymem/contracts";
@@ -90,6 +94,10 @@ export function createApi(opts: ApiOptions) {
     gates: (id: string) => call(GatesResponse, "GET", `/api/projects/${id}/gates`),
     decide: (project: string, gateId: string, body: DecisionInput) =>
       call(GateDecisionResponse, "POST", `/api/gates/${gateId}/decision`, { body, project }),
+    doc: (id: string, doc: Doc) => call(DocResponse, "GET", `/api/projects/${id}/docs/${doc}`),
+    features: (id: string) => call(FeaturesResponse, "GET", `/api/projects/${id}/features`),
+    chat: (project: string, body: { text: string; docSectionId?: string }) =>
+      call(ChatResponse, "POST", "/api/chat", { body, project }),
   };
 }
 

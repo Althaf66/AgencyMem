@@ -21,6 +21,8 @@ const fresh: StageState = {
   lastProposal: null,
   changeRequests: [],
   unopenedEdits: [],
+  g3: null,
+  lastRevision: null,
 };
 const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
 const intakeDone = (over: Partial<StageState> = {}): StageState => ({
@@ -433,6 +435,100 @@ rows.push(
         },
       ],
     },
+  ],
+);
+
+const G3_REASON = "the plan misses the admin screens";
+const designing = (over: Partial<StageState> = {}): StageState =>
+  intakeDone({
+    stage: "design",
+    g1: "approved",
+    g2: { status: "approved", reason: null, decidedAt: 90, decidedBy: persona },
+    g3: { status: "waiting", reason: null, decidedAt: null, decidedBy: null },
+    ...over,
+  });
+const rejectedG3 = {
+  status: "rejected",
+  reason: G3_REASON,
+  decidedAt: 300,
+  decidedBy: ana,
+} as const;
+const reviseDone = {
+  type: "item_completed",
+  kind: "architect_revise",
+  outcome: "done",
+  actor: "architect",
+} as const;
+const openG3Revision = {
+  type: "open_item",
+  kind: "architect_revise",
+  subjectId: null,
+  createdBy: ana,
+  note: G3_REASON,
+} as const;
+const openPlanner = (createdBy: Actor) =>
+  ({ type: "open_item", kind: "planner", subjectId: null, createdBy }) as const;
+
+rows.push(
+  [
+    "T11 architect done: nothing (G3 is decidable, read from the gates)",
+    designing(),
+    { type: "item_completed", kind: "architect", outcome: "done", actor: "architect" },
+    { effects: [] },
+  ],
+  [
+    "T11 architect_revise done with G3 waiting: nothing",
+    designing({ lastRevision: { createdAt: 250, doneAt: 260 } }),
+    reviseDone,
+    { effects: [] },
+  ],
+  [
+    "T13 G3 rejected with a reason: opens architect_revise with the reason as its note",
+    designing(),
+    { type: "gate_decided", key: "G3", decision: "reject", reason: G3_REASON, actor: ana },
+    { effects: [openG3Revision] },
+  ],
+  [
+    "T13 the revision done: G3 back to waiting",
+    designing({ g3: rejectedG3, lastRevision: { createdAt: 310, doneAt: 400 } }),
+    reviseDone,
+    { effects: [{ type: "reopen_gate", key: "G3" }] },
+  ],
+  [
+    "T13 a chat item done while the G3 revision is still open: nothing",
+    designing({ g3: rejectedG3, lastRevision: { createdAt: 310, doneAt: null } }),
+    reviseDone,
+    { effects: [] },
+  ],
+  [
+    "T14 G3 approved: opens planner, stage planning",
+    designing(),
+    { type: "gate_decided", key: "G3", decision: "approve", actor: ana },
+    { stage: "planning", effects: [openPlanner(ana)] },
+  ],
+  [
+    "startup repairs a missed T14: G3 approved, still in design",
+    designing({ g3: { ...rejectedG3, status: "approved" } }),
+    { type: "startup" },
+    { stage: "planning", effects: [openPlanner(ana)] },
+  ],
+  [
+    "startup repairs a missed T13: G3 rejected and no revision item since",
+    designing({ g3: rejectedG3, lastRevision: { createdAt: 250, doneAt: 260 } }),
+    { type: "startup" },
+    { effects: [openG3Revision] },
+  ],
+  [
+    "startup repairs a missed T13 return: the revision is done but G3 is still rejected",
+    designing({ g3: rejectedG3, lastRevision: { createdAt: 310, doneAt: 400 } }),
+    { type: "startup" },
+    { effects: [{ type: "reopen_gate", key: "G3" }] },
+  ],
+  [
+    "startup with the documents waiting for G3 does nothing",
+    designing(),
+    { type: "startup" },
+    { effects: [] },
   ],
 );
 
