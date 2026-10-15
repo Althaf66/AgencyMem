@@ -1,8 +1,10 @@
 // The stage machine (stage-machine.md): one pure function from the project state and an event to a
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
-// T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2).
+// T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2), C1 and C2
+// (task 3.3).
 import type {
   Actor,
+  ChangeRequestStatus,
   DocumentStatus,
   EpochMs,
   GateKey,
@@ -41,6 +43,22 @@ export type StageState = {
   openProposal: number;
   /** The newest proposal item (startup repair of T8 and T9). */
   lastProposal: { createdAt: EpochMs; doneAt: EpochMs | null } | null;
+  /** Every ChangeRequest, with what C1 and C2 need. */
+  changeRequests: {
+    id: Id;
+    text: string;
+    status: ChangeRequestStatus;
+    createdBy: Actor;
+    /** A change_request item exists for it; one is done. */
+    hasItem: boolean;
+    itemDone: boolean;
+    /** The Tasks and DocSections FLAGGED_BY it. */
+    tasks: number;
+    sections: number;
+    /** An architect_revise or replan item exists for it. */
+    revise: boolean;
+    replan: boolean;
+  }[];
 };
 
 export type StageEvent =
@@ -51,7 +69,10 @@ export type StageEvent =
       kind: WorkItemKind;
       outcome: "done" | "failed";
       actor: Actor;
+      /** The item's subjectId: the ChangeRequest of a change_request item (C2). */
+      subjectId?: Id | null;
     }
+  | { type: "change_request_created"; crId: Id; actor: Actor }
   | { type: "question_answered"; episodeId: Id; actor: Actor }
   | {
       type: "gate_decided";
@@ -133,6 +154,39 @@ const revisionDone = (s: StageState) =>
   s.lastProposal.doneAt !== null &&
   s.lastProposal.createdAt >= (s.g2.decidedAt ?? 0);
 
+type ChangeRequestState = StageState["changeRequests"][number];
+
+/** C1: Proposal applies the change request. */
+const applyChangeRequest = (crId: Id, createdBy: Actor): Effect => ({
+  type: "open_item",
+  kind: "change_request",
+  subjectId: crId,
+  createdBy,
+});
+
+/**
+ * C2: an applied CR that flagged sections opens architect_revise (the CR text as its note); one
+ * that flagged cards opens replan. C4: a no_change or needs_scope CR opens nothing. T30 (a flagged
+ * card that was Done during e2e or launch) arrives with those stages (tasks 5.1 and 5.2).
+ */
+function followUps(cr: ChangeRequestState): Effect[] {
+  if (cr.status !== "applied") return [];
+  const effects: Effect[] = [];
+  if (cr.sections > 0 && !cr.revise) {
+    effects.push({
+      type: "open_item",
+      kind: "architect_revise",
+      subjectId: cr.id,
+      createdBy: "proposal",
+      note: cr.text,
+    });
+  }
+  if (cr.tasks > 0 && !cr.replan) {
+    effects.push({ type: "open_item", kind: "replan", subjectId: cr.id, createdBy: "proposal" });
+  }
+  return effects;
+}
+
 export function next(state: StageState, event: StageEvent): StageResult {
   switch (event.type) {
     // T1: the project starts in intake (create-project.cypher) with its four gates waiting.
@@ -156,11 +210,19 @@ export function next(state: StageState, event: StageEvent): StageResult {
       if (event.outcome !== "done") return { effects: [] };
       if (event.kind === "intake" && intakeFinished(state)) return startDiscovery;
       if (event.kind === "intake_answer" && answersFinished(state)) return startProposal("intake");
+      if (event.kind === "change_request") {
+        const cr = state.changeRequests.find((c) => c.id === event.subjectId);
+        return { effects: cr ? followUps(cr) : [] };
+      }
       // T8: the revision is done; G2 waits for a decision again.
       if (event.kind === "proposal" && state.g2?.status === "rejected") {
         return { effects: [{ type: "reopen_gate", key: "G2" }] };
       }
       return { effects: [] };
+
+    // C1: route 22 has written the ChangeRequest and its episode.
+    case "change_request_created":
+      return { effects: [applyChangeRequest(event.crId, event.actor)] };
 
     // T5: the answer route has written the answer; Intake turns it into facts.
     case "question_answered":
@@ -194,6 +256,10 @@ export function next(state: StageState, event: StageEvent): StageResult {
       const missing = PROJECT_GATES.filter((key) => !state.gates.includes(key));
       if (missing.length)
         effects.push({ type: "create_gates", keys: missing, createdBy: state.createdBy });
+      for (const cr of state.changeRequests) {
+        if (!cr.hasItem) effects.push(applyChangeRequest(cr.id, cr.createdBy));
+        else if (cr.itemDone) effects.push(...followUps(cr));
+      }
       if (state.unopened.length && state.stage === "intake") {
         for (const d of state.unopened) effects.push(openIntake(d.documentId, d.createdBy));
       } else if (intakeFinished(state)) {

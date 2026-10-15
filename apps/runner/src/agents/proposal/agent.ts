@@ -93,7 +93,7 @@ export function checkProposal(output: ProposalOutput, recall: Recall): string[] 
 
 export const proposal: Agent<ProposalOutput> = {
   id: "proposal",
-  kinds: ["proposal"], // change_request arrives with task 3.3
+  kinds: ["proposal"], // change_request items: the changeRequest agent (change-request.ts)
   tier: "deep",
   // agent-prompts.md section 4: a revision after a G2 rejection carries the reason as its note.
   // A first item that failed also has a note (the failure text), but no product exists yet.

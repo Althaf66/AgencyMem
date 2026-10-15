@@ -1,6 +1,14 @@
 // Reads the project state the stage machine needs: the stage from the registry, the rest from the
 // client graph (read/stage-state.cypher).
-import { Actor, EpochMs, GateKey, GateStatus, Id, Project } from "@agencymem/contracts";
+import {
+  Actor,
+  ChangeRequestStatus,
+  EpochMs,
+  GateKey,
+  GateStatus,
+  Id,
+  Project,
+} from "@agencymem/contracts";
 import { REGISTRY_GRAPH, readQuery, type FalkorDB } from "@agencymem/graph";
 import type { StageState } from "./machine";
 
@@ -14,6 +22,11 @@ type Row = {
   }[];
   openProposal: number;
   lastProposal: { createdAt: unknown; doneAt: unknown } | null;
+  changeRequests: (Omit<StageState["changeRequests"][number], "id" | "status" | "createdBy"> & {
+    id: unknown;
+    status: unknown;
+    createdBy: unknown;
+  })[];
   openIntake: number;
   processedDocuments: number;
   unopened: { documentId: unknown; createdBy: unknown }[];
@@ -55,6 +68,12 @@ export async function readStageState(
       ? { status: g2.status, reason: g2.reason, decidedAt: g2.decidedAt, decidedBy: g2.decidedBy }
       : null,
     openProposal: state?.openProposal ?? 0,
+    changeRequests: (state?.changeRequests ?? []).map((cr) => ({
+      ...cr,
+      id: Id.parse(cr.id),
+      status: ChangeRequestStatus.parse(cr.status),
+      createdBy: Actor.parse(cr.createdBy),
+    })),
     lastProposal: last
       ? {
           createdAt: EpochMs.parse(last.createdAt),

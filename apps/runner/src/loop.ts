@@ -176,7 +176,7 @@ const wait = (ms: number, signal?: AbortSignal) =>
 export async function runLoop(agent: Agent<unknown>, deps: LoopDeps): Promise<void> {
   const sessions = new Map<string, Session>();
   const projects = deps.projects ?? (() => listProjects(deps));
-  const workerId = `${agent.id}-1`;
+  const workerId = agent.worker ?? `${agent.id}-1`;
   let backoff = 0;
   try {
     while (!deps.signal?.aborted) {

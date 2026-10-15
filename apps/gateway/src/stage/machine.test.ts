@@ -19,6 +19,7 @@ const fresh: StageState = {
   g2: null,
   openProposal: 0,
   lastProposal: null,
+  changeRequests: [],
 };
 const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
 const intakeDone = (over: Partial<StageState> = {}): StageState => ({
@@ -291,6 +292,104 @@ rows.push(
   [
     "startup with the proposal waiting for G2 does nothing",
     proposing(),
+    { type: "startup" },
+    { effects: [] },
+  ],
+);
+
+const CR = "01JA00000000000000000000C1";
+const building = (cr: Partial<StageState["changeRequests"][number]> = {}): StageState =>
+  intakeDone({
+    stage: "build",
+    changeRequests: [
+      {
+        id: CR,
+        text: "Rule 1 is now B.",
+        status: "applied",
+        createdBy: ana,
+        hasItem: true,
+        itemDone: true,
+        tasks: 3,
+        sections: 2,
+        revise: false,
+        replan: false,
+        ...cr,
+      },
+    ],
+  });
+const crDone = {
+  type: "item_completed",
+  kind: "change_request",
+  outcome: "done",
+  actor: "proposal",
+  subjectId: CR,
+} as const;
+const openRevise = {
+  type: "open_item",
+  kind: "architect_revise",
+  subjectId: CR,
+  createdBy: "proposal",
+  note: "Rule 1 is now B.",
+} as const;
+const openReplan = {
+  type: "open_item",
+  kind: "replan",
+  subjectId: CR,
+  createdBy: "proposal",
+} as const;
+
+rows.push(
+  [
+    "C1 a change request created: opens change_request for it",
+    building({ status: "open", hasItem: false, itemDone: false, tasks: 0, sections: 0 }),
+    { type: "change_request_created", crId: CR, actor: ana },
+    { effects: [{ type: "open_item", kind: "change_request", subjectId: CR, createdBy: ana }] },
+  ],
+  [
+    "C2 the CR applied with flagged cards and sections: opens architect_revise and replan",
+    building(),
+    crDone,
+    { effects: [openRevise, openReplan] },
+  ],
+  [
+    "C2 only sections flagged: opens architect_revise",
+    building({ tasks: 0 }),
+    crDone,
+    { effects: [openRevise] },
+  ],
+  [
+    "C2 only cards flagged: opens replan",
+    building({ sections: 0 }),
+    crDone,
+    { effects: [openReplan] },
+  ],
+  [
+    "C4 a CR with status no_change or needs_scope: nothing else",
+    building({ status: "no_change", tasks: 0, sections: 0 }),
+    crDone,
+    { effects: [] },
+  ],
+  [
+    "C2 does not fire on a failed change_request item",
+    building({ itemDone: false }),
+    { ...crDone, outcome: "failed" },
+    { effects: [] },
+  ],
+  [
+    "startup repairs a missed C1: a CR with no change_request item",
+    building({ status: "open", hasItem: false, itemDone: false, tasks: 0, sections: 0 }),
+    { type: "startup" },
+    { effects: [{ type: "open_item", kind: "change_request", subjectId: CR, createdBy: ana }] },
+  ],
+  [
+    "startup repairs a missed C2: the CR is applied and done, replan never opened",
+    building({ revise: true }),
+    { type: "startup" },
+    { effects: [openReplan] },
+  ],
+  [
+    "startup with every follow-up of the CR open does nothing",
+    building({ revise: true, replan: true }),
     { type: "startup" },
     { effects: [] },
   ],

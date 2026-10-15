@@ -5,6 +5,7 @@ import type { Outcome, ToolCtx } from "./common";
 import { findImpactTool } from "./find-impact";
 import { heartbeatTool } from "./heartbeat";
 import { readQueryTool } from "./read-query";
+import { recordChangeRequestTool } from "./record-change-request";
 import { recallContextTool } from "./recall-context";
 import { writeFactTool } from "./write-fact";
 import { writeQuestionTool } from "./write-question";
@@ -25,6 +26,7 @@ export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   write_fact: writeFactTool,
   write_question: writeQuestionTool,
   write_product: writeProductTool,
+  record_change_request: recordChangeRequestTool,
   find_impact: findImpactTool,
   read_query: readQueryTool,
 };

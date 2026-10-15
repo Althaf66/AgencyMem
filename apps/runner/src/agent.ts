@@ -17,6 +17,8 @@ export type ActResult = { outputIds: string[]; summary: string };
 
 export type Agent<O> = {
   id: AgentId;
+  /** The X-AM-Worker id; `<id>-1` when not set. An agent with two loops gives the second its own. */
+  worker?: string;
   /** The work item kinds this agent claims. */
   kinds: WorkItemKind[];
   tier: Tier;
@@ -37,9 +39,16 @@ export type Agent<O> = {
 
 const PREAMBLE = new URL("./agents/preamble.md", import.meta.url);
 
-/** The system prompt of the agent whose agent.ts is at `agentUrl`: preamble, then its prompt.md. */
-export async function loadPrompt(agentUrl: string, name: string): Promise<string> {
+/**
+ * The system prompt of the agent whose agent.ts is at `agentUrl`: preamble, then its prompt.md (or
+ * `file`, for an agent with a second item kind and its own rules).
+ */
+export async function loadPrompt(
+  agentUrl: string,
+  name: string,
+  file = "prompt.md",
+): Promise<string> {
   const preamble = await readFile(PREAMBLE, "utf8");
-  const own = await readFile(new URL("./prompt.md", agentUrl), "utf8");
+  const own = await readFile(new URL(`./${file}`, agentUrl), "utf8");
   return `${preamble.replace("<Agent>", name).trimEnd()}\n\n${own.trim()}\n`;
 }

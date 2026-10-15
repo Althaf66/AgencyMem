@@ -167,6 +167,35 @@ export async function recallContextTool(
     });
   }
 
+  // agent-prompts.md section 4: a change_request item reads its ChangeRequest, the current facts
+  // and the current product.
+  if (item.kind === "change_request" && item.subjectId) {
+    type Ctx = Required<Context>;
+    const [changeRequest] = await readQuery<Ctx["changeRequest"]>(
+      ctx.db,
+      graph,
+      "read/change-request",
+      { projectId, crId: item.subjectId },
+    );
+    if (changeRequest) context.changeRequest = changeRequest;
+    const facts = await readQuery<Omit<Ctx["facts"][number], "validTo" | "replacedBy">>(
+      ctx.db,
+      graph,
+      "read/current-facts",
+      { projectId },
+    );
+    context.facts = facts.map((f) => ({ ...f, validTo: null, replacedBy: null }));
+    context.requirements = await readQuery<Ctx["requirements"][number]>(
+      ctx.db,
+      graph,
+      "read/requirements",
+      { projectId },
+    );
+    context.features = await readQuery<Ctx["features"][number]>(ctx.db, graph, "read/features", {
+      projectId,
+    });
+  }
+
   // contracts.md section 7: cut until it fits, handoffs to the newest 5, then episode text to 300.
   const size = () => JSON.stringify({ item, project, context }).length;
   let chars = size();

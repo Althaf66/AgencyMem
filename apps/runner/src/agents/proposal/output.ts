@@ -20,3 +20,13 @@ export const ProposalOutput = z.object({
   features: z.array(ProposalFeature),
 });
 export type ProposalOutput = z.infer<typeof ProposalOutput>;
+
+// The change_request kind's JSON (agent-prompts.md section 4, ChangeRequestOutput).
+export const ChangeRequestOutput = z.object({
+  changes: z
+    .array(z.object({ oldFactId: z.string(), statement: text(300), value: text(200) }))
+    .max(10),
+  outcome: z.literal("needs_scope").optional(),
+  requirementUpdates: z.array(z.object({ key: z.string(), text: text(300) })),
+});
+export type ChangeRequestOutput = z.infer<typeof ChangeRequestOutput>;

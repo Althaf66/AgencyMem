@@ -49,3 +49,41 @@ export async function writeFacts(
   if (!row) throw new Error("write-facts returned no row");
   return { factIds: facts.map((f) => f.id), entityIds: row.entityIds, superseded: row.superseded };
 }
+
+/**
+ * record_change_request, write 1 (technical design "facts.supersede"), all or nothing: sets the
+ * open CR's status, ends each old fact and writes its replacement, SOURCED_FROM the CR's episode.
+ * `applied` is false when the CR was not open or an old fact was no longer current; then nothing
+ * changed. `newFactIds` follow the order of `changes`.
+ */
+export async function supersedeFacts(
+  ctx: Ctx,
+  input: {
+    crId: string;
+    status: "applied" | "no_change" | "needs_scope";
+    changes: { oldFactId: string; statement: string; value: string }[];
+    createdBy: Actor;
+    now: number;
+  },
+): Promise<{ newFactIds: string[]; applied: boolean }> {
+  const changes = input.changes.map((c) => ({
+    oldFactId: c.oldFactId,
+    newFactId: ulid(),
+    statement: text(300).parse(c.statement), // checked before it is written
+    value: text(200).parse(c.value),
+  }));
+  const rows = await writeQuery<{ status: string; about: number }>(
+    ctx.db,
+    ctx.graph,
+    "write/supersede-fact",
+    {
+      projectId: ctx.projectId,
+      crId: input.crId,
+      status: input.status,
+      changes,
+      createdBy: input.createdBy,
+      now: input.now,
+    },
+  );
+  return { newFactIds: changes.map((c) => c.newFactId), applied: rows.length > 0 };
+}

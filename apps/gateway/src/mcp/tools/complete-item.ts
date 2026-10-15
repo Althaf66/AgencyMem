@@ -79,6 +79,7 @@ export async function completeItemTool(
     kind: item.kind,
     outcome: input.outcome,
     actor: agent,
+    subjectId: item.subjectId,
   });
   return ok({ item: { id: item.id, status: item.status, attempts: item.attempts }, opened });
 }
