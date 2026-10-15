@@ -1,7 +1,15 @@
 // The stage machine (stage-machine.md): one pure function from the project state and an event to a
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
-// T1 and T2 (task 2.2), T3 (task 2.5).
-import type { Actor, DocumentStatus, GateKey, Id, Stage, WorkItemKind } from "@agencymem/contracts";
+// T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7).
+import type {
+  Actor,
+  DocumentStatus,
+  GateKey,
+  GateStatus,
+  Id,
+  Stage,
+  WorkItemKind,
+} from "@agencymem/contracts";
 
 /** Gates that exist from project creation; each G6 is created by propose_fix. */
 export const PROJECT_GATES: readonly GateKey[] = ["G1", "G2", "G3", "G5"];
@@ -17,6 +25,11 @@ export type StageState = {
   /** Intake items open or claimed. */
   openIntake: number;
   processedDocuments: number;
+  g1: GateStatus | null;
+  /** intake_answer items open or claimed. */
+  openIntakeAnswer: number;
+  /** Answer Episodes with no intake_answer item, each with the actor who answered. */
+  unopenedAnswers: { episodeId: Id; createdBy: Actor }[];
 };
 
 export type StageEvent =
@@ -28,6 +41,8 @@ export type StageEvent =
       outcome: "done" | "failed";
       actor: Actor;
     }
+  | { type: "question_answered"; episodeId: Id; actor: Actor }
+  | { type: "gate_decided"; key: GateKey; decision: "approve" | "reject"; actor: Actor }
   | { type: "startup" };
 
 export type Effect =
@@ -54,6 +69,22 @@ const startDiscovery: StageResult = {
   effects: [{ type: "open_item", kind: "discovery", subjectId: null, createdBy: "intake" }],
 };
 
+/**
+ * T6 and T7's condition: in discovery, G1 approved, every answer turned into facts. An answer whose
+ * item is not open yet (route 9 writes the answer, then opens its item) still counts as unfinished.
+ */
+const answersFinished = (s: StageState) =>
+  s.stage === "discovery" &&
+  s.g1 === "approved" &&
+  s.openIntakeAnswer === 0 &&
+  s.unopenedAnswers.length === 0;
+
+// T6 and T7: Proposal starts, opened by whoever finished the last of the two.
+const startProposal = (createdBy: Actor): StageResult => ({
+  stage: "proposal",
+  effects: [{ type: "open_item", kind: "proposal", subjectId: null, createdBy }],
+});
+
 export function next(state: StageState, event: StageEvent): StageResult {
   switch (event.type) {
     // T1: the project starts in intake (create-project.cypher) with its four gates waiting.
@@ -72,9 +103,31 @@ export function next(state: StageState, event: StageEvent): StageResult {
       };
 
     // T3: complete_item on intake, when no other intake item is open or claimed.
+    // T7: complete_item on intake_answer, when G1 is approved and no other one is left.
     case "item_completed":
-      if (event.kind === "intake" && event.outcome === "done" && intakeFinished(state)) {
-        return startDiscovery;
+      if (event.outcome !== "done") return { effects: [] };
+      if (event.kind === "intake" && intakeFinished(state)) return startDiscovery;
+      if (event.kind === "intake_answer" && answersFinished(state)) return startProposal("intake");
+      return { effects: [] };
+
+    // T5: the answer route has written the answer; Intake turns it into facts.
+    case "question_answered":
+      return {
+        effects: [
+          {
+            type: "open_item",
+            kind: "intake_answer",
+            subjectId: event.episodeId,
+            createdBy: event.actor,
+          },
+        ],
+      };
+
+    // T6: G1 approved (the route has written it). Proposal starts now, or at T7 when answers are
+    // still being turned into facts. Other gates arrive with their tasks.
+    case "gate_decided":
+      if (event.key === "G1" && event.decision === "approve" && answersFinished(state)) {
+        return startProposal(event.actor);
       }
       return { effects: [] };
 
@@ -88,6 +141,18 @@ export function next(state: StageState, event: StageEvent): StageResult {
         for (const d of state.unopened) effects.push(openIntake(d.documentId, d.createdBy));
       } else if (intakeFinished(state)) {
         return { stage: startDiscovery.stage, effects: [...effects, ...startDiscovery.effects] };
+      } else if (state.unopenedAnswers.length && state.stage === "discovery") {
+        for (const a of state.unopenedAnswers) {
+          effects.push({
+            type: "open_item",
+            kind: "intake_answer",
+            subjectId: a.episodeId,
+            createdBy: a.createdBy,
+          });
+        }
+      } else if (answersFinished(state)) {
+        const proposal = startProposal("intake");
+        return { stage: proposal.stage, effects: [...effects, ...proposal.effects] };
       }
       return { effects };
     }

@@ -349,3 +349,28 @@ TASK: t`,
     });
   });
 });
+
+describe("replayChat answer placeholders", () => {
+  it("puts in the id of the CONTEXT answer episode whose text starts with the words", async () => {
+    const request = (text: string) => ({
+      tier: "thin" as const,
+      maxTokens: 10,
+      messages: [
+        {
+          role: "user" as const,
+          content: `CONTEXT: ${JSON.stringify({
+            episodes: [{ id: "01JA00000000000000000000A1", kind: "answer", text }],
+          })}
+TASK: t`,
+        },
+      ],
+    });
+    const chat = replayChat([
+      JSON.stringify({ id: "{{answer:No.}}" }),
+      JSON.stringify({ id: "{{answer:No accounts}}" }),
+    ]);
+    const first = await chat(request("No accounts; the booking code is the key."));
+    expect(JSON.parse(first.content)).toEqual({ id: "01JA00000000000000000000A1" });
+    await expect(chat(request("Yes."))).rejects.toThrow(/no recorded reply fits/);
+  });
+});

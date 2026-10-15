@@ -18,7 +18,9 @@ export const REASON_CODES = {
   ownership: ["LABEL_NOT_OWNED", "ITEM_KIND_NOT_OWNED"],
   // WRONG_STAGE (P, task 2.2): a stage-bound route called in another stage, such as an upload
   // after intake (stage-machine.md T2), with `stage` in details.
-  gate: ["GATE_NOT_APPROVED", "WRONG_STAGE"],
+  // GATE_NOT_DECIDABLE (P, task 2.7): a decision on a gate whose rules do not allow one yet
+  // (stage-machine.md section 5), with `gateKey` and `blockedBy` in details.
+  gate: ["GATE_NOT_APPROVED", "WRONG_STAGE", "GATE_NOT_DECIDABLE"],
   source: ["SOURCE_MISSING", "SOURCE_UNKNOWN"],
   version: ["VERSION_OLD"],
   lease: ["LEASE_ENDED", "LEASE_OTHER_WORKER", "LEASE_HELD"],

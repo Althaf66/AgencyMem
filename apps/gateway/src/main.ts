@@ -8,6 +8,7 @@ import { loadConfig, type Config, type ErrorBody, type HealthResponse } from "@a
 import { connect, isReachable } from "@agencymem/graph";
 import pkg from "../package.json" with { type: "json" };
 import { filesRouter } from "./api/files";
+import { gatesRouter } from "./api/gates";
 import { listProjects, projectsRouter } from "./api/projects";
 import { queryRouter } from "./api/query";
 import { questionsRouter } from "./api/questions";
@@ -100,6 +101,7 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
     projectsRouter({ db, events }),
     filesRouter({ db, events, uploadsDir: required(cfg.UPLOADS_DIR, "UPLOADS_DIR") }),
     questionsRouter({ db, events }),
+    gatesRouter({ db, events }),
     queryRouter({ db, events }),
     notFound,
   );

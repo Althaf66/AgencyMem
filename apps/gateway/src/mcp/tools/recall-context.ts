@@ -61,6 +61,26 @@ export async function recallContextTool(
     );
   }
 
+  // agent-prompts.md section 2: an intake_answer item reads its answer episode, the question it
+  // answers, that question's facts, and every entity.
+  if (item.kind === "intake_answer" && item.subjectId) {
+    type Ctx = Required<Context>;
+    const [row] = await readQuery<{
+      episode: Ctx["episodes"][number];
+      question: Ctx["questions"][number];
+      facts: Ctx["facts"];
+    }>(ctx.db, graph, "read/answer-context", { projectId, episodeId: item.subjectId });
+    context.episodes = row ? [row.episode] : [];
+    context.questions = row ? [row.question] : [];
+    context.facts = row?.facts ?? [];
+    context.entities = await readQuery<NonNullable<Context["entities"]>[number]>(
+      ctx.db,
+      graph,
+      "read/entities",
+      { projectId },
+    );
+  }
+
   // agent-prompts.md section 3: a discovery item reads the current facts, the entities and the
   // documents (names and word counts).
   if (item.kind === "discovery") {

@@ -54,3 +54,46 @@ export async function writeQuestions(
     assumptionIds: questions.map((q) => q.assumptionId),
   };
 }
+
+/**
+ * Answers an open Question (stage-machine.md T5): writes the answer Episode, and confirms the
+ * Assumption when the recommendation is accepted or rejects it for an own answer. Null when the
+ * version is old or the Question is not open; nothing changes then.
+ */
+export async function answerQuestion(
+  ctx: Ctx,
+  input: {
+    questionId: string;
+    version: number;
+    text: string;
+    accepted: boolean;
+    createdBy: Actor;
+    now: number;
+  },
+): Promise<{
+  episodeId: string;
+  questionVersion: number;
+  assumptionId: string;
+  assumptionVersion: number;
+  contradictionId: string | null;
+  contradictionVersion: number | null;
+} | null> {
+  const episodeId = ulid();
+  const [row] = await writeQuery<{
+    questionVersion: number;
+    assumptionId: string;
+    assumptionVersion: number;
+    contradictionId: string | null;
+    contradictionVersion: number | null;
+  }>(ctx.db, ctx.graph, "write/answer-question", {
+    projectId: ctx.projectId,
+    questionId: input.questionId,
+    version: input.version,
+    episodeId,
+    text: text(2000).parse(input.text),
+    assumptionStatus: input.accepted ? "confirmed" : "rejected",
+    createdBy: input.createdBy,
+    now: input.now,
+  });
+  return row ? { episodeId, ...row } : null;
+}

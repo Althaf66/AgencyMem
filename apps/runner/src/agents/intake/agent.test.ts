@@ -3,6 +3,7 @@ import type { Recall } from "../../agent";
 import { checkFacts, intake } from "./agent";
 
 const E1 = "01JA00000000000000000000E1";
+const F1 = "01JA00000000000000000000F1";
 const recall = {
   item: { id: "01JA0000000000000000000001" },
   context: {
@@ -52,5 +53,39 @@ describe("Intake agent", () => {
     expect(calls).toEqual([["write_fact", { itemId: recall.item.id, facts: [fact()] }]]);
     expect(said).toEqual(["Wrote 1 facts"]);
     expect(result).toEqual({ outputIds: ["F1", "N1"], summary: "1 facts from kickoff-notes.pdf" });
+  });
+
+  it("claims answers too, and reads the answered question and its facts for them", () => {
+    expect(intake.kinds).toEqual(["intake", "intake_answer"]);
+    expect(intake.handoff).toEqual(["intake"]);
+    const answer = {
+      ...recall,
+      context: { ...recall.context, questions: [{ id: "Q1" }], facts: [{ id: F1 }] },
+    } as unknown as Recall;
+    expect(intake.select(answer)).toEqual({
+      episodes: recall.context.episodes,
+      entities: [],
+      questions: [{ id: "Q1" }],
+      facts: [{ id: F1 }],
+    });
+    expect(intake.select(recall)).toEqual({ episodes: recall.context.episodes, entities: [] });
+  });
+
+  it("asks for a repair when replacesFactId is not a fact in CONTEXT", () => {
+    const answer = {
+      ...recall,
+      context: { ...recall.context, facts: [{ id: F1 }] },
+    } as unknown as Recall;
+    expect(checkFacts({ facts: [fact({ replacesFactId: F1 })] }, answer)).toEqual([]);
+    expect(checkFacts({ facts: [fact({ replacesFactId: E1 })] }, answer)).toEqual([
+      `facts.0.replacesFactId: ${E1} is not a fact in CONTEXT`,
+    ]);
+    const ended = {
+      ...recall,
+      context: { ...recall.context, facts: [{ id: F1, validTo: 1, replacedBy: "F2" }] },
+    } as unknown as Recall;
+    expect(checkFacts({ facts: [fact({ replacesFactId: F1 })] }, ended)).toEqual([
+      `facts.0.replacesFactId: ${F1} is already replaced by F2; replace that one`,
+    ]);
   });
 });

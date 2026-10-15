@@ -6,6 +6,8 @@
 //   {{episode:<documentName>:<page>:<lineStart>}}  the id of that episode in CONTEXT.episodes
 //   {{fact:<subject>:<attribute>:<value>}}         the id of that current fact in CONTEXT.facts
 //                                                  (the value is the rest, colons and all)
+//   {{answer:<start of text>}}                     the id of the answer episode in CONTEXT.episodes
+//                                                  whose text starts with these words
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import type { Chat, ChatRequest } from "./chat";
@@ -16,10 +18,13 @@ export type Recording = z.infer<typeof Recording>;
 
 const EPISODE = /\{\{episode:([^:}]+):(\d+):(\d+)\}\}/g;
 const FACT = /\{\{fact:([^:}]+):([^:}]+):([^}]+)\}\}/g;
+const ANSWER = /\{\{answer:([^}]+)\}\}/g;
 
 type Context = {
   episodes?: {
     id: string;
+    kind?: string;
+    text?: string;
     documentName: string | null;
     page: number | null;
     lineStart: number | null;
@@ -37,7 +42,7 @@ function contextOf(req: ChatRequest): Context {
 /** The reply with its placeholders filled in, or null when one does not resolve. */
 function resolve(reply: string, req: ChatRequest): string | null {
   // Nothing to fill: CONTEXT is not read.
-  if (!reply.includes("{{episode:") && !reply.includes("{{fact:")) return reply;
+  if (!["{{episode:", "{{fact:", "{{answer:"].some((p) => reply.includes(p))) return reply;
   const context = contextOf(req);
   let missing = false;
   const filled = reply.replace(EPISODE, (_all, doc: string, page: string, line: string) => {
@@ -57,7 +62,12 @@ function resolve(reply: string, req: ChatRequest): string | null {
       return found?.id ?? "";
     },
   );
-  return missing ? null : withFacts;
+  const withAnswers = withFacts.replace(ANSWER, (_all, start: string) => {
+    const found = context.episodes?.find((e) => e.kind === "answer" && e.text?.startsWith(start));
+    if (!found) missing = true;
+    return found?.id ?? "";
+  });
+  return missing ? null : withAnswers;
 }
 
 /**

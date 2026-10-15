@@ -10,7 +10,7 @@ import { loadConfig, type Envelope, type ProjectInfo } from "@agencymem/contract
 import { close, connect, type FalkorDB } from "@agencymem/graph";
 import { deleteTestClient } from "@agencymem/memory";
 import { createModelClient, loadRecording, replayChat } from "@agencymem/llm";
-import { createEvents } from "../../apps/gateway/src/events/bus";
+import { createEvents, type Events } from "../../apps/gateway/src/events/bus";
 import { createGateway } from "../../apps/gateway/src/main";
 import type { Agent } from "../../apps/runner/src/agent";
 import { runLoop } from "../../apps/runner/src/loop";
@@ -24,6 +24,7 @@ export const ui = { "X-AM-Token": "ui-t", "X-AM-Actor": "human:ana" };
 
 export type Harness = {
   base: string;
+  events: Events;
   /** A project with the fixture set's three files uploaded (T2 opens an intake item each). */
   project(set: string): Promise<ProjectInfo>;
   /** Runs `agent` on the recording until `items` of its items in the project are done. */
@@ -45,6 +46,7 @@ export async function startHarness(): Promise<Harness> {
 
   return {
     base,
+    events,
     async project(set) {
       const res = await fetch(`${base}/api/projects`, {
         method: "POST",
