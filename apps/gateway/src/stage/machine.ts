@@ -1,7 +1,8 @@
 // The stage machine (stage-machine.md): one pure function from the project state and an event to a
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
 // T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2), C1 and C2
-// (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5), T15 (task 3.6), T16 (task 3.8).
+// (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5), T15 (task 3.6), T16 (task 3.8), H3
+// (task 3.9).
 import type {
   Actor,
   ChangeRequestStatus,
@@ -88,6 +89,8 @@ export type StageEvent =
   | { type: "change_request_created"; crId: Id; actor: Actor }
   /** T16: write_tests moved a card to Ready. */
   | { type: "card_ready" }
+  /** H3: a person edited a card's criteria (route 13). */
+  | { type: "criteria_edited"; taskId: Id; actor: Actor }
   /** T12: route 21 before G3 wrote the human_edit Episode; `note` names the section, if any. */
   | { type: "chat"; episodeId: Id; note: string; actor: Actor }
   | { type: "question_answered"; episodeId: Id; actor: Actor }
@@ -293,6 +296,21 @@ export function next(state: StageState, event: StageEvent): StageResult {
       return state.stage === "planning"
         ? { stage: "build", effects: writeTests(state) }
         : { effects: [] };
+
+    // H3: the Test agent writes the specs of the edited criteria.
+    // ponytail: no startup repair; a crash between the edit and this item leaves the card in Rework
+    // until a person edits it again. Repair it with the replan repair if that ever happens.
+    case "criteria_edited":
+      return {
+        effects: [
+          {
+            type: "open_item",
+            kind: "write_tests",
+            subjectId: event.taskId,
+            createdBy: event.actor,
+          },
+        ],
+      };
 
     // C1: route 22 has written the ChangeRequest and its episode.
     case "change_request_created":

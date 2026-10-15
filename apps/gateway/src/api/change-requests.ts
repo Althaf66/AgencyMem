@@ -24,7 +24,7 @@ export async function openChangeRequest(
   text: string,
   actor: Actor,
 ): Promise<
-  | { ok: true; output: { crId: string; episodeId: string; workItemId: string } }
+  | { ok: true; output: { crId: string; crKey: string; episodeId: string; workItemId: string } }
   | { ok: false; error: Rejection }
 > {
   const ctx = { db, graph: project.graph, projectId: project.id };
@@ -37,7 +37,7 @@ export async function openChangeRequest(
     label: "ChangeRequest",
     id: changeRequest.id,
     version: changeRequest.version,
-    summary: "Change request open",
+    summary: `${changeRequest.key} open`,
     ids: [changeRequest.id, episode.id],
   });
   const opened = await runStage(db, events, project.id, {
@@ -55,7 +55,12 @@ export async function openChangeRequest(
   }
   return {
     ok: true,
-    output: { crId: changeRequest.id, episodeId: episode.id, workItemId: item.id },
+    output: {
+      crId: changeRequest.id,
+      crKey: changeRequest.key,
+      episodeId: episode.id,
+      workItemId: item.id,
+    },
   };
 }
 

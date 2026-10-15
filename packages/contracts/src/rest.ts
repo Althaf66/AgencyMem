@@ -5,6 +5,7 @@ import {
   Actor,
   CardKey,
   Count,
+  CrKey,
   CriterionKey,
   EpochMs,
   FeatureKey,
@@ -122,6 +123,7 @@ export const CardView = z.object({
   ),
   rework: z.boolean(),
   crIds: z.array(Id),
+  crKeys: z.array(CrKey), // the same CRs, in the same order
   requirementKey: RequirementKey,
   dependsOn: z.array(CardKey),
   criteria: z.array(
@@ -365,10 +367,16 @@ export const ChatResponse = z.object({
   route: z.enum(["doc_revision", "change_request"]),
   workItemId: Id,
   crId: Id.optional(),
+  crKey: CrKey.optional(),
 });
 // 22 POST /api/projects/:id/change-requests
 export const ChangeRequestBody = z.object({ text: z.string().min(1).max(2000) });
-export const ChangeRequestResponse = z.object({ crId: Id, episodeId: Id, workItemId: Id });
+export const ChangeRequestResponse = z.object({
+  crId: Id,
+  crKey: CrKey,
+  episodeId: Id,
+  workItemId: Id,
+});
 // 23 POST /api/query (with X-AM-Project): same as read_query
 export const QueryBody = ReadQueryInput;
 export const QueryResponse = ReadQueryOutput;

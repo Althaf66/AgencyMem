@@ -607,6 +607,12 @@ rows.push(
     { effects: [openWriteTests(CARD2)] },
   ],
   [
+    "H3 a person edited a card's criteria: opens write_tests for that card",
+    planning({ stage: "build", untestedCards: [], readyCards: 1 }),
+    { type: "criteria_edited", taskId: CARD1, actor: ana },
+    { effects: [{ type: "open_item", kind: "write_tests", subjectId: CARD1, createdBy: ana }] },
+  ],
+  [
     "startup repairs a missed T16: in planning with a card already Ready",
     planning({ untestedCards: [], readyCards: 1 }),
     { type: "startup" },

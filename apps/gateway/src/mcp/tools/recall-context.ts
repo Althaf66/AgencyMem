@@ -14,7 +14,7 @@ import { CLAIMS } from "../guards";
 import { fail, findOwn, ok, type Outcome, type ToolCtx } from "./common";
 
 /** The agent that claims a kind of work item (stage-machine.md section 3). */
-function agentFor(kind: WorkItemKind): AgentId {
+export function agentFor(kind: WorkItemKind): AgentId {
   const entry = Object.entries(CLAIMS).find(([, kinds]) => kinds.includes(kind));
   return (entry?.[0] ?? "build") as AgentId; // every kind has exactly one claimer
 }

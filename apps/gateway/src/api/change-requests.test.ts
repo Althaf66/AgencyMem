@@ -227,6 +227,10 @@ describe("route 22: POST /api/projects/:id/change-requests (C1)", () => {
         itemStatus: "open",
       },
     ]);
+    // Each CR of a project gets the next key; the UI names it "CR-1", "CR-2".
+    expect(body.crKey).toBe("CR-1");
+    const second = await postCr(ctx.projectId, "Rule 2 is now B.");
+    expect(second.body.crKey).toBe("CR-2");
   });
 
   it("refuses a CR before G2 is approved or after the project closed (409), and without an actor", async () => {

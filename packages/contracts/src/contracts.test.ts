@@ -159,6 +159,7 @@ const cardView = {
   commits: [],
   rework: false,
   crIds: [],
+  crKeys: [],
   requirementKey: "REQ-01",
   dependsOn: [],
   criteria: [
@@ -580,7 +581,7 @@ const nodeFixtures: Record<NodeLabel, unknown> = {
     text: "A slot can be booked",
     testIds: ["book-submit"],
   },
-  ChangeRequest: { ...base, text: "Closed on Saturday", status: "open" },
+  ChangeRequest: { ...base, key: "CR-1", text: "Closed on Saturday", status: "open" },
   Decision: design,
   Component: { ...design, key: "CMP-01" },
   Screen: { ...design, key: "SCR-01" },
@@ -862,10 +863,14 @@ const restFixtures: [string, z.ZodType, unknown][] = [
   [
     "ChatResponse",
     ChatResponse,
-    { episodeId: ID, route: "change_request", workItemId: ID2, crId: ID },
+    { episodeId: ID, route: "change_request", workItemId: ID2, crId: ID, crKey: "CR-1" },
   ],
   ["ChangeRequestBody", ChangeRequestBody, { text: "Closed on Saturday" }],
-  ["ChangeRequestResponse", ChangeRequestResponse, { crId: ID, episodeId: ID2, workItemId: ID }],
+  [
+    "ChangeRequestResponse",
+    ChangeRequestResponse,
+    { crId: ID, crKey: "CR-1", episodeId: ID2, workItemId: ID },
+  ],
   ["QueryBody", QueryBody, toolFixtures.read_query.input],
   ["QueryResponse", QueryResponse, toolFixtures.read_query.output],
   [

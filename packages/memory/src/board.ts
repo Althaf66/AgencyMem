@@ -1,5 +1,5 @@
 // The board's cards (write_cards). One Cypher query per call.
-import { text, type Actor, type Lane } from "@agencymem/contracts";
+import { WorkItem, text, type Actor, type Lane } from "@agencymem/contracts";
 import { writeQuery } from "@agencymem/graph/write";
 import { ulid } from "ulid";
 import type { Ctx } from "./ctx";
@@ -50,4 +50,46 @@ export async function writeCards(
     taskIds: cards.map((c) => c.id),
     criterionIds: cards.flatMap((c) => c.criteria.map((k) => k.id)),
   };
+}
+
+export type CriterionWrite = { key: string; text: string; testIds: string[] };
+
+/**
+ * A person's edit of a card (route 13): `props` as the gateway worked them out from the rules (null
+ * removes a property), and with `criteria` (H3) the card's new criteria. Null when the version was
+ * old; nothing changes then.
+ */
+export async function patchTask(
+  ctx: Ctx,
+  input: {
+    id: string;
+    version: number;
+    props: Record<string, string | number | null>;
+    criteria: CriterionWrite[] | null;
+    createdBy: Actor;
+    now: number;
+  },
+): Promise<{ version: number } | null> {
+  const rows = await writeQuery<{ version: number }>(ctx.db, ctx.graph, "write/patch-task", {
+    projectId: ctx.projectId,
+    id: input.id,
+    version: input.version,
+    props: input.props,
+    criteria:
+      input.criteria?.map((k) => ({ ...k, id: ulid(), text: text(300).parse(k.text) })) ?? null,
+    createdBy: input.createdBy,
+    now: input.now,
+  });
+  return rows[0] ?? null;
+}
+
+/** Route 31: a blocked item back to open with attempts 0. Null when it is not blocked. */
+export async function retryItem(ctx: Ctx, input: { id: string }): Promise<WorkItem | null> {
+  const rows = await writeQuery<{ w: { properties: Record<string, unknown> } }>(
+    ctx.db,
+    ctx.graph,
+    "write/retry-item",
+    { projectId: ctx.projectId, id: input.id },
+  );
+  return rows[0] ? WorkItem.parse(rows[0].w.properties) : null;
 }

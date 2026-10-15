@@ -106,8 +106,8 @@ export function docsRouter(deps: { db: () => Promise<FalkorDB>; events: Events }
     if (g3 === "approved" && stage && OPEN_STAGES.includes(stage)) {
       const opened = await openChangeRequest(db, deps.events, found, body.data.text, actor);
       if (!opened.ok) return sendError(res, opened.error);
-      const { crId, episodeId, workItemId } = opened.output;
-      return res.json({ episodeId, route: "change_request", workItemId, crId });
+      const { crId, crKey, episodeId, workItemId } = opened.output;
+      return res.json({ episodeId, route: "change_request", workItemId, crId, crKey });
     }
     if (stage !== "design" || g3 === "approved") {
       const refused = reject(

@@ -38,6 +38,8 @@ const key = (prefix: string) =>
 export const RequirementKey = key("REQ");
 export const FeatureKey = key("FEAT");
 export const CardKey = key("CARD");
+/** A change request's key, numbered per project from 1 as the UI shows it: CR-1, CR-2 (P). */
+export const CrKey = z.string().regex(/^CR-\d+$/, "must look like CR-1");
 export const CriterionKey = z.string().regex(/^AC-\d{2,}-\d+$/, "must look like AC-01-1");
 /** Key prefix of each design label. */
 export const DESIGN_KEY_PREFIX = {

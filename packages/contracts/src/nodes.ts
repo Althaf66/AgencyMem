@@ -8,6 +8,7 @@ import {
   Count,
   CardKey,
   DESIGN_KEY_PREFIX,
+  CrKey,
   CriterionKey,
   EntityKey,
   EpochMs,
@@ -166,7 +167,11 @@ export const AcceptanceCriterion = BaseNode.extend({
 });
 export type AcceptanceCriterion = z.infer<typeof AcceptanceCriterion>;
 
-export const ChangeRequest = BaseNode.extend({ text: text(2000), status: ChangeRequestStatus });
+export const ChangeRequest = BaseNode.extend({
+  key: CrKey,
+  text: text(2000),
+  status: ChangeRequestStatus,
+});
 export type ChangeRequest = z.infer<typeof ChangeRequest>;
 
 const DesignNode = BaseNode.extend({
