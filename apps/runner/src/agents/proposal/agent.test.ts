@@ -114,6 +114,24 @@ describe("Proposal agent", () => {
     expect(proposal.kinds).toEqual(["proposal"]);
   });
 
+  it("asks for a revision only when the item has a note and a product exists", () => {
+    const task = proposal.task as (r: Recall) => string;
+    const FIRST = "Write the requirements and the features with raw estimates.";
+    const item = (note: string | null, requirements: unknown[]) =>
+      ({
+        ...recall,
+        item: { ...recall.item, note },
+        context: { ...recall.context, requirements },
+      }) as Recall;
+    const product = [{ key: "REQ-01" }];
+    expect(task(item(null, []))).toBe(FIRST);
+    // A first item that failed once keeps its failure text as the note: still the first proposal.
+    expect(task(item("model unavailable", []))).toBe(FIRST);
+    expect(task(item("estimate too high, cut scope", product))).toBe(
+      "Revise the proposal. The client said: estimate too high, cut scope",
+    );
+  });
+
   it("asks for a repair on a wrong sum, an unknown fact or key, a repeated key, a bad count", () => {
     expect(checkProposal(output(), recall)).toEqual([]);
     expect(

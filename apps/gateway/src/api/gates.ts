@@ -1,5 +1,5 @@
 // Routes 10 and 11 of contracts.md section 8: the gates snapshot, and a decision on one gate.
-// G1 is decided here (stage-machine.md T6); the other gates arrive with their tasks.
+// G1 (stage-machine.md T6) and G2 (T9, T10) are decided here; the other gates arrive with their tasks.
 import express, { type Router } from "express";
 import { GateDecisionBody, GateView, type GateKey, type GateStatus } from "@agencymem/contracts";
 import { readQuery, type FalkorDB } from "@agencymem/graph";
@@ -11,18 +11,29 @@ import { MISSING_ACTOR, headerNode, parseBody, pathProject, personActor, sendErr
 
 const DECISION = "POST /api/gates/:id/decision";
 // ponytail: the gates whose rules are not built yet are never decidable; each task replaces its line.
-const LATER: Partial<Record<GateKey, string>> = { G2: "3.2", G3: "3.5", G5: "5.2", G6: "5.3" };
+const LATER: Partial<Record<GateKey, string>> = { G3: "3.5", G5: "5.2", G6: "5.3" };
+// stage-machine.md section 5: G1 and G5 cannot be rejected. G3 and G6 rejects arrive with their tasks.
+const NO_REJECT: Partial<Record<GateKey, string>> = {
+  G1: "G1 cannot be rejected; answer the questions instead.",
+  G5: "G5 cannot be rejected; leave it waiting.",
+};
 
 type Row = {
   g: { properties: Record<string, unknown> };
   discoveryDone: number;
   openQuestions: number;
+  proposalDone: number;
+  proposalOpen: number;
 };
 
 /** canDecide and blockedBy from the gate rules (stage-machine.md section 5). */
 function rules(key: GateKey, status: GateStatus, row: Row): string[] {
   if (status !== "waiting") return []; // decided; an approved gate stays approved
   if (LATER[key]) return [`Not built yet (task ${LATER[key]})`];
+  if (key === "G2") {
+    if (row.proposalOpen > 0) return ["Proposal is still working"];
+    return row.proposalDone === 0 ? ["No proposal yet"] : [];
+  }
   if (row.discoveryDone === 0) return ["Discovery is not done"];
   const n = row.openQuestions;
   return n ? [`${n} ${n === 1 ? "question" : "questions"} still open`] : [];
@@ -83,11 +94,13 @@ export function gatesRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
         reason: `Deciding ${key} is not built yet (task ${LATER[key]}).`,
       });
     }
-    if (body.data.decision === "reject") {
-      return sendError(res, {
-        code: "VALIDATION_FAILED",
-        reason: "G1 cannot be rejected; answer the questions instead.",
-      });
+    const { decision } = body.data;
+    const reason = body.data.reason?.trim() || null;
+    if (decision === "reject" && NO_REJECT[key]) {
+      return sendError(res, { code: "VALIDATION_FAILED", reason: NO_REJECT[key] });
+    }
+    if (decision === "reject" && !reason) {
+      return sendError(res, { code: "VALIDATION_FAILED", reason: "A rejection needs a reason." });
     }
     const view = (await readViews(db, graph, projectId)).find((g) => g.id === props.id)!;
     if (!view.canDecide) {
@@ -102,14 +115,22 @@ export function gatesRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
     const stale = version(body.data.version, view.version);
     if (stale) return sendError(res, await rejectAndCount(db, projectId, stale, at));
 
-    // ponytail: the rules are read before this write, not inside it. G1's rule cannot turn false
-    // again (no Question reopens), so the version check alone guards the race.
+    // ponytail: the rules are read before this write, not inside it. While a gate waits nothing
+    // can turn its rule false again (no Question reopens; only a G2 reject opens a proposal item),
+    // so the version check alone guards the race.
+    const status = decision === "approve" ? "approved" : "rejected";
     const written = await writeVersioned(
       { db, graph, projectId },
       {
         id: view.id,
         version: body.data.version,
-        props: { status: "approved", decidedBy: actor, decidedAt: Date.now() },
+        // An approval keeps the reason of an earlier rejection, as the gate panel shows it.
+        props: {
+          status,
+          decidedBy: actor,
+          decidedAt: Date.now(),
+          ...(reason ? { reason } : {}),
+        },
       },
     );
     if (written === null) {
@@ -119,14 +140,15 @@ export function gatesRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
     deps.events.emit(projectId, "gate.changed", {
       gateId: view.id,
       gateKey: key,
-      status: "approved",
+      status,
       decidedBy: actor,
-      reason: null,
+      reason: reason ?? view.reason,
     });
     const opened = await runStage(db, deps.events, projectId, {
       type: "gate_decided",
       key,
-      decision: "approve",
+      decision,
+      ...(reason ? { reason } : {}),
       actor,
     });
     const gate = (await readViews(db, graph, projectId)).find((g) => g.id === view.id)!;

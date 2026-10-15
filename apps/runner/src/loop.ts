@@ -25,6 +25,9 @@ function readText(recall: Recall): string {
   return groups.length ? `Read ${groups.join(", ")}` : "Read nothing";
 }
 
+const taskLine = (agent: Agent<unknown>, recall: Recall) =>
+  typeof agent.task === "string" ? agent.task : agent.task(recall);
+
 /**
  * Takes one item of the agent's kinds from claim to complete. "stopped" means the lease was lost:
  * the item is already back in the queue, so complete_item is not called.
@@ -83,7 +86,7 @@ export async function runItem(
       const thought = await llm.json({
         tier: agent.tier,
         system: agent.prompt,
-        user: `CONTEXT: ${JSON.stringify(agent.select(recall))}\nTASK: ${agent.task}${note}`,
+        user: `CONTEXT: ${JSON.stringify(agent.select(recall))}\nTASK: ${taskLine(agent, recall)}${note}`,
         schema: agent.output,
         check: agent.check ? (output) => agent.check!(output, recall) : undefined,
       });

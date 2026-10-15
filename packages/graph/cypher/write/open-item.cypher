@@ -7,6 +7,6 @@ WITH count(e) AS existing
 WHERE existing = 0
 MERGE (w:WorkItem {id: $id})
 ON CREATE SET w.projectId = $projectId, w.kind = $kind, w.status = 'open',
-  w.subjectId = $subjectId, w.outputIds = [], w.attempts = 0,
+  w.subjectId = $subjectId, w.note = $note, w.outputIds = [], w.attempts = 0,
   w.createdBy = $createdBy, w.createdAt = $now, w.version = 1
 RETURN w

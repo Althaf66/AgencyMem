@@ -16,6 +16,9 @@ const fresh: StageState = {
   g1: null,
   openIntakeAnswer: 0,
   unopenedAnswers: [],
+  g2: null,
+  openProposal: 0,
+  lastProposal: null,
 };
 const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
 const intakeDone = (over: Partial<StageState> = {}): StageState => ({
@@ -196,6 +199,102 @@ const rows: [string, StageState, StageEvent, StageResult][] = [
     { effects: [] },
   ],
 ];
+
+const persona = "persona:01JA0000000000000000000009" as const;
+const REASON = "estimate too high, cut scope";
+const proposing = (over: Partial<StageState> = {}): StageState =>
+  intakeDone({
+    stage: "proposal",
+    g1: "approved",
+    g2: { status: "waiting", reason: null, decidedAt: null, decidedBy: null },
+    lastProposal: { createdAt: 50, doneAt: 60 },
+    ...over,
+  });
+const rejectedG2 = {
+  status: "rejected",
+  reason: REASON,
+  decidedAt: 100,
+  decidedBy: persona,
+} as const;
+const proposalDone = {
+  type: "item_completed",
+  kind: "proposal",
+  outcome: "done",
+  actor: "proposal",
+} as const;
+const openArchitect = (createdBy: Actor) =>
+  ({ type: "open_item", kind: "architect", subjectId: null, createdBy }) as const;
+
+rows.push(
+  [
+    "T8 a revision done after a G2 rejection: G2 back to waiting",
+    proposing({ g2: rejectedG2, lastProposal: { createdAt: 150, doneAt: 200 } }),
+    proposalDone,
+    { effects: [{ type: "reopen_gate", key: "G2" }] },
+  ],
+  [
+    "T8 the first proposal done: nothing to reopen (G2 is decidable, read from the gates)",
+    proposing(),
+    proposalDone,
+    { effects: [] },
+  ],
+  [
+    "T8 does not fire on a failed proposal item",
+    proposing({ g2: rejectedG2 }),
+    { ...proposalDone, outcome: "failed" },
+    { effects: [] },
+  ],
+  [
+    "T9 G2 rejected with a reason: opens proposal with the reason as its note",
+    proposing(),
+    { type: "gate_decided", key: "G2", decision: "reject", reason: REASON, actor: persona },
+    {
+      effects: [
+        { type: "open_item", kind: "proposal", subjectId: null, createdBy: persona, note: REASON },
+      ],
+    },
+  ],
+  [
+    "T10 G2 approved: opens architect, stage design",
+    proposing(),
+    { type: "gate_decided", key: "G2", decision: "approve", actor: persona },
+    { stage: "design", effects: [openArchitect(persona)] },
+  ],
+  [
+    "startup repairs a missed T9: G2 rejected and no proposal item opened since",
+    proposing({ g2: rejectedG2 }),
+    { type: "startup" },
+    {
+      effects: [
+        { type: "open_item", kind: "proposal", subjectId: null, createdBy: persona, note: REASON },
+      ],
+    },
+  ],
+  [
+    "startup waits while the revision is open or claimed",
+    proposing({ g2: rejectedG2, openProposal: 1, lastProposal: { createdAt: 150, doneAt: null } }),
+    { type: "startup" },
+    { effects: [] },
+  ],
+  [
+    "startup repairs a missed T8: the revision is done but G2 is still rejected",
+    proposing({ g2: rejectedG2, lastProposal: { createdAt: 150, doneAt: 200 } }),
+    { type: "startup" },
+    { effects: [{ type: "reopen_gate", key: "G2" }] },
+  ],
+  [
+    "startup repairs a missed T10: G2 approved, still in proposal",
+    proposing({ g2: { ...rejectedG2, status: "approved", reason: null } }),
+    { type: "startup" },
+    { stage: "design", effects: [openArchitect(persona)] },
+  ],
+  [
+    "startup with the proposal waiting for G2 does nothing",
+    proposing(),
+    { type: "startup" },
+    { effects: [] },
+  ],
+);
 
 describe("machine.next", () => {
   it.each(rows)("%s", (_name, state, event, expected) => {

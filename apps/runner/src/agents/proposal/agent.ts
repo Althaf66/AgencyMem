@@ -95,7 +95,14 @@ export const proposal: Agent<ProposalOutput> = {
   id: "proposal",
   kinds: ["proposal"], // change_request arrives with task 3.3
   tier: "deep",
-  task: "Write the requirements and the features with raw estimates.",
+  // agent-prompts.md section 4: a revision after a G2 rejection carries the reason as its note.
+  // A first item that failed also has a note (the failure text), but no product exists yet.
+  // ponytail: if a first item fails after write_product committed, its retry reads the failure
+  // text as a reason; a flag on the item set by T9 would remove the guess.
+  task: (recall) =>
+    recall.item.note && (recall.context.requirements ?? []).length > 0
+      ? `Revise the proposal. The client said: ${recall.item.note}`
+      : "Write the requirements and the features with raw estimates.",
   prompt: await loadPrompt(import.meta.url, "Proposal"),
   output: ProposalOutput,
   handoff: ["proposal"],

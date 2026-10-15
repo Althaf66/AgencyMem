@@ -215,15 +215,15 @@ describe("Done when: G1 stays waiting while any question is open", () => {
     expect(changed).toEqual([["Monday to Saturday", true, true]]);
   }, 60_000);
 
-  it("does not decide G2 yet", async () => {
+  it("does not decide G2 while the proposal item is open (task 3.2)", async () => {
     const { body } = await call("GET", `/api/projects/${project.id}/gates`);
     const g2 = (body.gates as GateView[]).find((g) => g.key === "G2")!;
-    expect(g2.canDecide).toBe(false);
+    expect(g2).toMatchObject({ canDecide: false, blockedBy: ["Proposal is still working"] });
     const res = await call("POST", `/api/gates/${g2.id}/decision`, {
       version: g2.version,
       decision: "approve",
     });
-    expect(res.status).toBe(500);
-    expect(res.body.error.code).toBe("INTERNAL");
+    expect(res.status).toBe(409);
+    expect(res.body.error.details).toMatchObject({ reasonCode: "GATE_NOT_DECIDABLE" });
   });
 });

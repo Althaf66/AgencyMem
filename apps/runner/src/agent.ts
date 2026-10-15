@@ -20,8 +20,8 @@ export type Agent<O> = {
   /** The work item kinds this agent claims. */
   kinds: WorkItemKind[];
   tier: Tier;
-  /** The TASK line of the user message. */
-  task: string;
+  /** The TASK line of the user message; a function when it depends on the item (a revision). */
+  task: string | ((recall: Recall) => string);
   /** The system prompt: the shared preamble, then prompt.md. */
   prompt: string;
   output: z.ZodType<O>;

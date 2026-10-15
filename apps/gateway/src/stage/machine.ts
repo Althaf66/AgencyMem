@@ -1,9 +1,10 @@
 // The stage machine (stage-machine.md): one pure function from the project state and an event to a
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
-// T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7).
+// T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2).
 import type {
   Actor,
   DocumentStatus,
+  EpochMs,
   GateKey,
   GateStatus,
   Id,
@@ -30,6 +31,16 @@ export type StageState = {
   openIntakeAnswer: number;
   /** Answer Episodes with no intake_answer item, each with the actor who answered. */
   unopenedAnswers: { episodeId: Id; createdBy: Actor }[];
+  g2: {
+    status: GateStatus;
+    reason: string | null;
+    decidedAt: EpochMs | null;
+    decidedBy: Actor | null;
+  } | null;
+  /** proposal items open or claimed. */
+  openProposal: number;
+  /** The newest proposal item (startup repair of T8 and T9). */
+  lastProposal: { createdAt: EpochMs; doneAt: EpochMs | null } | null;
 };
 
 export type StageEvent =
@@ -42,12 +53,26 @@ export type StageEvent =
       actor: Actor;
     }
   | { type: "question_answered"; episodeId: Id; actor: Actor }
-  | { type: "gate_decided"; key: GateKey; decision: "approve" | "reject"; actor: Actor }
+  | {
+      type: "gate_decided";
+      key: GateKey;
+      decision: "approve" | "reject";
+      reason?: string;
+      actor: Actor;
+    }
   | { type: "startup" };
 
 export type Effect =
   | { type: "create_gates"; keys: GateKey[]; createdBy: Actor }
-  | { type: "open_item"; kind: WorkItemKind; subjectId: Id | null; createdBy: Actor };
+  | {
+      type: "open_item";
+      kind: WorkItemKind;
+      subjectId: Id | null;
+      createdBy: Actor;
+      /** The item's input, for example a G2 rejection reason (T9). */
+      note?: string;
+    }
+  | { type: "reopen_gate"; key: GateKey };
 
 /** `stage` is set only when the stage changes. */
 export type StageResult = { stage?: Stage; effects: Effect[] };
@@ -85,6 +110,29 @@ const startProposal = (createdBy: Actor): StageResult => ({
   effects: [{ type: "open_item", kind: "proposal", subjectId: null, createdBy }],
 });
 
+// T9: Proposal revises with the rejection reason as the item's note.
+const reviseProposal = (reason: string, createdBy: Actor): Effect => ({
+  type: "open_item",
+  kind: "proposal",
+  subjectId: null,
+  createdBy,
+  note: reason,
+});
+
+// T10: the Architect starts; the project moves to design.
+const startDesign = (createdBy: Actor): StageResult => ({
+  stage: "design",
+  effects: [{ type: "open_item", kind: "architect", subjectId: null, createdBy }],
+});
+
+/** T8's condition: G2 was rejected and a proposal item made after the rejection is done. */
+const revisionDone = (s: StageState) =>
+  s.g2?.status === "rejected" &&
+  s.openProposal === 0 &&
+  s.lastProposal !== null &&
+  s.lastProposal.doneAt !== null &&
+  s.lastProposal.createdAt >= (s.g2.decidedAt ?? 0);
+
 export function next(state: StageState, event: StageEvent): StageResult {
   switch (event.type) {
     // T1: the project starts in intake (create-project.cypher) with its four gates waiting.
@@ -108,6 +156,10 @@ export function next(state: StageState, event: StageEvent): StageResult {
       if (event.outcome !== "done") return { effects: [] };
       if (event.kind === "intake" && intakeFinished(state)) return startDiscovery;
       if (event.kind === "intake_answer" && answersFinished(state)) return startProposal("intake");
+      // T8: the revision is done; G2 waits for a decision again.
+      if (event.kind === "proposal" && state.g2?.status === "rejected") {
+        return { effects: [{ type: "reopen_gate", key: "G2" }] };
+      }
       return { effects: [] };
 
     // T5: the answer route has written the answer; Intake turns it into facts.
@@ -129,6 +181,11 @@ export function next(state: StageState, event: StageEvent): StageResult {
       if (event.key === "G1" && event.decision === "approve" && answersFinished(state)) {
         return startProposal(event.actor);
       }
+      // T9 and T10: the route checked that G2 was decidable and wrote the decision.
+      if (event.key === "G2" && event.decision === "reject" && event.reason) {
+        return { effects: [reviseProposal(event.reason, event.actor)] };
+      }
+      if (event.key === "G2" && event.decision === "approve") return startDesign(event.actor);
       return { effects: [] };
 
     // Rule 3: repair what a crash between a write and its effects left half done.
@@ -153,6 +210,22 @@ export function next(state: StageState, event: StageEvent): StageResult {
       } else if (answersFinished(state)) {
         const proposal = startProposal("intake");
         return { stage: proposal.stage, effects: [...effects, ...proposal.effects] };
+      } else if (state.stage === "proposal" && state.g2) {
+        const { g2 } = state;
+        const by = g2.decidedBy ?? state.createdBy;
+        if (g2.status === "approved") {
+          const design = startDesign(by);
+          return { stage: design.stage, effects: [...effects, ...design.effects] };
+        }
+        if (revisionDone(state)) effects.push({ type: "reopen_gate", key: "G2" });
+        else if (
+          g2.status === "rejected" &&
+          g2.reason &&
+          state.openProposal === 0 &&
+          (state.lastProposal?.createdAt ?? 0) < (g2.decidedAt ?? 0)
+        ) {
+          effects.push(reviseProposal(g2.reason, by));
+        }
       }
       return { effects };
     }

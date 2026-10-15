@@ -3,6 +3,7 @@
 import {
   Id,
   WorkItem,
+  text,
   type Actor,
   type AgentId,
   type ReadinessCheck,
@@ -19,16 +20,28 @@ type NodeRow = { w: { properties: Record<string, unknown> } };
 const toItem = (row: NodeRow | undefined): WorkItem | null =>
   row ? WorkItem.parse(row.w.properties) : null;
 
-/** Opens a WorkItem. Null when an open or claimed item of the same kind and subject exists. */
+/**
+ * Opens a WorkItem, with `note` as its input when given (a G2 rejection reason). Null when an open or
+ * claimed item of the same kind and subject exists.
+ */
 export async function openItem(
   ctx: Ctx,
-  input: { kind: WorkItemKind; subjectId?: string | null; createdBy: Actor; now: number },
+  input: {
+    kind: WorkItemKind;
+    subjectId?: string | null;
+    note?: string | null;
+    createdBy: Actor;
+    now: number;
+  },
 ): Promise<WorkItem | null> {
   const rows = await writeQuery<NodeRow>(ctx.db, ctx.graph, "write/open-item", {
     id: ulid(),
     projectId: ctx.projectId,
     kind: input.kind,
     subjectId: Id.nullable().parse(input.subjectId ?? null), // checked before it is written
+    note: text(2000)
+      .nullable()
+      .parse(input.note ?? null),
     createdBy: input.createdBy,
     now: input.now,
   });

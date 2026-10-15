@@ -1,11 +1,19 @@
 // Reads the project state the stage machine needs: the stage from the registry, the rest from the
 // client graph (read/stage-state.cypher).
-import { Actor, GateKey, GateStatus, Id, Project } from "@agencymem/contracts";
+import { Actor, EpochMs, GateKey, GateStatus, Id, Project } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, readQuery, type FalkorDB } from "@agencymem/graph";
 import type { StageState } from "./machine";
 
 type Row = {
-  gates: { key: unknown; status: unknown }[];
+  gates: {
+    key: unknown;
+    status: unknown;
+    reason: unknown;
+    decidedAt: unknown;
+    decidedBy: unknown;
+  }[];
+  openProposal: number;
+  lastProposal: { createdAt: unknown; doneAt: unknown } | null;
   openIntake: number;
   processedDocuments: number;
   unopened: { documentId: unknown; createdBy: unknown }[];
@@ -31,13 +39,28 @@ export async function readStageState(
   const gates = (state?.gates ?? []).map((g) => ({
     key: GateKey.parse(g.key),
     status: GateStatus.parse(g.status),
+    reason: typeof g.reason === "string" ? g.reason : null,
+    decidedAt: EpochMs.nullable().parse(g.decidedAt ?? null),
+    decidedBy: Actor.nullable().parse(g.decidedBy ?? null),
   }));
+  const g2 = gates.find((g) => g.key === "G2");
+  const last = state?.lastProposal ?? null;
   return {
     stage: project.stage,
     createdBy: project.createdBy,
     gates: gates.map((g) => g.key),
     g1: gates.find((g) => g.key === "G1")?.status ?? null,
     openIntakeAnswer: state?.openIntakeAnswer ?? 0,
+    g2: g2
+      ? { status: g2.status, reason: g2.reason, decidedAt: g2.decidedAt, decidedBy: g2.decidedBy }
+      : null,
+    openProposal: state?.openProposal ?? 0,
+    lastProposal: last
+      ? {
+          createdAt: EpochMs.parse(last.createdAt),
+          doneAt: EpochMs.nullable().parse(last.doneAt ?? null),
+        }
+      : null,
     unopenedAnswers: (state?.unopenedAnswers ?? []).map((a) => ({
       episodeId: Id.parse(a.episodeId),
       createdBy: Actor.parse(a.createdBy),

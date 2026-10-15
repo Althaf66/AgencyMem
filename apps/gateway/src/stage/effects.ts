@@ -2,7 +2,7 @@
 // state, asks machine.next, runs each effect through one memory function and sends its events.
 import type { Id, WorkItemKind } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, graphFor, readQuery, type FalkorDB } from "@agencymem/graph";
-import { createGates, openItem, setStage, type Ctx } from "@agencymem/memory";
+import { createGates, openItem, reopenGate, setStage, type Ctx } from "@agencymem/memory";
 import type { Events } from "../events/bus";
 import { next, type Effect, type StageEvent } from "./machine";
 import { readStageState } from "./state";
@@ -37,6 +37,18 @@ async function apply(ctx: Ctx, effect: Effect, events: Events, now: number): Pro
         summary: `${item.kind} item open`,
       });
       return [{ id: item.id, kind: item.kind }];
+    }
+    case "reopen_gate": {
+      const gate = await reopenGate(ctx, { key: effect.key });
+      if (!gate) return []; // already waiting (rule 2)
+      events.emit(ctx.projectId, "gate.changed", {
+        gateId: gate.id,
+        gateKey: gate.key,
+        status: gate.status,
+        decidedBy: gate.decidedBy,
+        reason: gate.reason,
+      });
+      return [];
     }
   }
 }

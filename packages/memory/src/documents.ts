@@ -82,3 +82,12 @@ export async function createGates(
   });
   return rows.map((r) => Gate.parse(r.x.properties));
 }
+
+/** Sets the rejected Gate `key` back to waiting (stage-machine.md T8). Null when it is not rejected. */
+export async function reopenGate(ctx: Ctx, input: { key: GateKey }): Promise<Gate | null> {
+  const rows = await writeQuery<{ g: Props }>(ctx.db, ctx.graph, "write/reopen-gate", {
+    projectId: ctx.projectId,
+    key: input.key,
+  });
+  return rows[0] ? Gate.parse(rows[0].g.properties) : null;
+}

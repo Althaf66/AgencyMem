@@ -234,7 +234,7 @@ describe("complete", () => {
     expect(result).toBeNull();
   });
 
-  it("sends a failed item back to open with one more attempt, and blocks it at 3", async () => {
+  it("sends a failed item back to open with one more attempt, and blocks it at 3; the first note stays", async () => {
     const { project, item } = await claimed();
     let current = item;
     for (let attempt = 1; attempt <= 3; attempt++) {
@@ -250,7 +250,7 @@ describe("complete", () => {
       expect(failed).toMatchObject({
         attempts: attempt,
         status: attempt < 3 ? "open" : "blocked",
-        note: `attempt ${attempt} failed`,
+        note: "attempt 1 failed", // a later note never replaces the first (an opening note is input)
         leaseOwner: null,
         doneAt: null,
       });
