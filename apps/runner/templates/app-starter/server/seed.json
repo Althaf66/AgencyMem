@@ -1,0 +1,10 @@
+{
+  "clinic": {
+    "name": "Clinic name",
+    "address": "Clinic address",
+    "phone": "0000000000"
+  },
+  "staff": [],
+  "hours": [],
+  "bookings": []
+}

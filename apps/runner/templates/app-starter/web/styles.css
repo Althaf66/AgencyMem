@@ -1,0 +1,44 @@
+:root {
+  --brand: #2f6f73;
+  --brand-ink: #ffffff;
+  --bg: #f7f7f5;
+  --text: #1d1f23;
+  --muted: #6b6f76;
+  --danger: #b42318;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 16px;
+  --space-4: 24px;
+  --radius: 6px;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  padding: var(--space-3);
+  background: var(--brand);
+  color: var(--brand-ink);
+}
+
+header nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+header a {
+  color: var(--brand-ink);
+}
+
+main {
+  padding: var(--space-4) var(--space-3);
+}

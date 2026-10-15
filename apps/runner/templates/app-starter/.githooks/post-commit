@@ -1,0 +1,14 @@
+#!/bin/sh
+# .git/hooks/post-commit, installed by apps/runner/src/repo.ts
+gw="${GATEWAY_URL:-http://127.0.0.1:4000}"
+pid=$(git config agencymem.projectId)
+sha=$(git rev-parse HEAD)
+branch=$(git rev-parse --abbrev-ref HEAD)
+files=$(git diff-tree --root --no-commit-id --name-only -r HEAD | sed 's/.*/"&"/' | paste -sd, -)
+msg=$(git log -1 --pretty=%s | sed 's/\\/\\\\/g; s/"/\\"/g')
+author=$(git log -1 --pretty=%an)
+at=$(( $(git log -1 --pretty=%ct) * 1000 ))
+body="{\"projectId\":\"$pid\",\"sha\":\"$sha\",\"branch\":\"$branch\",\"files\":[$files],\"message\":\"$msg\",\"author\":\"$author\",\"committedAt\":$at}"
+curl -sf -X POST "$gw/hooks/commit" -H "X-AM-Token: $AM_HOOK_TOKEN" \
+  -H "Content-Type: application/json" -d "$body" >/dev/null \
+  || echo "$body" >> "$(git rev-parse --git-common-dir)/am-pending.log"
