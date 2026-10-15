@@ -5,7 +5,27 @@ import { next, type StageEvent, type StageResult, type StageState } from "./mach
 const ana = "human:ana" as const;
 const D1 = "01JA0000000000000000000001";
 const D2 = "01JA0000000000000000000002";
-const fresh: StageState = { stage: "intake", createdBy: ana, gates: [], unopened: [] };
+const fresh: StageState = {
+  stage: "intake",
+  createdBy: ana,
+  gates: [],
+  unopened: [],
+  openIntake: 0,
+  processedDocuments: 0,
+};
+const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
+const intakeDone = (over: Partial<StageState> = {}): StageState => ({
+  ...fresh,
+  gates: ALL_GATES,
+  processedDocuments: 2,
+  ...over,
+});
+const openDiscovery = {
+  type: "open_item",
+  kind: "discovery",
+  subjectId: null,
+  createdBy: "intake",
+} as const;
 
 const rows: [string, StageState, StageEvent, StageResult][] = [
   [
@@ -37,10 +57,10 @@ const rows: [string, StageState, StageEvent, StageResult][] = [
   [
     "startup repairs missing gates and a processed Document that never got its intake item",
     {
-      stage: "intake",
-      createdBy: ana,
+      ...fresh,
       gates: ["G1", "G3"],
       unopened: [{ documentId: D1, createdBy: "persona:01JA0000000000000000000009" }],
+      processedDocuments: 1,
     },
     { type: "startup" },
     {
@@ -54,6 +74,36 @@ const rows: [string, StageState, StageEvent, StageResult][] = [
         },
       ],
     },
+  ],
+  [
+    "T3 the last intake item done: opens discovery, stage discovery",
+    intakeDone(),
+    { type: "item_completed", kind: "intake", outcome: "done", actor: "intake" },
+    { stage: "discovery", effects: [openDiscovery] },
+  ],
+  [
+    "T3 waits while another intake item is open or claimed",
+    intakeDone({ openIntake: 1 }),
+    { type: "item_completed", kind: "intake", outcome: "done", actor: "intake" },
+    { effects: [] },
+  ],
+  [
+    "T3 does not fire on a failed intake item",
+    intakeDone(),
+    { type: "item_completed", kind: "intake", outcome: "failed", actor: "intake" },
+    { effects: [] },
+  ],
+  [
+    "T3 does not fire outside intake",
+    intakeDone({ stage: "discovery" }),
+    { type: "item_completed", kind: "intake", outcome: "done", actor: "intake" },
+    { effects: [] },
+  ],
+  [
+    "startup repairs a missed T3: every intake item done, still in intake",
+    intakeDone(),
+    { type: "startup" },
+    { stage: "discovery", effects: [openDiscovery] },
   ],
   [
     "startup with nothing half done does nothing",

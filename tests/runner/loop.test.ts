@@ -114,7 +114,12 @@ describe("Done when: a test agent takes one item from claim to complete", () => 
     expect(
       await rows(
         project.id,
-        q("MATCH", "(w:WorkItem)", "RETURN", "w.kind, w.status, w.handoff, w.attempts"),
+        q(
+          "MATCH",
+          "(w:WorkItem {kind: 'intake'})",
+          "RETURN",
+          "w.kind, w.status, w.handoff, w.attempts",
+        ),
       ),
     ).toEqual([["intake", "done", "2 episodes", 0]]);
     expect(

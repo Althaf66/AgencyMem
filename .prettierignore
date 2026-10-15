@@ -6,3 +6,6 @@ docs
 AGENTS.md
 CLAUDE.md
 START-HERE.md
+# Agent prompts go to the model exactly as written (agent-prompts.md).
+apps/runner/src/agents/**/*.md
+tests/runner/**/*.md

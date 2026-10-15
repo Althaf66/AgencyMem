@@ -19,9 +19,8 @@ function agentFor(kind: WorkItemKind): AgentId {
 
 /**
  * recall_context (contracts.md section 7). Guard: tenancy. Returns the item, its project and the
- * context groups. Phase 1 fills `handoffs`; each other group arrives with the agent that reads it
- * (agent-prompts.md). The JSON stays within CONTEXT_RECALL_MAX_CHARS: handoffs are cut first, to
- * the newest 5.
+ * context groups: `handoffs` always, and the groups each item kind reads (agent-prompts.md); the
+ * others arrive with the agents that read them. The JSON stays within CONTEXT_RECALL_MAX_CHARS.
  */
 export async function recallContextTool(
   ctx: ToolCtx,
@@ -43,11 +42,34 @@ export async function recallContextTool(
   const context: Context = {
     handoffs: rows.map((r) => ({ ...r, agent: agentFor(r.kind) })),
   };
+  const { graph, projectId } = ctx.binding;
 
-  let chars = JSON.stringify({ item, project, context }).length;
+  // agent-prompts.md section 2: an intake item reads its Document's episodes and every entity.
+  if (item.kind === "intake" && item.subjectId) {
+    context.episodes = await readQuery<NonNullable<Context["episodes"]>[number]>(
+      ctx.db,
+      graph,
+      "read/document-episodes",
+      { projectId, documentId: item.subjectId },
+    );
+    context.entities = await readQuery<NonNullable<Context["entities"]>[number]>(
+      ctx.db,
+      graph,
+      "read/entities",
+      { projectId },
+    );
+  }
+
+  // contracts.md section 7: cut until it fits, handoffs to the newest 5, then episode text to 300.
+  const size = () => JSON.stringify({ item, project, context }).length;
+  let chars = size();
   if (chars > ctx.recallMaxChars && context.handoffs && context.handoffs.length > 5) {
     context.handoffs = context.handoffs.slice(0, 5); // newest first
-    chars = JSON.stringify({ item, project, context }).length;
+    chars = size();
+  }
+  if (chars > ctx.recallMaxChars && context.episodes) {
+    context.episodes = context.episodes.map((e) => ({ ...e, text: e.text.slice(0, 300) }));
+    chars = size();
   }
   return ok({ item, project, context, chars });
 }

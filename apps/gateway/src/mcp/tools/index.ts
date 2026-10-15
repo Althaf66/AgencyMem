@@ -6,6 +6,7 @@ import { findImpactTool } from "./find-impact";
 import { heartbeatTool } from "./heartbeat";
 import { readQueryTool } from "./read-query";
 import { recallContextTool } from "./recall-context";
+import { writeFactTool } from "./write-fact";
 import { writeHandoffTool } from "./write-handoff";
 
 export type { Outcome, ToolCtx } from "./common";
@@ -19,6 +20,7 @@ export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   complete_item: completeItemTool,
   recall_context: recallContextTool,
   write_handoff: writeHandoffTool,
+  write_fact: writeFactTool,
   find_impact: findImpactTool,
   read_query: readQueryTool,
 };

@@ -1,6 +1,7 @@
 import type { ToolInput, ToolOutput } from "@agencymem/contracts";
 import { complete } from "@agencymem/memory";
 import { lease, reject } from "../guards";
+import { runStage } from "../../stage/effects";
 import {
   agentOf,
   fail,
@@ -17,7 +18,8 @@ import {
 
 /**
  * complete_item (contracts.md section 7). Guard: lease. done or failed, with one Run per `runs`
- * entry. The stage machine that opens the next items arrives in Phase 2, so `opened` is empty.
+ * entry. Then the stage machine runs (stage-machine.md section 1, rule 1) and `opened` lists the
+ * items it opened.
  */
 export async function completeItemTool(
   ctx: ToolCtx,
@@ -72,5 +74,11 @@ export async function completeItemTool(
     version: item.version,
     summary: `${item.kind} item ${item.status}`,
   });
-  return ok({ item: { id: item.id, status: item.status, attempts: item.attempts }, opened: [] });
+  const opened = await runStage(ctx.db, ctx.events, projectId, {
+    type: "item_completed",
+    kind: item.kind,
+    outcome: input.outcome,
+    actor: agent,
+  });
+  return ok({ item: { id: item.id, status: item.status, attempts: item.attempts }, opened });
 }

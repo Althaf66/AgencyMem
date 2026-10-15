@@ -263,3 +263,56 @@ describe("replayChat (recorded replies)", () => {
     }
   });
 });
+
+describe("replayChat placeholders (recorded replies with ids from CONTEXT)", () => {
+  const context = (doc: string) => ({
+    episodes: [
+      {
+        id: "01JA00000000000000000000E1",
+        documentName: doc,
+        page: 1,
+        lineStart: 4,
+        lineEnd: 6,
+        text: "x",
+      },
+      {
+        id: "01JA00000000000000000000E2",
+        documentName: doc,
+        page: 2,
+        lineStart: 1,
+        lineEnd: 1,
+        text: "y",
+      },
+    ],
+  });
+  const request = (doc: string) => ({
+    tier: "thin" as const,
+    maxTokens: 10,
+    messages: [
+      { role: "system" as const, content: "s" },
+      {
+        role: "user" as const,
+        content: `CONTEXT: ${JSON.stringify(context(doc))}
+TASK: t`,
+      },
+    ],
+  });
+  const forDoc = (doc: string) =>
+    JSON.stringify({ ids: [`{{episode:${doc}:1:4}}`, `{{episode:${doc}:2:1}}`] });
+
+  it("puts in the id of the CONTEXT episode, and picks the reply whose placeholders fit", async () => {
+    const chat = replayChat([forDoc("a.pdf"), forDoc("b.docx")]);
+    const first = await chat(request("b.docx"));
+    expect(JSON.parse(first.content)).toEqual({
+      ids: ["01JA00000000000000000000E1", "01JA00000000000000000000E2"],
+    });
+    const second = await chat(request("a.pdf"));
+    expect(JSON.parse(second.content).ids).toHaveLength(2);
+    await expect(chat(request("a.pdf"))).rejects.toThrow(/no more recorded replies/);
+  });
+
+  it("fails when no recorded reply fits the CONTEXT", async () => {
+    const chat = replayChat([forDoc("a.pdf")]);
+    await expect(chat(request("c.txt"))).rejects.toThrow(/no recorded reply fits/);
+  });
+});

@@ -4,7 +4,12 @@ import { Actor, GateKey, Id, Project } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, readQuery, type FalkorDB } from "@agencymem/graph";
 import type { StageState } from "./machine";
 
-type Row = { gates: unknown[]; unopened: { documentId: unknown; createdBy: unknown }[] };
+type Row = {
+  gates: unknown[];
+  openIntake: number;
+  processedDocuments: number;
+  unopened: { documentId: unknown; createdBy: unknown }[];
+};
 
 /** Null for an unknown project. */
 export async function readStageState(
@@ -25,6 +30,8 @@ export async function readStageState(
     stage: project.stage,
     createdBy: project.createdBy,
     gates: GateKey.array().parse(state?.gates ?? []),
+    openIntake: state?.openIntake ?? 0,
+    processedDocuments: state?.processedDocuments ?? 0,
     unopened: (state?.unopened ?? []).map((u) => ({
       documentId: Id.parse(u.documentId),
       createdBy: Actor.parse(u.createdBy),

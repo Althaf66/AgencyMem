@@ -1,6 +1,6 @@
 // The stage machine (stage-machine.md): one pure function from the project state and an event to a
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
-// T1 and T2 here (task 2.2).
+// T1 and T2 (task 2.2), T3 (task 2.5).
 import type { Actor, DocumentStatus, GateKey, Id, Stage, WorkItemKind } from "@agencymem/contracts";
 
 /** Gates that exist from project creation; each G6 is created by propose_fix. */
@@ -14,11 +14,20 @@ export type StageState = {
   gates: GateKey[];
   /** Processed Documents with no intake item, each with the actor who uploaded it. */
   unopened: { documentId: Id; createdBy: Actor }[];
+  /** Intake items open or claimed. */
+  openIntake: number;
+  processedDocuments: number;
 };
 
 export type StageEvent =
   | { type: "project_created"; actor: Actor }
   | { type: "files_uploaded"; actor: Actor; documents: { id: Id; status: DocumentStatus }[] }
+  | {
+      type: "item_completed";
+      kind: WorkItemKind;
+      outcome: "done" | "failed";
+      actor: Actor;
+    }
   | { type: "startup" };
 
 export type Effect =
@@ -34,6 +43,16 @@ const openIntake = (subjectId: Id, createdBy: Actor): Effect => ({
   subjectId,
   createdBy,
 });
+
+/** T3's condition: still in intake, no intake item open or claimed, at least one processed file. */
+const intakeFinished = (s: StageState) =>
+  s.stage === "intake" && s.openIntake === 0 && s.processedDocuments > 0;
+
+// T3: Discovery starts. The intake agent, whose last item finished intake, opens it.
+const startDiscovery: StageResult = {
+  stage: "discovery",
+  effects: [{ type: "open_item", kind: "discovery", subjectId: null, createdBy: "intake" }],
+};
 
 export function next(state: StageState, event: StageEvent): StageResult {
   switch (event.type) {
@@ -52,14 +71,23 @@ export function next(state: StageState, event: StageEvent): StageResult {
           .map((d) => openIntake(d.id, event.actor)),
       };
 
+    // T3: complete_item on intake, when no other intake item is open or claimed.
+    case "item_completed":
+      if (event.kind === "intake" && event.outcome === "done" && intakeFinished(state)) {
+        return startDiscovery;
+      }
+      return { effects: [] };
+
     // Rule 3: repair what a crash between a write and its effects left half done.
     case "startup": {
       const effects: Effect[] = [];
       const missing = PROJECT_GATES.filter((key) => !state.gates.includes(key));
       if (missing.length)
         effects.push({ type: "create_gates", keys: missing, createdBy: state.createdBy });
-      if (state.stage === "intake") {
+      if (state.unopened.length && state.stage === "intake") {
         for (const d of state.unopened) effects.push(openIntake(d.documentId, d.createdBy));
+      } else if (intakeFinished(state)) {
+        return { stage: startDiscovery.stage, effects: [...effects, ...startDiscovery.effects] };
       }
       return { effects };
     }
