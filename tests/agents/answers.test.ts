@@ -6,16 +6,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Envelope, GateView, ProjectInfo, QuestionView } from "@agencymem/contracts";
 import { discovery } from "../../apps/runner/src/agents/discovery/agent";
 import { intake } from "../../apps/runner/src/agents/intake/agent";
-import { startHarness, ui, type Harness } from "./harness";
+import { OWN_A as OWN, startHarness, ui, type Harness } from "./harness";
 
 // Built at run time, so this file holds no Cypher string literal (AGENTS.md rule 4).
 const q = (...parts: string[]) => parts.join(" ");
-// Own answers, by question index (route 8 order); every other question accepts its recommendation.
-// intake-answer-A.json has one Intake reply per answer.
-const OWN: Record<number, string> = {
-  1: "Closed on Saturday; open Monday to Friday.",
-  9: "Under 3 seconds on a 4G phone.",
-};
 
 let h: Harness;
 let project: ProjectInfo;

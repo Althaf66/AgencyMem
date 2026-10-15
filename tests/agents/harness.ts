@@ -6,7 +6,13 @@ import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { loadConfig, type Envelope, type ProjectInfo } from "@agencymem/contracts";
+import {
+  loadConfig,
+  type Envelope,
+  type GateView,
+  type ProjectInfo,
+  type QuestionView,
+} from "@agencymem/contracts";
 import { close, connect, type FalkorDB } from "@agencymem/graph";
 import { deleteTestClient } from "@agencymem/memory";
 import { createModelClient, loadRecording, replayChat } from "@agencymem/llm";
@@ -21,6 +27,12 @@ const FILES = ["kickoff-notes.pdf", "client-summary.docx", "whatsapp-chat.txt"];
 const TOKENS = { AM_AGENT_TOKEN: "agent-t", AM_UI_TOKEN: "ui-t", AM_HOOK_TOKEN: "hook-t" };
 const FALKORDB_URL = process.env.FALKORDB_URL ?? "redis://localhost:6380";
 export const ui = { "X-AM-Token": "ui-t", "X-AM-Actor": "human:ana" };
+// Set A's own answers, by question index (route 8 order); every other question accepts its
+// recommendation. intake-answer-A.json has one Intake reply per answer.
+export const OWN_A: Record<number, string> = {
+  1: "Closed on Saturday; open Monday to Friday.",
+  9: "Under 3 seconds on a 4G phone.",
+};
 
 export type Harness = {
   base: string;
@@ -29,6 +41,8 @@ export type Harness = {
   project(set: string): Promise<ProjectInfo>;
   /** Runs `agent` on the recording until `items` of its items in the project are done. */
   run(agent: Agent<unknown>, recording: string, projectId: string, items: number): Promise<void>;
+  /** Answers every question as `own` says (route 9), then approves G1 (route 11). */
+  answerAndApprove(projectId: string, own: Record<number, string>): Promise<void>;
   /** A read query on the project's client graph: rows of values. */
   rows(projectId: string, cypher: string): Promise<unknown[][]>;
   stop(): Promise<void>;
@@ -102,6 +116,29 @@ export async function startHarness(): Promise<Harness> {
         stop.abort();
         await loop;
       }
+    },
+    async answerAndApprove(projectId, own) {
+      const json = { ...ui, "Content-Type": "application/json", "X-AM-Project": projectId };
+      const get = async <T>(path: string) =>
+        (await (await fetch(`${base}${path}`, { headers: json })).json()) as T;
+      const post = (path: string, body: unknown) =>
+        fetch(`${base}${path}`, { method: "POST", headers: json, body: JSON.stringify(body) });
+      const { questions } = await get<{ questions: QuestionView[] }>(
+        `/api/projects/${projectId}/questions`,
+      );
+      for (const [i, { id, version }] of questions.entries()) {
+        await post(
+          `/api/questions/${id}/answer`,
+          own[i] ? { version, accept: false, text: own[i] } : { version, accept: true },
+        );
+      }
+      const { gates } = await get<{ gates: GateView[] }>(`/api/projects/${projectId}/gates`);
+      const g1 = gates.find((g) => g.key === "G1")!;
+      const res = await post(`/api/gates/${g1.id}/decision`, {
+        version: g1.version,
+        decision: "approve",
+      });
+      if (!res.ok) throw new Error(`G1 approve failed: ${res.status}`);
     },
     async rows(projectId, cypher) {
       const res = await fetch(`${base}/api/query`, {

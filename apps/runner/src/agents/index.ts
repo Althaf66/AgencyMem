@@ -3,5 +3,6 @@
 import type { Agent } from "../agent";
 import { discovery } from "./discovery/agent";
 import { intake } from "./intake/agent";
+import { proposal } from "./proposal/agent";
 
-export const AGENTS: Agent<unknown>[] = [intake, discovery];
+export const AGENTS: Agent<unknown>[] = [intake, discovery, proposal];

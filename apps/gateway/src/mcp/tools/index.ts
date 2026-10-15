@@ -9,6 +9,7 @@ import { recallContextTool } from "./recall-context";
 import { writeFactTool } from "./write-fact";
 import { writeQuestionTool } from "./write-question";
 import { writeHandoffTool } from "./write-handoff";
+import { writeProductTool } from "./write-product";
 
 export type { Outcome, ToolCtx } from "./common";
 
@@ -23,6 +24,7 @@ export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   write_handoff: writeHandoffTool,
   write_fact: writeFactTool,
   write_question: writeQuestionTool,
+  write_product: writeProductTool,
   find_impact: findImpactTool,
   read_query: readQueryTool,
 };

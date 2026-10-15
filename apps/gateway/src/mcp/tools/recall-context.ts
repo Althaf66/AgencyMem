@@ -1,5 +1,6 @@
 import {
   Document,
+  FeatureKind,
   WorkItem,
   type AgentId,
   type Context,
@@ -7,7 +8,7 @@ import {
   type ToolOutput,
   type WorkItemKind,
 } from "@agencymem/contracts";
-import { readQuery } from "@agencymem/graph";
+import { AGENCY_GRAPH, readQuery } from "@agencymem/graph";
 import { projectInfo } from "../../project-info";
 import { CLAIMS } from "../guards";
 import { fail, findOwn, ok, type Outcome, type ToolCtx } from "./common";
@@ -104,6 +105,66 @@ export async function recallContextTool(
       .map((r) => Document.parse(r.d.properties))
       .filter((d) => d.status === "processed")
       .map((d) => ({ id: d.id, name: d.name, wordCount: d.wordCount }));
+  }
+
+  // agent-prompts.md section 4: a proposal item reads the current facts, the questions with their
+  // answers, the entities, the lessons of every featureKind in every band (agency graph), and the
+  // current product (empty the first time).
+  if (item.kind === "proposal") {
+    type Ctx = Required<Context>;
+    const facts = await readQuery<Omit<Ctx["facts"][number], "validTo" | "replacedBy">>(
+      ctx.db,
+      graph,
+      "read/current-facts",
+      { projectId },
+    );
+    context.facts = facts.map((f) => ({ ...f, validTo: null, replacedBy: null }));
+    const questions = await readQuery<{
+      q: { properties: Record<string, unknown> };
+      a: { properties: Record<string, unknown> };
+      sources: { factId: string }[];
+      answer: { episodeId: string; text: string } | null;
+    }>(ctx.db, graph, "read/questions", { projectId });
+    context.questions = questions.map(({ q, a, sources, answer }) => ({
+      id: q.properties.id as string,
+      kind: q.properties.kind as Ctx["questions"][number]["kind"],
+      text: q.properties.text as string,
+      recommended: q.properties.recommended as string,
+      status: q.properties.status as Ctx["questions"][number]["status"],
+      factIds: [...new Set(sources.map((s) => s.factId))],
+      assumption: {
+        id: a.properties.id as string,
+        text: a.properties.text as string,
+        status: a.properties.status as Ctx["questions"][number]["assumption"]["status"],
+      },
+      answer: answer && { episodeId: answer.episodeId, text: answer.text },
+    }));
+    context.entities = await readQuery<Ctx["entities"][number]>(ctx.db, graph, "read/entities", {
+      projectId,
+    });
+    const lessons = await readQuery<Ctx["lessons"][number] & { projectIds: string[] }>(
+      ctx.db,
+      AGENCY_GRAPH,
+      "read/similar-lessons",
+      { featureKinds: FeatureKind.options },
+    );
+    context.lessons = lessons.map(({ id, featureKind, clarityBand, ratio, n, text }) => ({
+      id,
+      featureKind,
+      clarityBand,
+      ratio,
+      n,
+      text,
+    }));
+    context.requirements = await readQuery<Ctx["requirements"][number]>(
+      ctx.db,
+      graph,
+      "read/requirements",
+      { projectId },
+    );
+    context.features = await readQuery<Ctx["features"][number]>(ctx.db, graph, "read/features", {
+      projectId,
+    });
   }
 
   // contracts.md section 7: cut until it fits, handoffs to the newest 5, then episode text to 300.
