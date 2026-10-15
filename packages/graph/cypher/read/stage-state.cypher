@@ -4,7 +4,8 @@
 // of T2 and T5). For G2 (T8 to T10): the open or claimed proposal items and the newest one. For
 // C1 and C2: each ChangeRequest with its change_request item, its flags and its follow-up items.
 // For T12: the human_edit Episodes that never got their architect_revise item. For G3 (T13): the
-// newest architect_revise with no subject, which only a G3 rejection opens.
+// newest architect_revise with no subject, which only a G3 rejection opens. For T15: whether a
+// planner item is done, and the build Tasks in Backlog with no write_tests item.
 OPTIONAL MATCH (cr:ChangeRequest {projectId: $projectId})
 OPTIONAL MATCH (ci:WorkItem {projectId: $projectId, kind: 'change_request', subjectId: cr.id})
 WITH cr, count(ci) AS items, sum(CASE WHEN ci.status = 'done' THEN 1 ELSE 0 END) AS done
@@ -44,27 +45,41 @@ WHERE lr.subjectId IS NULL
 WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal,
   collect(CASE WHEN lr IS NULL THEN null ELSE {createdAt: lr.createdAt, doneAt: lr.doneAt} END)[0]
     AS lastRevision
+OPTIONAL MATCH (pw:WorkItem {projectId: $projectId, kind: 'planner', status: 'done'})
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision,
+  count(pw) > 0 AS plannerDone
+OPTIONAL MATCH (t:Task {projectId: $projectId, kind: 'build', column: 'Backlog'})
+OPTIONAL MATCH (tw:WorkItem {projectId: $projectId, kind: 'write_tests', subjectId: t.id})
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone, t,
+  count(tw) AS testItems
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone,
+  collect(CASE WHEN t IS NOT NULL AND testItems = 0 THEN {taskId: t.id} END) AS untestedCards
 OPTIONAL MATCH (i:WorkItem {projectId: $projectId, kind: 'intake'})
 WHERE i.status IN ['open', 'claimed']
-WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone, untestedCards,
   count(i) AS openIntake
 OPTIONAL MATCH (ia:WorkItem {projectId: $projectId, kind: 'intake_answer'})
 WHERE ia.status IN ['open', 'claimed']
-WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, openIntake,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone, untestedCards,
+  openIntake,
   count(ia) AS openIntakeAnswer
 OPTIONAL MATCH (e:Episode {projectId: $projectId, kind: 'answer'})
 OPTIONAL MATCH (we:WorkItem {projectId: $projectId, kind: 'intake_answer', subjectId: e.id})
-WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, openIntake,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone, untestedCards,
+  openIntake,
   openIntakeAnswer, e,
   count(we) AS answerItems
-WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, openIntake, openIntakeAnswer,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone, untestedCards,
+  openIntake, openIntakeAnswer,
   collect(CASE WHEN e IS NOT NULL AND answerItems = 0
     THEN {episodeId: e.id, createdBy: e.createdBy} END) AS unopenedAnswers
 OPTIONAL MATCH (d:Document {projectId: $projectId, status: 'processed'})
 OPTIONAL MATCH (w:WorkItem {projectId: $projectId, kind: 'intake', subjectId: d.id})
-WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, openIntake, openIntakeAnswer,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone, untestedCards,
+  openIntake, openIntakeAnswer,
   unopenedAnswers, d, count(w) AS items
-RETURN changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, openIntake, openIntakeAnswer,
+RETURN changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone, untestedCards,
+  openIntake, openIntakeAnswer,
   unopenedAnswers, count(d) AS processedDocuments,
   collect(CASE WHEN d IS NOT NULL AND items = 0
     THEN {documentId: d.id, createdBy: d.createdBy} END) AS unopened

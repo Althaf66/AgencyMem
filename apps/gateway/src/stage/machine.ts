@@ -1,7 +1,7 @@
 // The stage machine (stage-machine.md): one pure function from the project state and an event to a
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
 // T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2), C1 and C2
-// (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5).
+// (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5), T15 (task 3.6).
 import type {
   Actor,
   ChangeRequestStatus,
@@ -59,6 +59,10 @@ export type StageState = {
   g3: GateState | null;
   /** The newest architect_revise with no subject: a G3 revision (T13 and its repair). */
   lastRevision: { createdAt: EpochMs; doneAt: EpochMs | null } | null;
+  /** A planner item is done (T15 and its repair). */
+  plannerDone: boolean;
+  /** Build Tasks in Backlog with no write_tests item. */
+  untestedCards: { taskId: Id }[];
 };
 
 type GateState = {
@@ -171,6 +175,15 @@ const reviseDesign = (reason: string, createdBy: Actor): Effect => ({
   note: reason,
 });
 
+// T15: the Test agent writes the specs of each new card.
+const writeTests = (s: StageState): Effect[] =>
+  s.untestedCards.map((c) => ({
+    type: "open_item",
+    kind: "write_tests",
+    subjectId: c.taskId,
+    createdBy: "planner",
+  }));
+
 /** T13's return: G3 was rejected and the revision opened after the rejection is done. */
 const g3Revised = (s: StageState) =>
   s.g3?.status === "rejected" &&
@@ -263,6 +276,7 @@ export function next(state: StageState, event: StageEvent): StageResult {
       if (event.kind === "architect_revise" && g3Revised(state)) {
         return { effects: [{ type: "reopen_gate", key: "G3" }] };
       }
+      if (event.kind === "planner") return { effects: writeTests(state) };
       return { effects: [] };
 
     // T12: the Architect revises with the chat text (and its section) as the item's note.
@@ -363,6 +377,8 @@ export function next(state: StageState, event: StageEvent): StageResult {
         ) {
           effects.push(reviseDesign(g3.reason, by));
         }
+      } else if (state.stage === "planning" && state.plannerDone) {
+        effects.push(...writeTests(state));
       }
       return { effects };
     }

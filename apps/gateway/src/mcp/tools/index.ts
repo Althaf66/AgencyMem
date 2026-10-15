@@ -7,6 +7,7 @@ import { heartbeatTool } from "./heartbeat";
 import { readQueryTool } from "./read-query";
 import { recordChangeRequestTool } from "./record-change-request";
 import { recallContextTool } from "./recall-context";
+import { writeCardsTool } from "./write-cards";
 import { writeDesignTool } from "./write-design";
 import { writeFactTool } from "./write-fact";
 import { writeQuestionTool } from "./write-question";
@@ -29,6 +30,7 @@ export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   write_product: writeProductTool,
   record_change_request: recordChangeRequestTool,
   write_design: writeDesignTool,
+  write_cards: writeCardsTool,
   find_impact: findImpactTool,
   read_query: readQueryTool,
 };

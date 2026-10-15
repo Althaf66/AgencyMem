@@ -1,3 +1,4 @@
+export { writeCards, type CardWrite } from "./board";
 export { createChangeRequest } from "./change-requests";
 export { writeHumanEdit } from "./chat";
 export type { Ctx } from "./ctx";

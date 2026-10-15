@@ -194,14 +194,16 @@ export async function recallContextTool(
 
   // agent-prompts.md section 5: an architect or architect_revise item reads the requirements, the
   // features, the current facts, and the current design and sections (empty the first time).
-  if (item.kind === "architect" || item.kind === "architect_revise") {
+  // section 6: a planner item reads the product, the design and the Implementation Plan's sections.
+  const architect = item.kind === "architect" || item.kind === "architect_revise";
+  if (architect || item.kind === "planner") {
     Object.assign(context, await currentProduct());
-    context.facts = await currentFacts();
+    if (architect) context.facts = await currentFacts();
     context.design = await readDesign(ctx.db, graph, projectId);
     const sections = await readQuery<{
       s: { properties: Record<string, unknown> };
       renders: { key: string }[];
-    }>(ctx.db, graph, "read/doc-sections", { projectId, doc: null });
+    }>(ctx.db, graph, "read/doc-sections", { projectId, doc: architect ? null : "plan" });
     context.docSections = sections.map(({ s, renders }) => ({
       id: s.properties.id as string,
       doc: s.properties.doc as Ctx["docSections"][number]["doc"],

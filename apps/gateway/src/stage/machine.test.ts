@@ -23,6 +23,8 @@ const fresh: StageState = {
   unopenedEdits: [],
   g3: null,
   lastRevision: null,
+  plannerDone: false,
+  untestedCards: [],
 };
 const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
 const intakeDone = (over: Partial<StageState> = {}): StageState => ({
@@ -527,6 +529,52 @@ rows.push(
   [
     "startup with the documents waiting for G3 does nothing",
     designing(),
+    { type: "startup" },
+    { effects: [] },
+  ],
+);
+
+const CARD1 = "01JA00000000000000000000T1";
+const CARD2 = "01JA00000000000000000000T2";
+const planning = (over: Partial<StageState> = {}): StageState =>
+  designing({
+    stage: "planning",
+    g3: { status: "approved", reason: null, decidedAt: 500, decidedBy: ana },
+    plannerDone: true,
+    untestedCards: [{ taskId: CARD1 }, { taskId: CARD2 }],
+    ...over,
+  });
+const plannerDone = {
+  type: "item_completed",
+  kind: "planner",
+  outcome: "done",
+  actor: "planner",
+} as const;
+const openWriteTests = (taskId: string) =>
+  ({ type: "open_item", kind: "write_tests", subjectId: taskId, createdBy: "planner" }) as const;
+
+rows.push(
+  [
+    "T15 planner done: opens write_tests for each build card in Backlog",
+    planning(),
+    plannerDone,
+    { effects: [openWriteTests(CARD1), openWriteTests(CARD2)] },
+  ],
+  [
+    "T15 does not fire on a failed planner item",
+    planning({ plannerDone: false }),
+    { ...plannerDone, outcome: "failed" },
+    { effects: [] },
+  ],
+  [
+    "startup repairs a missed T15: planner done, a Backlog card with no write_tests item",
+    planning({ untestedCards: [{ taskId: CARD2 }] }),
+    { type: "startup" },
+    { effects: [openWriteTests(CARD2)] },
+  ],
+  [
+    "startup leaves the cards alone while the planner is still working",
+    planning({ plannerDone: false }),
     { type: "startup" },
     { effects: [] },
   ],
