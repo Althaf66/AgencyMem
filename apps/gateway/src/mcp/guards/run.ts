@@ -75,8 +75,10 @@ export async function rejectAndCount(
   at: { events: Events; tool: string; agent: Actor },
 ): Promise<Rejection> {
   const counter = rejectionCounter(result.guard, result.reasonCode);
-  if (counter) {
-    const value = await countRejection(db, projectId, counter);
+  // No such project (tenancy PROJECT_MISSING or PROJECT_UNKNOWN): nothing to count, and no event,
+  // so a request that names a made-up project id leaves no seq or buffer behind.
+  const value = counter && projectId ? await countRejection(db, projectId, counter) : null;
+  if (counter && value !== null) {
     at.events.emit(projectId, "write.rejected", {
       tool: at.tool,
       guard: result.guard,
@@ -84,7 +86,7 @@ export async function rejectAndCount(
       reason: result.reason,
       agent: at.agent,
     });
-    if (value !== null) at.events.emit(projectId, "metrics.updated", { metric: counter, value });
+    at.events.emit(projectId, "metrics.updated", { metric: counter, value });
   }
   return {
     code: "GUARD_REJECTED",

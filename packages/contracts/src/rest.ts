@@ -233,8 +233,8 @@ export const PathResponse = z.object({ path: GraphView, ms: z.number().nonnegati
 
 // 1 POST /api/projects
 export const CreateProjectBody = z.object({
-  clientName: text(80),
-  projectName: text(80),
+  clientName: text(80).min(1),
+  projectName: text(80).min(1),
   mode: Mode,
 });
 export const CreateProjectResponse = z.object({ project: ProjectInfo });

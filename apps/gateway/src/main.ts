@@ -7,6 +7,8 @@ import { WebSocketServer } from "ws";
 import { loadConfig, type Config, type ErrorBody, type HealthResponse } from "@agencymem/contracts";
 import { connect, isReachable } from "@agencymem/graph";
 import pkg from "../package.json" with { type: "json" };
+import { projectsRouter } from "./api/projects";
+import { queryRouter } from "./api/query";
 import { requireToken, tokenMatches } from "./auth";
 import { createEvents, type Events } from "./events/bus";
 import { startLeaseSweeper } from "./events/sweeper";
@@ -31,22 +33,33 @@ const notFound: RequestHandler = (_req, res) => {
 /**
  * Last in the chain: every error answers with the contract's `{ error: Rejection }` as JSON, never
  * Express's HTML page with a stack trace. A client error from body parsing (bad JSON, over the size
- * limit) is VALIDATION_FAILED, 400: the contracts' status table has no 413.
+ * limit) is VALIDATION_FAILED, 400: the contracts' status table has no 413. FalkorDB down is
+ * GRAPH_UNAVAILABLE, 503; anything else is INTERNAL, 500.
  */
-const onError: ErrorRequestHandler = (err, _req, res, next) => {
-  if (res.headersSent) return next(err);
-  const clientError = typeof err?.status === "number" && err.status >= 400 && err.status < 500;
-  const body: ErrorBody = clientError
-    ? {
+function onError(isUp: () => Promise<boolean>): ErrorRequestHandler {
+  return async (err, _req, res, next) => {
+    if (res.headersSent) return next(err);
+    const clientError = typeof err?.status === "number" && err.status >= 400 && err.status < 500;
+    if (clientError) {
+      const body: ErrorBody = {
         error: {
           code: "VALIDATION_FAILED",
           reason: "The request body is not valid JSON or is too large.",
         },
-      }
-    : { error: { code: "INTERNAL", reason: "Internal error." } };
-  if (!clientError) console.error(`gateway: ${err instanceof Error ? err.message : String(err)}`);
-  res.status(clientError ? 400 : 500).json(body);
-};
+      };
+      return res.status(400).json(body);
+    }
+    if (!(await isUp())) {
+      const body: ErrorBody = {
+        error: { code: "GRAPH_UNAVAILABLE", reason: "FalkorDB is not reachable." },
+      };
+      return res.status(503).json(body);
+    }
+    console.error(`gateway: ${err instanceof Error ? err.message : String(err)}`);
+    const body: ErrorBody = { error: { code: "INTERNAL", reason: "Internal error." } };
+    res.status(500).json(body);
+  };
+}
 
 /** `opts.events` lets a test listen to the bus; the gateway makes its own otherwise. */
 export function createGateway(cfg: Config, opts: { events?: Events } = {}): Server {
@@ -69,21 +82,30 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
   // through to another group's check. Later tasks mount their routers between the two.
   // /api/runs (route 30) takes the agent token and is mounted before /api, which takes the UI
   // token. /mcp takes both: session.ts (task 1.6) limits a UI session to read_query.
-  app.use("/api/runs", requireToken(agent), notFound);
-  app.use("/api", requireToken(ui), notFound);
-  app.use("/hooks", requireToken(hook), notFound);
   const db = () => connect(falkordbUrl);
+  const isUp = () => isReachable(falkordbUrl);
+
+  app.use("/api/runs", requireToken(agent), notFound);
+  app.use(
+    "/api",
+    requireToken(ui),
+    express.json(),
+    projectsRouter({ db, events }),
+    queryRouter({ db, events }),
+    notFound,
+  );
+  app.use("/hooks", requireToken(hook), notFound);
   const mcp = mcpRouter({
     agentToken: agent,
     db,
-    isUp: () => isReachable(falkordbUrl),
+    isUp,
     events,
     leaseMs: required(cfg.LEASE_MS, "LEASE_MS"),
     recallMaxChars: required(cfg.CONTEXT_RECALL_MAX_CHARS, "CONTEXT_RECALL_MAX_CHARS"),
   });
   app.use("/mcp", requireToken(agent, ui), mcp, notFound);
   app.use(notFound); // any other path, with the contract's error body
-  app.use(onError);
+  app.use(onError(isUp));
 
   const server = createServer(app);
 
