@@ -178,7 +178,7 @@ async function main(): Promise<number> {
     return 2;
   }
   const gw = {
-    url: process.env.GATEWAY_URL ?? "http://127.0.0.1:4000",
+    url: process.env.GATEWAY_URL || "http://127.0.0.1:4000", // an empty .env value means unset
     token: process.env.AM_UI_TOKEN ?? "",
   };
   if (!gw.token) {
