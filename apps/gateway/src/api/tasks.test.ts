@@ -328,6 +328,7 @@ describe("human moves (stage-machine.md section 6)", () => {
     const criteria = [
       { key: "AC-01-1", text: "Given one, when two, then three.", testIds: ["book-name"] },
       { key: "AC-01-3", text: "Given four, when five, then six.", testIds: ["book-phone"] },
+      { key: "AC-01-4", text: "Given seven, when eight, then nine.", testIds: ["book-reason"] },
     ];
     const edited = await patch(ctx, ids[0]!, { version: ready.version, criteria });
     expect(edited.body.task).toMatchObject({ column: "Rework" });
@@ -336,6 +337,7 @@ describe("human moves (stage-machine.md section 6)", () => {
     ).toEqual([
       ["AC-01-1", "Given one, when two, then three.", 1],
       ["AC-01-3", "Given four, when five, then six.", 0],
+      ["AC-01-4", "Given seven, when eight, then nine.", 0],
     ]);
     // AC-01-2 lost its edge but the node stays.
     expect(

@@ -93,3 +93,40 @@ export async function retryItem(ctx: Ctx, input: { id: string }): Promise<WorkIt
   );
   return rows[0] ? WorkItem.parse(rows[0].w.properties) : null;
 }
+
+/**
+ * Rewrites cards in Rework (write_cards update mode, replan): fields, links and criteria (MERGE by
+ * key; one left out loses its edge). Ids follow the input order (criteria card by card); `versions`
+ * are the cards' new versions. Null when a card is not in Rework, its version is old, or a
+ * requirement is not current; nothing is written then.
+ */
+export async function updateCards(
+  ctx: Ctx,
+  input: { cards: (CardWrite & { version: number })[]; createdBy: Actor; now: number },
+): Promise<{ taskIds: string[]; versions: number[]; criterionIds: string[] } | null> {
+  const rows = await writeQuery<{
+    tasks: [string, string, number][];
+    criteria: [string, string][];
+  }>(ctx.db, ctx.graph, "write/write-cards-update", {
+    projectId: ctx.projectId,
+    cards: input.cards.map((c) => ({
+      ...c,
+      title: text(80).parse(c.title), // checked before it is written
+      description: text(1200).parse(c.description),
+      designKeys: [...new Set(c.designKeys)],
+      dependsOn: [...new Set(c.dependsOn)],
+      criteria: c.criteria.map((k) => ({ ...k, id: ulid(), text: text(300).parse(k.text) })),
+    })),
+    createdBy: input.createdBy,
+    now: input.now,
+  });
+  const row = rows[0];
+  if (!row) return null;
+  const tasks = new Map(row.tasks.map(([key, id, version]) => [key, { id, version }]));
+  const criteria = new Map(row.criteria);
+  return {
+    taskIds: input.cards.map((c) => tasks.get(c.key)!.id),
+    versions: input.cards.map((c) => tasks.get(c.key)!.version),
+    criterionIds: input.cards.flatMap((c) => c.criteria.map((k) => criteria.get(k.key)!)),
+  };
+}

@@ -319,6 +319,8 @@ const building = (cr: Partial<StageState["changeRequests"][number]> = {}): Stage
         sections: 2,
         revise: false,
         replan: false,
+        replanDone: false,
+        reworkTasks: [],
         ...cr,
       },
     ],
@@ -617,6 +619,37 @@ rows.push(
     planning({ untestedCards: [], readyCards: 1 }),
     { type: "startup" },
     { stage: "build", effects: [] },
+  ],
+);
+
+const T1 = "01JA00000000000000000000R1";
+const T2 = "01JA00000000000000000000R2";
+const tests = (taskId: string) =>
+  ({ type: "open_item", kind: "write_tests", subjectId: taskId, createdBy: "planner" }) as const;
+rows.push(
+  [
+    "C3 replan done: opens write_tests for each flagged card in Rework",
+    building({ revise: true, replan: true, replanDone: true, reworkTasks: [T1, T2] }),
+    { type: "item_completed", kind: "replan", outcome: "done", actor: "planner", subjectId: CR },
+    { effects: [tests(T1), tests(T2)] },
+  ],
+  [
+    "C3 does not fire on a failed replan item",
+    building({ revise: true, replan: true, reworkTasks: [T1] }),
+    { type: "item_completed", kind: "replan", outcome: "failed", actor: "planner", subjectId: CR },
+    { effects: [] },
+  ],
+  [
+    "startup repairs a missed C3: the replan is done, a flagged Rework card has no write_tests item",
+    building({ revise: true, replan: true, replanDone: true, reworkTasks: [T2] }),
+    { type: "startup" },
+    { effects: [tests(T2)] },
+  ],
+  [
+    "startup leaves flagged Rework cards alone while the replan is not done",
+    building({ revise: true, replan: true, reworkTasks: [T2] }),
+    { type: "startup" },
+    { effects: [] },
   ],
 );
 

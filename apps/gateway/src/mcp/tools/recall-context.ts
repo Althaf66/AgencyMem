@@ -196,7 +196,8 @@ export async function recallContextTool(
   // features, the current facts, and the current design and sections (empty the first time).
   // section 6: a planner item reads the product, the design and the Implementation Plan's sections.
   const architect = item.kind === "architect" || item.kind === "architect_revise";
-  if (architect || item.kind === "planner") {
+  const planner = item.kind === "planner" || item.kind === "replan";
+  if (architect || planner) {
     Object.assign(context, await currentProduct());
     if (architect) context.facts = await currentFacts();
     context.design = await readDesign(ctx.db, graph, projectId);
@@ -213,6 +214,37 @@ export async function recallContextTool(
       stale: s.properties.stale as boolean,
       renders: renders.map((n) => n.key),
     }));
+  }
+
+  // section 6, replan: also its ChangeRequest, the current facts with the ones it ended, and the
+  // cards it sent to Rework, with their versions.
+  if (item.kind === "replan" && item.subjectId) {
+    const crId = item.subjectId;
+    const [changeRequest] = await readQuery<Ctx["changeRequest"]>(
+      ctx.db,
+      graph,
+      "read/change-request",
+      { projectId, crId },
+    );
+    if (changeRequest) context.changeRequest = changeRequest;
+    const ended = await readQuery<Ctx["facts"][number]>(ctx.db, graph, "read/ended-facts", {
+      projectId,
+      crId,
+    });
+    context.facts = [...(await currentFacts()), ...ended];
+    const flagged = await readQuery<{ id: string }>(ctx.db, graph, "read/flagged-rework", {
+      projectId,
+      crId,
+    });
+    context.tasks = [];
+    for (const { id } of flagged) {
+      context.tasks.push(
+        ...(await readQuery<Ctx["tasks"][number]>(ctx.db, graph, "read/task", {
+          projectId,
+          taskId: id,
+        })),
+      );
+    }
   }
 
   // agent-prompts.md section 7: a write_tests item reads its card, the Endpoints, Screens and

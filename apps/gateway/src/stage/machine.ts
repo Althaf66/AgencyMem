@@ -2,7 +2,7 @@
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
 // T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2), C1 and C2
 // (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5), T15 (task 3.6), T16 (task 3.8), H3
-// (task 3.9).
+// and C3 (task 3.9).
 import type {
   Actor,
   ChangeRequestStatus,
@@ -54,6 +54,9 @@ export type StageState = {
     /** An architect_revise or replan item exists for it. */
     revise: boolean;
     replan: boolean;
+    /** C3: its replan item is done, and its flagged Rework cards with no write_tests item. */
+    replanDone: boolean;
+    reworkTasks: Id[];
   }[];
   /** human_edit Episodes with no architect_revise item (startup repair of T12). */
   unopenedEdits: { episodeId: Id; text: string; createdBy: Actor }[];
@@ -182,6 +185,15 @@ const reviseDesign = (reason: string, createdBy: Actor): Effect => ({
   note: reason,
 });
 
+// C3: after a replan, the Test agent writes the specs of each card the CR sent to Rework.
+const retest = (cr: ChangeRequestState): Effect[] =>
+  cr.reworkTasks.map((taskId) => ({
+    type: "open_item",
+    kind: "write_tests",
+    subjectId: taskId,
+    createdBy: "planner",
+  }));
+
 // T15: the Test agent writes the specs of each new card.
 const writeTests = (s: StageState): Effect[] =>
   s.untestedCards.map((c) => ({
@@ -274,6 +286,10 @@ export function next(state: StageState, event: StageEvent): StageResult {
         const cr = state.changeRequests.find((c) => c.id === event.subjectId);
         return { effects: cr ? followUps(cr) : [] };
       }
+      if (event.kind === "replan") {
+        const cr = state.changeRequests.find((c) => c.id === event.subjectId);
+        return { effects: cr ? retest(cr) : [] };
+      }
       // T8: the revision is done; G2 waits for a decision again.
       if (event.kind === "proposal" && state.g2?.status === "rejected") {
         return { effects: [{ type: "reopen_gate", key: "G2" }] };
@@ -358,6 +374,7 @@ export function next(state: StageState, event: StageEvent): StageResult {
       for (const cr of state.changeRequests) {
         if (!cr.hasItem) effects.push(applyChangeRequest(cr.id, cr.createdBy));
         else if (cr.itemDone) effects.push(...followUps(cr));
+        if (cr.replanDone) effects.push(...retest(cr));
       }
       if (state.unopened.length && state.stage === "intake") {
         for (const d of state.unopened) effects.push(openIntake(d.documentId, d.createdBy));

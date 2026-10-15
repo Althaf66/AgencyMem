@@ -6,8 +6,8 @@ import {
   type WorkItemKind,
 } from "@agencymem/contracts";
 import { readQuery } from "@agencymem/graph";
-import { writeCards } from "@agencymem/memory";
-import { gate, ownership, reject, source } from "../guards";
+import { updateCards, writeCards } from "@agencymem/memory";
+import { gate, ownership, reject, source, version } from "../guards";
 import {
   agentOf,
   fail,
@@ -22,11 +22,20 @@ import {
 
 const repeated = (keys: string[]) => keys.find((key, i) => keys.indexOf(key) !== i);
 
+type TaskRow = { key: string; column: string; version: number; dependsOn: string[] };
+
+const cycleFail = (cycle: string[]) =>
+  fail({
+    code: "VALIDATION_FAILED",
+    reason: `The cards depend on each other in a cycle: ${cycle.join(" -> ")}.`,
+    details: { cycle },
+  });
+
 /**
- * write_cards (contracts.md section 7), create mode. Guards: ownership, gate G3, source (each card's
- * requirement is current; each design key names a design node). Then the cards themselves: unique
- * card and criterion keys, dependencies only on cards of this call, no cycle, no key that exists.
- * Update mode (replan) is not built yet.
+ * write_cards (contracts.md section 7). Guards: ownership, gate G3, source (each card's requirement
+ * is current; each design key names a design node), then version per card in update mode. Create
+ * (a planner item): new keys only, dependencies only on cards of this call. Update (a replan item):
+ * cards in Rework only, criteria keys of their own card, dependencies on any card. No cycle.
  */
 export async function writeCardsTool(
   ctx: ToolCtx,
@@ -35,12 +44,13 @@ export async function writeCardsTool(
   const { agent } = agentOf(ctx);
   const found = await findOwn(ctx, input.itemId, "WorkItem");
   if (!found.ok) return found;
-  const refused = ownership({ kind: "agent", agent }, "write_cards", {
-    itemKind: found.output.kind as WorkItemKind,
-  });
+  const itemKind = found.output.kind as WorkItemKind;
+  const refused = ownership({ kind: "agent", agent }, "write_cards", { itemKind });
   if (refused) return guardFail(ctx, refused);
-  // ponytail: update mode arrives with replan; no task builds it yet (decided in task 3.6).
-  if (input.mode === "update") return invalid("write_cards update mode is not built yet.");
+  const update = input.mode === "update";
+  if (update !== (itemKind === "replan")) {
+    return invalid(`A ${itemKind} item writes cards in ${update ? "create" : "update"} mode.`);
+  }
 
   const { db } = ctx;
   const { graph, projectId } = ctx.binding;
@@ -79,22 +89,83 @@ export async function writeCardsTool(
   const twice =
     repeated(keys) ?? repeated(input.cards.flatMap((c) => c.criteria.map((k) => k.key)));
   if (twice) return invalid(`${twice} is written twice.`);
-  const unknownDep = input.cards.find((c) => c.dependsOn.some((k) => !keys.includes(k)));
-  if (unknownDep) {
-    return invalid(`${unknownDep.key} depends on a card that is not in this call.`);
-  }
-  const cycle = findCycle(input.cards);
-  if (cycle) {
-    return fail({
-      code: "VALIDATION_FAILED",
-      reason: `The cards depend on each other in a cycle: ${cycle.join(" -> ")}.`,
-      details: { cycle },
-    });
-  }
-  const existing = await readQuery<{ key: string }>(db, graph, "read/tasks", { projectId });
-  const taken = existing.find((t) => keys.includes(t.key));
-  if (taken) return invalid(`${taken.key} already exists.`);
+  const tasks = await readQuery<TaskRow>(db, graph, "read/tasks", { projectId });
+  const byKey = new Map(tasks.map((t) => [t.key, t]));
 
+  if (!update) {
+    const unknownDep = input.cards.find((c) => c.dependsOn.some((k) => !keys.includes(k)));
+    if (unknownDep) {
+      return invalid(`${unknownDep.key} depends on a card that is not in this call.`);
+    }
+    const cycle = findCycle(input.cards);
+    if (cycle) return cycleFail(cycle);
+    const taken = keys.find((key) => byKey.has(key));
+    if (taken) return invalid(`${taken} already exists.`);
+    return created(ctx, input, agent);
+  }
+
+  for (const c of input.cards) {
+    const current = byKey.get(c.key);
+    if (current?.column !== "Rework") {
+      return invalid(
+        `${c.key} is ${current ? `in ${current.column}` : "not a card"}; only cards in Rework are updated.`,
+      );
+    }
+    // A criterion key names its card, so an update never reaches another card's criteria.
+    const own = `AC-${c.key.slice("CARD-".length)}-`;
+    const foreign = c.criteria.find((k) => !k.key.startsWith(own));
+    if (foreign) return invalid(`${foreign.key} is not a criterion of ${c.key}.`);
+    const unknownDep = c.dependsOn.find((k) => !byKey.has(k));
+    if (unknownDep) return invalid(`${c.key} depends on ${unknownDep}, which is not a card.`);
+  }
+  // The whole board's dependencies, with the updated cards' new ones.
+  const updated = new Map(input.cards.map((c) => [c.key, c.dependsOn]));
+  const cycle = findCycle(
+    tasks.map((t) => ({ key: t.key, dependsOn: updated.get(t.key) ?? t.dependsOn })),
+  );
+  if (cycle) return cycleFail(cycle);
+  for (const c of input.cards) {
+    const stale = version(c.version!, byKey.get(c.key)!.version);
+    if (stale) return guardFail(ctx, stale);
+  }
+
+  const written = await updateCards(memoryCtx(ctx), {
+    cards: input.cards.map((c) => ({ ...c, version: c.version! })),
+    createdBy: agent,
+    now: ctx.now(),
+  });
+  if (!written) {
+    // Between the checks above and the write, a card or a requirement changed.
+    return guardFail(
+      ctx,
+      reject("version", "VERSION_OLD", "A card or a requirement changed; read again."),
+    );
+  }
+  const { taskIds, versions, criterionIds } = written;
+  ctx.events.emit(projectId, "node.written", {
+    label: "Task",
+    id: taskIds[0]!,
+    version: versions[0]!,
+    summary: `${taskIds.length} cards revised in Rework`,
+    ids: taskIds,
+  });
+  ctx.events.emit(projectId, "node.written", {
+    label: "AcceptanceCriterion",
+    id: criterionIds[0]!,
+    version: 1,
+    summary: `${criterionIds.length} acceptance criteria`,
+    ids: criterionIds,
+  });
+  return ok({ taskIds, criterionIds });
+}
+
+/** Create mode's write and events, after the checks. */
+async function created(
+  ctx: ToolCtx,
+  input: ToolInput<"write_cards">,
+  agent: ReturnType<typeof agentOf>["agent"],
+): Promise<Outcome<ToolOutput<"write_cards">>> {
+  const { projectId } = ctx.binding;
   const written = await writeCards(memoryCtx(ctx), {
     cards: input.cards,
     createdBy: agent,

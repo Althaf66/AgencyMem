@@ -2,7 +2,8 @@
 // Gates, the open or claimed intake and intake_answer items (T3, T6, T7), the processed Documents
 // (T3), and the processed Documents and answer Episodes that never got their item (startup repair
 // of T2 and T5). For G2 (T8 to T10): the open or claimed proposal items and the newest one. For
-// C1 and C2: each ChangeRequest with its change_request item, its flags and its follow-up items.
+// C1 and C2: each ChangeRequest with its change_request item, its flags and its follow-up items;
+// for C3, whether its replan item is done and its flagged Rework cards with no write_tests item.
 // For T12: the human_edit Episodes that never got their architect_revise item. For G3 (T13): the
 // newest architect_revise with no subject, which only a G3 rejection opens. For T15: whether a
 // planner item is done, and the build Tasks in Backlog with no write_tests item. For T16: the build
@@ -18,10 +19,18 @@ OPTIONAL MATCH (fw:WorkItem {projectId: $projectId, subjectId: cr.id})
 WHERE fw.kind IN ['architect_revise', 'replan']
 WITH cr, items, done, tasks, sections,
   sum(CASE WHEN fw.kind = 'architect_revise' THEN 1 ELSE 0 END) AS revise,
-  sum(CASE WHEN fw.kind = 'replan' THEN 1 ELSE 0 END) AS replan
+  sum(CASE WHEN fw.kind = 'replan' THEN 1 ELSE 0 END) AS replan,
+  sum(CASE WHEN fw.kind = 'replan' AND fw.status = 'done' THEN 1 ELSE 0 END) AS replanDone
+OPTIONAL MATCH (rt:Task {column: 'Rework'})-[:FLAGGED_BY]->(cr)
+OPTIONAL MATCH (rw:WorkItem {projectId: $projectId, kind: 'write_tests', subjectId: rt.id})
+WHERE rw.status IN ['open', 'claimed', 'blocked']
+WITH cr, items, done, tasks, sections, revise, replan, replanDone, rt, count(rw) AS testItems
+WITH cr, items, done, tasks, sections, revise, replan, replanDone,
+  collect(CASE WHEN rt IS NOT NULL AND testItems = 0 THEN rt.id END) AS reworkTasks
 WITH collect(CASE WHEN cr IS NULL THEN null ELSE {id: cr.id, text: cr.text, status: cr.status,
   createdBy: cr.createdBy, hasItem: items > 0, itemDone: done > 0, tasks: tasks,
-  sections: sections, revise: revise > 0, replan: replan > 0} END) AS changeRequests
+  sections: sections, revise: revise > 0, replan: replan > 0, replanDone: replanDone > 0,
+  reworkTasks: reworkTasks} END) AS changeRequests
 OPTIONAL MATCH (he:Episode {projectId: $projectId, kind: 'human_edit'})
 OPTIONAL MATCH (hw:WorkItem {projectId: $projectId, kind: 'architect_revise', subjectId: he.id})
 WITH changeRequests, he, count(hw) AS editItems

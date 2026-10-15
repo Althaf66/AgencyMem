@@ -9,6 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadConfig, type Envelope } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, close, connect, readQuery, type FalkorDB } from "@agencymem/graph";
 import {
+  createChangeRequest,
   createGates,
   createProject,
   deleteTestClient,
@@ -169,7 +170,7 @@ async function call(client: Client, args: Record<string, unknown>) {
   return { isError: result.isError === true, out: result.structuredContent ?? {} };
 }
 const error = (out: Record<string, unknown>) =>
-  out.error as { code: string; guard?: string; details?: Record<string, unknown> };
+  out.error as { code: string; guard?: string; reason: string; details?: Record<string, unknown> };
 const rows = (ctx: Ctx, cypher: string) =>
   db
     .selectGraph(ctx.graph)
@@ -258,7 +259,7 @@ describe("write_cards: guards", () => {
     expect(await rows(ctx, q("MATCH", "(t:Task)", "RETURN", "count(t) AS n"))).toEqual([{ n: 0 }]);
   });
 
-  it("refuses update mode until replan is built", async () => {
+  it("refuses update mode on a planner item (update mode is for replan)", async () => {
     const { ctx, item } = await setup();
     const res = await call(await agent(ctx.projectId), {
       ...cards(item.id),
@@ -478,5 +479,168 @@ describe("write_tests (task 3.8)", () => {
       { projectId: ctx.projectId },
     );
     expect(project!.p.properties.stage).toBe("build");
+  });
+});
+
+describe("write_cards: update mode for replan (task 3.9)", () => {
+  /** CARD-01 (in Rework) and CARD-02 (Backlog, depends on CARD-01), and a replan item. */
+  async function reworked() {
+    const { ctx } = await setup();
+    const now = Date.now();
+    const two = card(1, {
+      criteria: [
+        { key: "AC-01-1", text: "Given one, when two, then three.", testIds: ["book-submit"] },
+        { key: "AC-01-2", text: "Given four, when five, then six.", testIds: ["booking-code"] },
+      ],
+    });
+    const { taskIds } = (await writeCards(ctx, {
+      cards: [two, card(2)] as never,
+      createdBy: "planner",
+      now,
+    }))!;
+    await writeVersioned(ctx, { id: taskIds[0]!, version: 1, props: { column: "Rework" } });
+    const { changeRequest } = await createChangeRequest(ctx, {
+      text: "Rule 1 is B.",
+      createdBy: "human:ana",
+      now,
+    });
+    const item = (await openItem(ctx, {
+      kind: "replan",
+      subjectId: changeRequest.id,
+      createdBy: "proposal",
+      now,
+    }))!;
+    return { ctx, item, ids: taskIds };
+  }
+  const update = (itemId: string, cards: unknown[]) => ({ itemId, mode: "update", cards });
+  const revised = (over: Record<string, unknown> = {}) => ({
+    ...card(1),
+    version: 2,
+    title: "Card 1, revised",
+    requirementKey: "REQ-02",
+    designKeys: ["SCR-01"],
+    criteria: [
+      { key: "AC-01-1", text: "Given a, when b, then c.", testIds: ["book-name"] },
+      { key: "AC-01-3", text: "Given d, when e, then f.", testIds: ["book-phone"] },
+    ],
+    ...over,
+  });
+
+  it("refuses a card that is not in Rework, an old version, another card's criterion and a cycle", async () => {
+    const { ctx, item } = await reworked();
+    const planner = await agent(ctx.projectId);
+    const backlog = await call(planner, update(item.id, [{ ...card(2), version: 1 }]));
+    expect(error(backlog.out)).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(error(backlog.out).reason).toMatch(/CARD-02 is in Backlog/);
+    const old = await call(planner, update(item.id, [revised({ version: 1 })]));
+    expect(error(old.out)).toMatchObject({
+      guard: "version",
+      details: { reasonCode: "VERSION_OLD" },
+    });
+    const foreign = await call(
+      planner,
+      update(item.id, [revised({ criteria: [{ key: "AC-02-1", text: "x", testIds: ["a"] }] })]),
+    );
+    expect(error(foreign.out)).toMatchObject({ code: "VALIDATION_FAILED" });
+    // CARD-02 already depends on CARD-01, so CARD-01 may not depend on CARD-02.
+    const cycle = await call(planner, update(item.id, [revised({ dependsOn: ["CARD-02"] })]));
+    expect(error(cycle.out)).toMatchObject({
+      code: "VALIDATION_FAILED",
+      details: { cycle: ["CARD-01", "CARD-02", "CARD-01"] },
+    });
+  });
+
+  it("rewrites a Rework card in place: fields, links and criteria merged by key", async () => {
+    const { ctx, item, ids } = await reworked();
+    const [before] = await rows(
+      ctx,
+      q("MATCH", "(k:AcceptanceCriterion {key: 'AC-01-1'})", "RETURN", "k.id AS id"),
+    );
+    const planner = await agent(ctx.projectId);
+    const sent: Envelope[] = [];
+    const off = events.on((e) => e.projectId === ctx.projectId && sent.push(e));
+    const res = await call(planner, update(item.id, [revised()]));
+    off();
+    expect(res.out.error).toBeUndefined();
+    expect(res.out.taskIds).toEqual([ids[0]]);
+    const criterionIds = res.out.criterionIds as string[];
+    expect(criterionIds[0]).toBe(before!.id); // AC-01-1 kept its node
+    expect(
+      await rows(
+        ctx,
+        q(
+          "MATCH",
+          "(t:Task {key: 'CARD-01'})-[:IMPLEMENTS]->(r:Requirement)",
+          "OPTIONAL MATCH",
+          "(t)-[:USES]->(d)",
+          "WITH",
+          "t, r, collect(d.key) AS uses",
+          "OPTIONAL MATCH",
+          "(t)-[:HAS_CRITERION]->(k:AcceptanceCriterion)",
+          "RETURN",
+          "t.title AS title, t.column AS col, t.version AS v, r.key AS req, uses,",
+          "collect(k.key) AS criteria",
+        ),
+      ),
+    ).toEqual([
+      {
+        title: "Card 1, revised",
+        col: "Rework",
+        v: 3,
+        req: "REQ-02",
+        uses: ["SCR-01"],
+        criteria: expect.arrayContaining(["AC-01-1", "AC-01-3"]),
+      },
+    ]);
+    // AC-01-2 lost its edge; the node stays.
+    expect(
+      await rows(
+        ctx,
+        q("MATCH", "(k:AcceptanceCriterion {key: 'AC-01-2'})", "RETURN", "count(k) AS n"),
+      ),
+    ).toEqual([{ n: 1 }]);
+    expect(
+      sent.filter((e) => e.type === "node.written").map((e) => (e.data as { label: string }).label),
+    ).toEqual(["Task", "AcceptanceCriterion"]);
+  });
+
+  it("gives each of two cards its own new criteria (no MERGE across rows)", async () => {
+    const { ctx, item, ids } = await reworked();
+    await writeVersioned(ctx, { id: ids[1]!, version: 1, props: { column: "Rework" } });
+    const planner = await agent(ctx.projectId);
+    const res = await call(
+      planner,
+      update(item.id, [
+        revised(),
+        {
+          ...card(2),
+          version: 2,
+          criteria: [
+            { key: "AC-02-2", text: "Given g, when h, then i.", testIds: ["book-name"] },
+            { key: "AC-02-3", text: "Given j, when k, then l.", testIds: ["book-phone"] },
+          ],
+        },
+      ]),
+    );
+    expect(res.out.error).toBeUndefined();
+    expect((res.out.criterionIds as string[]).every(Boolean)).toBe(true);
+    expect(new Set(res.out.criterionIds as string[]).size).toBe(4);
+    expect(
+      await rows(
+        ctx,
+        q(
+          "MATCH",
+          "(t:Task)-[:HAS_CRITERION]->(k:AcceptanceCriterion)",
+          "RETURN",
+          "t.key AS card, k.key AS key, k.text AS text",
+          "ORDER BY key",
+        ),
+      ),
+    ).toEqual([
+      { card: "CARD-01", key: "AC-01-1", text: "Given a, when b, then c." },
+      { card: "CARD-01", key: "AC-01-3", text: "Given d, when e, then f." },
+      { card: "CARD-02", key: "AC-02-2", text: "Given g, when h, then i." },
+      { card: "CARD-02", key: "AC-02-3", text: "Given j, when k, then l." },
+    ]);
   });
 });

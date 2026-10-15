@@ -3,16 +3,27 @@ import type { Recall } from "../../agent";
 import { checkCards, planner } from "./agent";
 import type { PlannerOutput } from "./output";
 
-const recall = {
-  item: { id: "01JA0000000000000000000001", kind: "planner", note: null },
-  project: { designVersion: 2 },
-  context: {
-    requirements: [{ key: "REQ-01" }, { key: "REQ-02" }],
-    features: [{ key: "FEAT-01" }],
-    design: [{ key: "EP-01" }, { key: "SCR-01" }],
-    docSections: [{ doc: "plan", order: 1, title: "Build order" }],
-  },
-} as unknown as Recall;
+const recallOf = (kind: string, extra: Record<string, unknown> = {}) =>
+  ({
+    item: { id: "01JA0000000000000000000001", kind, note: null },
+    project: { designVersion: 2 },
+    context: {
+      requirements: [{ key: "REQ-01" }, { key: "REQ-02" }],
+      features: [{ key: "FEAT-01" }],
+      design: [{ key: "EP-01" }, { key: "SCR-01" }],
+      docSections: [{ doc: "plan", order: 1, title: "Build order" }],
+      ...extra,
+    },
+  }) as unknown as Recall;
+const replan = recallOf("replan", {
+  changeRequest: { id: "C1", text: "Slots are 30 minutes." },
+  facts: [{ id: "F1" }],
+  tasks: [
+    { key: "CARD-02", version: 4 },
+    { key: "CARD-03", version: 2 },
+  ],
+});
+const recall = recallOf("planner");
 
 type Card = PlannerOutput["cards"][number];
 const card = (n: number, over: Partial<Card> = {}): Card => ({
@@ -33,10 +44,12 @@ describe("Planner agent (agent-prompts.md section 6)", () => {
     expect(planner.prompt).toMatch(/^You are the Planner agent of AgencyMem/);
     expect(planner.prompt).toMatch(/AC-<card number>-<n>/);
     expect(planner.prompt).toMatch(/booking-lookup-submit/);
-    expect(planner.kinds).toEqual(["planner"]);
+    expect(planner.kinds).toEqual(["planner", "replan"]);
     expect(planner.handoff).toEqual(["planner"]);
     expect(planner.maxTokens).toBe(8000);
-    expect(planner.task).toBe("Write the cards.");
+    const task = planner.task as (r: Recall) => string;
+    expect(task(recall)).toBe("Write the cards.");
+    expect(task(replan)).toBe("Update the cards in Rework for this change request.");
   });
 
   it("sends the product, the design and the plan's sections", () => {
@@ -96,5 +109,33 @@ describe("Planner agent (agent-prompts.md section 6)", () => {
       outputIds: ["T1", "T2", "C1", "C2"],
       summary: "2 cards in Backlog with 2 acceptance criteria",
     });
+  });
+
+  it("updates the Rework cards of a replan with their versions from CONTEXT", async () => {
+    expect(planner.select(replan)).toMatchObject({
+      changeRequest: { id: "C1" },
+      facts: [{ id: "F1" }],
+      tasks: [{ key: "CARD-02" }, { key: "CARD-03" }],
+    });
+    // A replan card may depend on a card outside CONTEXT (one that is not in Rework).
+    expect(checkCards({ cards: [card(2, { dependsOn: ["CARD-01"] })] }, replan)).toEqual([]);
+    expect(checkCards({ cards: [card(4)] }, replan)).toEqual([
+      "cards.0.key: CARD-04 is not a card in Rework in CONTEXT.tasks",
+    ]);
+    const calls: [string, Record<string, unknown>][] = [];
+    const result = await planner.act({ cards: [card(2)] }, replan, {
+      call: (async (name: string, input: Record<string, unknown>) => {
+        calls.push([name, input]);
+        return { taskIds: ["T2"], criterionIds: ["C2"] };
+      }) as never,
+      say: async () => {},
+    });
+    expect(calls).toEqual([
+      [
+        "write_cards",
+        { itemId: replan.item.id, mode: "update", cards: [{ ...card(2), version: 4 }] },
+      ],
+    ]);
+    expect(result.summary).toBe("1 card revised in Rework with 1 acceptance criterion");
   });
 });
