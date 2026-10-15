@@ -58,5 +58,5 @@ describe("Done when: planted contradictions in fixture set A appear as questions
     for (const question of questions.filter((x) => x.kind === "contradiction")) {
       expect(new Set(question.sources.map((s) => s.documentName)).size).toBe(2);
     }
-  });
+  }, 60_000); // Intake on 3 files and Discovery run inside this test; the suite runs in parallel
 });

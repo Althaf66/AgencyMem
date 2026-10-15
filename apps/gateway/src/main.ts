@@ -9,6 +9,7 @@ import { connect, isReachable } from "@agencymem/graph";
 import pkg from "../package.json" with { type: "json" };
 import { filesRouter } from "./api/files";
 import { gatesRouter } from "./api/gates";
+import { nodesRouter } from "./api/nodes";
 import { listProjects, projectsRouter } from "./api/projects";
 import { queryRouter } from "./api/query";
 import { questionsRouter } from "./api/questions";
@@ -102,6 +103,7 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
     filesRouter({ db, events, uploadsDir: required(cfg.UPLOADS_DIR, "UPLOADS_DIR") }),
     questionsRouter({ db, events }),
     gatesRouter({ db, events }),
+    nodesRouter({ db, events }),
     queryRouter({ db, events }),
     notFound,
   );
