@@ -1,0 +1,69 @@
+Lotus Family Clinic: kickoff meeting notes
+Monday 6 October, 10 am, at the clinic. Notes by Asha Nair, delivery lead.
+
+Attendees
+Ravi, clinic manager, Lotus Family Clinic.
+Dr. Anita Menon, doctor, Lotus Family Clinic.
+Asha Nair, delivery lead, and Vikram Shah, developer, from the agency.
+
+Why the clinic wants a website
+Today patients call the front desk to book, and the front desk writes each booking in a diary.
+Ravi says the front desk takes about 60 calls a day, and most of them are about bookings.
+On busy mornings patients wait on hold, and the front desk cannot greet people at the counter.
+Ravi wants patients to book online, so the phone line stays free for questions.
+
+What we showed
+Asha showed the booking flow from an earlier project: pick a doctor, pick a slot, fill a form.
+Ravi and Dr. Menon agreed that this order of steps fits the clinic.
+Vikram showed the admin page of the same project.
+After the meeting, Ravi showed the team the front desk and the waiting room.
+Asha will set up a shared folder for the project files and send Ravi the link.
+
+Tools at the clinic today
+The front desk has one computer with a web browser and a shared email address.
+The diary stays in use until the website is live, then the front desk stops using it.
+Ravi does not want the staff to install any new software on the front desk computer.
+
+Clinic hours and slots
+The clinic is open Monday to Saturday, 9 am to 5 pm.
+No appointments between 1 pm and 2 pm because of lunch.
+Each appointment slot is 20 minutes long.
+One slot is for one patient with one doctor.
+
+Pages we agreed on
+1. A home page with the clinic name, address, opening hours and phone number.
+2. A list of the doctors, with a filter by specialty.
+3. A calendar of free slots for the chosen doctor.
+4. A booking form for the chosen slot.
+5. A page where a patient enters a booking code to see the booking or cancel it.
+6. An admin page for the front desk: doctors, weekly hours and the list of bookings.
+The clinic address is 12 Lake View Road, Hillview, and the phone number is 0491 570 156.
+
+Calendar
+Show a few days of free slots.
+A slot that is already booked does not appear as free.
+
+Booking codes and limits
+Each booking gets a booking code of 6 characters, made of letters and digits.
+A patient can make one booking per phone number per day.
+Ravi wants the limit because patients have booked two doctors on one day and then missed one.
+
+Cancellation
+Patients may cancel up to 2 hours before the appointment.
+A patient cancels with the booking code on the lookup page.
+
+Website
+The website should load fast.
+Ravi will send the clinic logo and two photos of the reception area.
+
+Not part of this release
+Online payment. Patients pay at the counter, as they do today.
+
+Open points for the next meeting
+Vikram will bring a first version of the calendar and the booking form.
+Ravi will send a written summary of the clinic rules by Wednesday.
+Ravi will check the doctors' weekly hours with each doctor.
+
+Next steps
+Asha shares these notes with Ravi and Dr. Menon today.
+Next meeting: Monday 13 October, 10 am, at the clinic.

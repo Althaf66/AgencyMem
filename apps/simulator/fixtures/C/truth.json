@@ -1,0 +1,202 @@
+{
+  "set": "C",
+  "client": {
+    "name": "Bluehill Kids Clinic",
+    "kind": "children's clinic",
+    "contact": "Dr. Nisha Rao"
+  },
+  "staff": [
+    {
+      "id": "d1",
+      "name": "Dr. Nisha Rao",
+      "specialty": "Paediatrics"
+    },
+    {
+      "id": "d2",
+      "name": "Dr. Thomas Kurian",
+      "specialty": "Child development"
+    }
+  ],
+  "rules": [
+    {
+      "subject": "clinic",
+      "attribute": "open_days",
+      "value": "Monday to Friday",
+      "text": "The clinic is open Monday to Friday."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "hours",
+      "value": "10:00 to 18:00",
+      "text": "The clinic is open from 10:00 to 18:00."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "lunch_break",
+      "value": "None",
+      "text": "There is no lunch break."
+    },
+    {
+      "subject": "appointment-slot",
+      "attribute": "length_minutes",
+      "value": "15",
+      "text": "A visit slot is 15 minutes long."
+    },
+    {
+      "subject": "booking",
+      "attribute": "max_days_ahead",
+      "value": "7",
+      "text": "Parents can book up to 7 days ahead."
+    },
+    {
+      "subject": "cancellation",
+      "attribute": "cutoff",
+      "value": "1 hour before",
+      "text": "Parents can cancel up to 1 hour before the visit."
+    },
+    {
+      "subject": "booking",
+      "attribute": "required_fields",
+      "value": "parent name, child name, child age (0 to 17), phone",
+      "text": "A booking needs the parent's name, the child's name, the child's age (0 to 17) and a phone number."
+    },
+    {
+      "subject": "booking",
+      "attribute": "limit",
+      "value": "1 per child per day",
+      "text": "A child can have one booking per day."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "staff",
+      "value": "Dr. Nisha Rao (Paediatrics), Dr. Thomas Kurian (Child development)",
+      "text": "The clinic has two doctors: Dr. Nisha Rao and Dr. Thomas Kurian."
+    },
+    {
+      "subject": "booking",
+      "attribute": "code",
+      "value": "6 characters, letters and digits",
+      "text": "A booking code has 6 characters, letters and digits."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "address",
+      "value": "27 Bluehill Road, Northfield",
+      "text": "The address is 27 Bluehill Road, Northfield."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "phone",
+      "value": "0491 570 158",
+      "text": "The phone number is 0491 570 158."
+    },
+    {
+      "subject": "project",
+      "attribute": "out_of_scope",
+      "value": "Patient accounts, doctor logins, reminders",
+      "text": "Patient accounts, doctor logins and reminders are not part of this release."
+    }
+  ],
+  "features": [
+    {
+      "key": "F1",
+      "name": "Clinic home page: name, address, hours, phone",
+      "featureKind": "content_page"
+    },
+    {
+      "key": "F2",
+      "name": "Doctor list with a specialty filter",
+      "featureKind": "list_filter"
+    },
+    {
+      "key": "F3",
+      "name": "Slot calendar for the next days",
+      "featureKind": "calendar"
+    },
+    {
+      "key": "F4",
+      "name": "Booking form",
+      "featureKind": "form"
+    },
+    {
+      "key": "F5",
+      "name": "Booking lookup and cancel by booking code",
+      "featureKind": "detail_action"
+    },
+    {
+      "key": "F6",
+      "name": "Admin: staff, weekly hours, bookings list",
+      "featureKind": "admin_crud"
+    }
+  ],
+  "answers": [
+    {
+      "plantedId": "C-C1",
+      "answer": "A slot is 15 minutes long."
+    },
+    {
+      "plantedId": "C-C2",
+      "answer": "No. Saturday vaccines are walk-in only, with no online bookings."
+    },
+    {
+      "plantedId": "C-C3",
+      "answer": "Parents can book up to 7 days ahead."
+    },
+    {
+      "plantedId": "C-C4",
+      "answer": "Children from 0 to 17 years can be booked."
+    },
+    {
+      "plantedId": "C-C5",
+      "answer": "Yes, parents can cancel online up to 1 hour before the visit."
+    },
+    {
+      "plantedId": "U-C1",
+      "answer": "Use plain words, and make every button at least 44 px high."
+    },
+    {
+      "plantedId": "U-C2",
+      "answer": "Show the next 7 days of slots."
+    },
+    {
+      "plantedId": "O-C1",
+      "answer": "The confirmation shows the doctor, date, time, child name and booking code."
+    },
+    {
+      "plantedId": "O-C2",
+      "answer": "One booking per child. A parent can make two bookings in a row."
+    },
+    {
+      "plantedId": "O-C3",
+      "answer": "The front desk, through the admin page. Doctors do not log in."
+    }
+  ],
+  "lateChanges": [
+    {
+      "id": "CR-C1",
+      "text": "Online cancellation must close 3 hours before the visit.",
+      "subject": "cancellation",
+      "attribute": "cutoff",
+      "newValue": "3 hours before"
+    },
+    {
+      "id": "CR-C2",
+      "text": "Slots become 20 minutes.",
+      "subject": "appointment-slot",
+      "attribute": "length_minutes",
+      "newValue": "20"
+    },
+    {
+      "id": "CR-C3",
+      "text": "Parents can book up to 14 days ahead.",
+      "subject": "booking",
+      "attribute": "max_days_ahead",
+      "newValue": "14"
+    }
+  ],
+  "defect": {
+    "text": "The calendar lets parents pick a slot on Saturday, but the clinic is closed.",
+    "subject": "clinic",
+    "attribute": "open_days"
+  }
+}

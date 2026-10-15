@@ -1,0 +1,4 @@
+# Fixture text stays LF: scripts/build-fixtures.ts matches lines exactly and builds the PDF and DOCX from them.
+apps/simulator/fixtures/** text eol=lf
+*.pdf binary
+*.docx binary

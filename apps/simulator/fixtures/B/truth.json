@@ -1,0 +1,232 @@
+{
+  "set": "B",
+  "client": {
+    "name": "Palm Grove Physio Centre",
+    "kind": "physiotherapy centre",
+    "contact": "Sara, front desk lead"
+  },
+  "staff": [
+    {
+      "id": "d1",
+      "name": "Meera Das",
+      "specialty": "Sports injury"
+    },
+    {
+      "id": "d2",
+      "name": "Joseph Mathew",
+      "specialty": "Back and neck"
+    },
+    {
+      "id": "d3",
+      "name": "Lina George",
+      "specialty": "Post-surgery rehab"
+    },
+    {
+      "id": "d4",
+      "name": "Arjun Pillai",
+      "specialty": "Elderly care"
+    }
+  ],
+  "rules": [
+    {
+      "subject": "clinic",
+      "attribute": "open_days",
+      "value": "Monday to Saturday",
+      "text": "The centre is open Monday to Saturday."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "hours",
+      "value": "Weekdays 07:00 to 19:00; Saturday 08:00 to 12:00",
+      "text": "The centre is open 07:00 to 19:00 on weekdays and 08:00 to 12:00 on Saturday."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "lunch_break",
+      "value": "None",
+      "text": "There is no lunch break."
+    },
+    {
+      "subject": "appointment-slot",
+      "attribute": "length_minutes",
+      "value": "45",
+      "text": "A therapy session is 45 minutes long."
+    },
+    {
+      "subject": "booking",
+      "attribute": "max_days_ahead",
+      "value": "21",
+      "text": "Patients can book up to 21 days ahead."
+    },
+    {
+      "subject": "cancellation",
+      "attribute": "cutoff",
+      "value": "12 hours before",
+      "text": "Patients can cancel up to 12 hours before the session."
+    },
+    {
+      "subject": "booking",
+      "attribute": "required_fields",
+      "value": "name, phone, injury area",
+      "text": "A booking needs a name, a phone number and the injury area."
+    },
+    {
+      "subject": "booking",
+      "attribute": "limit",
+      "value": "2 per phone per week",
+      "text": "A patient can book at most 2 sessions per phone number per week."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "staff",
+      "value": "Meera Das (Sports injury), Joseph Mathew (Back and neck), Lina George (Post-surgery rehab), Arjun Pillai (Elderly care)",
+      "text": "The centre has four therapists: Meera Das, Joseph Mathew, Lina George and Arjun Pillai."
+    },
+    {
+      "subject": "booking",
+      "attribute": "code",
+      "value": "6 characters, letters and digits",
+      "text": "A booking code has 6 characters, letters and digits."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "address",
+      "value": "4 Palm Grove Lane, Eastbridge",
+      "text": "The address is 4 Palm Grove Lane, Eastbridge."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "phone",
+      "value": "0491 570 157",
+      "text": "The phone number is 0491 570 157."
+    },
+    {
+      "subject": "project",
+      "attribute": "out_of_scope",
+      "value": "Patient accounts, therapist logins, payment",
+      "text": "Patient accounts, therapist logins and payment are not part of this release."
+    }
+  ],
+  "features": [
+    {
+      "key": "F1",
+      "name": "Clinic home page: name, address, hours, phone",
+      "featureKind": "content_page"
+    },
+    {
+      "key": "F2",
+      "name": "Therapist list with a specialty filter",
+      "featureKind": "list_filter"
+    },
+    {
+      "key": "F3",
+      "name": "Slot calendar for the next days",
+      "featureKind": "calendar"
+    },
+    {
+      "key": "F4",
+      "name": "Booking form",
+      "featureKind": "form"
+    },
+    {
+      "key": "F5",
+      "name": "Booking lookup and cancel by booking code",
+      "featureKind": "detail_action"
+    },
+    {
+      "key": "F6",
+      "name": "Admin: staff, weekly hours, bookings list",
+      "featureKind": "admin_crud"
+    }
+  ],
+  "answers": [
+    {
+      "plantedId": "C-B1",
+      "answer": "A session is 45 minutes long."
+    },
+    {
+      "plantedId": "C-B2",
+      "answer": "On Saturday the centre is open from 08:00 to 12:00."
+    },
+    {
+      "plantedId": "C-B3",
+      "answer": "Patients can book up to 21 days ahead."
+    },
+    {
+      "plantedId": "C-B4",
+      "answer": "Patients can cancel up to 12 hours before the session."
+    },
+    {
+      "plantedId": "C-B5",
+      "answer": "Yes, the injury area is a required field."
+    },
+    {
+      "plantedId": "C-B6",
+      "answer": "Yes, at most 2 sessions per phone number per week."
+    },
+    {
+      "plantedId": "U-B1",
+      "answer": "Every page is usable at 360 px width."
+    },
+    {
+      "plantedId": "U-B2",
+      "answer": "List bookings sorted by start time, with a filter by day."
+    },
+    {
+      "plantedId": "U-B3",
+      "answer": "Use blue and white, with the centre name as a text logo."
+    },
+    {
+      "plantedId": "U-B4",
+      "answer": "Show each therapist's specialty, with a filter by specialty."
+    },
+    {
+      "plantedId": "U-B5",
+      "answer": "A cancelled session's time is free again at once."
+    },
+    {
+      "plantedId": "U-B6",
+      "answer": "No reports in this release. The admin bookings list is enough."
+    },
+    {
+      "plantedId": "O-B1",
+      "answer": "The first booking wins. The second patient sees \"This slot was just taken\"."
+    },
+    {
+      "plantedId": "O-B2",
+      "answer": "No, therapists do not log in. There is one admin page for the front desk."
+    },
+    {
+      "plantedId": "O-B3",
+      "answer": "No online payment."
+    }
+  ],
+  "lateChanges": [
+    {
+      "id": "CR-B1",
+      "text": "Saturday hours change to 9 am to 1 pm.",
+      "subject": "clinic",
+      "attribute": "hours",
+      "newValue": "Weekdays 07:00 to 19:00; Saturday 09:00 to 13:00"
+    },
+    {
+      "id": "CR-B2",
+      "text": "Sessions are now 30 minutes.",
+      "subject": "appointment-slot",
+      "attribute": "length_minutes",
+      "newValue": "30"
+    },
+    {
+      "id": "CR-B3",
+      "text": "Patients may book 3 sessions per week.",
+      "subject": "booking",
+      "attribute": "limit",
+      "newValue": "3 per phone per week"
+    }
+  ],
+  "defect": {
+    "text": "A patient booked a third session this week. The limit is two.",
+    "subject": "booking",
+    "attribute": "limit"
+  }
+}

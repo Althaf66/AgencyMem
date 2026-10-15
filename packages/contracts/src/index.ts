@@ -5,6 +5,7 @@ export * from "./edges";
 export * from "./enums";
 export * from "./errors";
 export * from "./events";
+export * from "./fixtures";
 export * from "./nodes";
 export * from "./rest";
 export * from "./tools";

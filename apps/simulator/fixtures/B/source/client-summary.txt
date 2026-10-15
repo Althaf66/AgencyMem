@@ -1,0 +1,53 @@
+Palm Grove Physio Centre: summary of the kickoff meeting
+From: Sara, front desk lead. To: Asha Nair. Thursday 9 October.
+
+Dear Asha,
+Thank you for coming to the centre on Tuesday. Here is our summary of what we need.
+Please tell me if anything here does not match your notes.
+
+About the centre
+Palm Grove Physio Centre treats sports injuries, back and neck pain, recovery after surgery
+and the needs of older patients. This summary follows the order of the topics in the meeting.
+We have four treatment rooms and one exercise room.
+
+Our patients
+Patients usually come for a course of six to ten sessions.
+They often ask for the same therapist for every session, so the therapist list matters to them.
+
+The home page
+The home page should show our name, address, opening hours and phone number,
+like the board at our door.
+
+Our therapists
+Meera Das, Sports injury.
+Joseph Mathew, Back and neck.
+Lina George, Post-surgery rehab.
+Arjun Pillai, Elderly care.
+Patients should get help choosing a therapist.
+
+Booking rules
+Sessions are one hour long.
+Bookings open 21 days in advance.
+Patients must state the injury area when they book.
+Patients may book as many sessions as they need.
+Patients can cancel any time before the session.
+
+The booking pages
+The booking page must work well on phones.
+Each therapist has their own calendar of free times.
+Patients use their booking code to look up a booking or to cancel it.
+
+The admin page
+The front desk uses the admin page to keep the list of therapists and their weekly hours.
+Two people work at the front desk: me in the morning and Rekha in the afternoon.
+Both of us will use the admin page, so please show us how it works.
+
+Before we go live
+Rekha and I would like to try the booking pages ourselves for one week,
+with test bookings that we delete afterwards.
+We will tell our patients about the website at the counter and in the treatment rooms.
+Meera will put the link on the cards we give to new patients.
+
+Thank you again. We look forward to the first version next Tuesday.
+Sara
+Front desk lead, Palm Grove Physio Centre

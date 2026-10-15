@@ -1,0 +1,227 @@
+{
+  "set": "A",
+  "client": {
+    "name": "Lotus Family Clinic",
+    "kind": "family clinic",
+    "contact": "Ravi, clinic manager"
+  },
+  "staff": [
+    {
+      "id": "d1",
+      "name": "Dr. Anita Menon",
+      "specialty": "General medicine"
+    },
+    {
+      "id": "d2",
+      "name": "Dr. Rahul Varma",
+      "specialty": "Paediatrics"
+    },
+    {
+      "id": "d3",
+      "name": "Dr. Sameera Iqbal",
+      "specialty": "Dermatology"
+    }
+  ],
+  "rules": [
+    {
+      "subject": "clinic",
+      "attribute": "open_days",
+      "value": "Monday to Saturday",
+      "text": "The clinic is open Monday to Saturday."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "hours",
+      "value": "09:00 to 17:00",
+      "text": "The clinic is open from 09:00 to 17:00."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "lunch_break",
+      "value": "13:00 to 14:00, no slots",
+      "text": "There are no slots from 13:00 to 14:00 because of lunch."
+    },
+    {
+      "subject": "appointment-slot",
+      "attribute": "length_minutes",
+      "value": "20",
+      "text": "An appointment slot is 20 minutes long."
+    },
+    {
+      "subject": "booking",
+      "attribute": "max_days_ahead",
+      "value": "14",
+      "text": "Patients can book up to 14 days ahead."
+    },
+    {
+      "subject": "cancellation",
+      "attribute": "cutoff",
+      "value": "2 hours before",
+      "text": "Patients can cancel up to 2 hours before the appointment."
+    },
+    {
+      "subject": "booking",
+      "attribute": "required_fields",
+      "value": "name, phone (10 digits); reason optional (≤200 characters)",
+      "text": "A booking needs a name and a 10-digit phone number; the reason is optional, up to 200 characters."
+    },
+    {
+      "subject": "booking",
+      "attribute": "limit",
+      "value": "1 per phone per day",
+      "text": "A patient can make one booking per phone number per day."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "staff",
+      "value": "Dr. Anita Menon (General medicine), Dr. Rahul Varma (Paediatrics), Dr. Sameera Iqbal (Dermatology)",
+      "text": "The clinic has three doctors: Dr. Anita Menon, Dr. Rahul Varma and Dr. Sameera Iqbal."
+    },
+    {
+      "subject": "booking",
+      "attribute": "code",
+      "value": "6 characters, letters and digits",
+      "text": "A booking code has 6 characters, letters and digits."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "address",
+      "value": "12 Lake View Road, Hillview",
+      "text": "The address is 12 Lake View Road, Hillview."
+    },
+    {
+      "subject": "clinic",
+      "attribute": "phone",
+      "value": "0491 570 156",
+      "text": "The phone number is 0491 570 156."
+    },
+    {
+      "subject": "project",
+      "attribute": "out_of_scope",
+      "value": "Patient accounts, reminders, payment",
+      "text": "Patient accounts, reminders and payment are not part of this release."
+    }
+  ],
+  "features": [
+    {
+      "key": "F1",
+      "name": "Clinic home page: name, address, hours, phone",
+      "featureKind": "content_page"
+    },
+    {
+      "key": "F2",
+      "name": "Doctor list with a specialty filter",
+      "featureKind": "list_filter"
+    },
+    {
+      "key": "F3",
+      "name": "Slot calendar for the next days",
+      "featureKind": "calendar"
+    },
+    {
+      "key": "F4",
+      "name": "Booking form",
+      "featureKind": "form"
+    },
+    {
+      "key": "F5",
+      "name": "Booking lookup and cancel by booking code",
+      "featureKind": "detail_action"
+    },
+    {
+      "key": "F6",
+      "name": "Admin: staff, weekly hours, bookings list",
+      "featureKind": "admin_crud"
+    }
+  ],
+  "answers": [
+    {
+      "plantedId": "C-A1",
+      "answer": "A slot is 20 minutes long."
+    },
+    {
+      "plantedId": "C-A2",
+      "answer": "The clinic is open on Saturday and closed on Sunday."
+    },
+    {
+      "plantedId": "C-A3",
+      "answer": "Patients can book up to 14 days ahead."
+    },
+    {
+      "plantedId": "C-A4",
+      "answer": "Patients can cancel up to 2 hours before the appointment."
+    },
+    {
+      "plantedId": "C-A5",
+      "answer": "The phone number is required and has 10 digits."
+    },
+    {
+      "plantedId": "C-A6",
+      "answer": "Yes. There are no slots from 13:00 to 14:00."
+    },
+    {
+      "plantedId": "U-A1",
+      "answer": "The home page loads in under 2 seconds on a 4G phone."
+    },
+    {
+      "plantedId": "U-A2",
+      "answer": "Use the clinic colours green and white, with one column on phones."
+    },
+    {
+      "plantedId": "U-A3",
+      "answer": "Show 7 days per view, with a next-week button up to 14 days."
+    },
+    {
+      "plantedId": "U-A4",
+      "answer": "The admin adds and edits doctors, sets weekly hours and sees the bookings list."
+    },
+    {
+      "plantedId": "U-A5",
+      "answer": "No, reminders are not part of this release."
+    },
+    {
+      "plantedId": "U-A6",
+      "answer": "Each free slot is one button, and one tap opens the booking form."
+    },
+    {
+      "plantedId": "O-A1",
+      "answer": "The confirmation shows the doctor, date, time and a 6-character booking code."
+    },
+    {
+      "plantedId": "O-A2",
+      "answer": "Existing bookings stay, and the admin sees them listed."
+    },
+    {
+      "plantedId": "O-A3",
+      "answer": "No accounts. The booking code is the key."
+    }
+  ],
+  "lateChanges": [
+    {
+      "id": "CR-A1",
+      "text": "Doctors want shorter visits: make every slot 15 minutes.",
+      "subject": "appointment-slot",
+      "attribute": "length_minutes",
+      "newValue": "15"
+    },
+    {
+      "id": "CR-A2",
+      "text": "Let patients book up to 30 days ahead.",
+      "subject": "booking",
+      "attribute": "max_days_ahead",
+      "newValue": "30"
+    },
+    {
+      "id": "CR-A3",
+      "text": "Allow cancellation up to 1 hour before the appointment.",
+      "subject": "cancellation",
+      "attribute": "cutoff",
+      "newValue": "1 hour before"
+    }
+  ],
+  "defect": {
+    "text": "A patient booked a slot at 1:20 pm on Tuesday, but the doctors are at lunch then.",
+    "subject": "clinic",
+    "attribute": "lunch_break"
+  }
+}

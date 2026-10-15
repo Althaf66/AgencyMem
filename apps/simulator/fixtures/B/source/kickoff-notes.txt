@@ -1,0 +1,69 @@
+Palm Grove Physio Centre: kickoff meeting notes
+Tuesday 7 October, 2 pm, at the centre. Notes by Asha Nair, delivery lead.
+
+Attendees
+Sara, front desk lead, Palm Grove Physio Centre.
+Meera Das, senior therapist, Palm Grove Physio Centre.
+Asha Nair, delivery lead, and Vikram Shah, developer, from the agency.
+
+Why the centre wants a website
+Patients book therapy sessions by phone or at the counter, and Sara keeps the schedule in a spreadsheet.
+Sara spends about two hours a day on booking calls and on moving sessions between therapists.
+Patients who start a course of treatment call again after each session to book the next one.
+Sara wants patients to book and cancel online, so the front desk can focus on patients in the centre.
+
+What we showed
+Asha showed the booking flow from an earlier project: pick a therapist, pick a time, fill a form.
+Vikram showed the admin page of the same project.
+After the meeting, Sara showed the team the front desk, the treatment rooms and the exercise room.
+Asha will set up a shared folder for the project files and send Sara the link.
+Meera said the team is glad to stop moving sessions by hand in the spreadsheet.
+Sara asked to keep the same order of steps for the centre.
+
+Opening hours and sessions
+The centre is open Monday to Saturday.
+On weekdays we open from 7 am to 7 pm.
+On Saturday we open from 8 am to 12 noon.
+There is no lunch break; therapists take turns.
+Each therapy session lasts 45 minutes.
+One session is for one patient with one therapist.
+
+Pages we agreed on
+1. A home page with the centre name, address, opening hours and phone number.
+2. A list of the therapists, with a filter by specialty.
+3. A calendar of free session times for the chosen therapist.
+4. A booking form for the chosen time.
+5. A page where a patient enters a booking code to see the booking or cancel it.
+6. An admin page for the front desk: therapists, weekly hours and the list of bookings.
+The centre is at 4 Palm Grove Lane, Eastbridge, and the phone number is 0491 570 157.
+
+Booking form
+The booking form asks only for name and phone.
+Each booking gets a booking code of 6 characters, made of letters and digits.
+
+Cancellation
+A session can be cancelled up to 12 hours before it starts.
+Handle cancellations properly.
+A patient cancels with the booking code on the lookup page.
+
+Admin page
+Admin should see bookings quickly.
+The front desk adds and edits therapists and sets their weekly hours.
+Reports for the owner would be good to have.
+
+Tools at the centre today
+The front desk has two computers and a shared spreadsheet for the schedule.
+The spreadsheet stays in use until the website is live.
+Sara will export the current bookings so the team can see the real data.
+
+Not part of this release
+Patient accounts. A patient finds a booking again with the booking code.
+
+Open points for the next meeting
+Vikram will bring a first version of the therapist list and the calendar.
+Sara will send a written summary of the centre rules by Thursday.
+Meera will confirm the weekly hours of each therapist.
+
+Next steps
+Asha shares these notes with Sara and Meera today.
+Next meeting: Tuesday 14 October, 2 pm, at the centre.

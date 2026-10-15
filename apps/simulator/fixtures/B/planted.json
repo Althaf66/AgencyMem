@@ -1,0 +1,143 @@
+{
+  "set": "B",
+  "expectedBand": "low",
+  "contradictions": [
+    {
+      "id": "C-B1",
+      "lines": [
+        { "file": "kickoff-notes.pdf", "text": "Each therapy session lasts 45 minutes." },
+        { "file": "client-summary.docx", "text": "Sessions are one hour long." }
+      ],
+      "question": "Is a session 45 minutes or one hour?",
+      "truth": "45 minutes"
+    },
+    {
+      "id": "C-B2",
+      "lines": [
+        { "file": "kickoff-notes.pdf", "text": "On Saturday we open from 8 am to 12 noon." },
+        { "file": "whatsapp-chat.txt", "text": "saturday full day same as weekdays" }
+      ],
+      "question": "What are the Saturday hours?",
+      "truth": "08:00 to 12:00"
+    },
+    {
+      "id": "C-B3",
+      "lines": [
+        { "file": "client-summary.docx", "text": "Bookings open 21 days in advance." },
+        { "file": "whatsapp-chat.txt", "text": "max one week ahead, schedules change a lot" }
+      ],
+      "question": "How far ahead can patients book?",
+      "truth": "21 days"
+    },
+    {
+      "id": "C-B4",
+      "lines": [
+        {
+          "file": "kickoff-notes.pdf",
+          "text": "A session can be cancelled up to 12 hours before it starts."
+        },
+        {
+          "file": "client-summary.docx",
+          "text": "Patients can cancel any time before the session."
+        }
+      ],
+      "question": "Until when can a patient cancel?",
+      "truth": "Up to 12 hours before"
+    },
+    {
+      "id": "C-B5",
+      "lines": [
+        {
+          "file": "client-summary.docx",
+          "text": "Patients must state the injury area when they book."
+        },
+        { "file": "kickoff-notes.pdf", "text": "The booking form asks only for name and phone." }
+      ],
+      "question": "Is the injury area a required field?",
+      "truth": "Required"
+    },
+    {
+      "id": "C-B6",
+      "lines": [
+        { "file": "whatsapp-chat.txt", "text": "max 2 sessions per patient per week" },
+        {
+          "file": "client-summary.docx",
+          "text": "Patients may book as many sessions as they need."
+        }
+      ],
+      "question": "Is there a weekly limit per patient?",
+      "truth": "2 per phone per week"
+    }
+  ],
+  "unclear": [
+    {
+      "id": "U-B1",
+      "line": {
+        "file": "client-summary.docx",
+        "text": "The booking page must work well on phones."
+      },
+      "question": "What does \"work well on phones\" mean?",
+      "truth": "Every page usable at 360 px width"
+    },
+    {
+      "id": "U-B2",
+      "line": { "file": "kickoff-notes.pdf", "text": "Admin should see bookings quickly." },
+      "question": "How should the admin list bookings?",
+      "truth": "Sorted by start time, with a day filter"
+    },
+    {
+      "id": "U-B3",
+      "line": { "file": "whatsapp-chat.txt", "text": "make it look professional" },
+      "question": "What should the design look like?",
+      "truth": "Blue and white, the centre name as a text logo"
+    },
+    {
+      "id": "U-B4",
+      "line": {
+        "file": "client-summary.docx",
+        "text": "Patients should get help choosing a therapist."
+      },
+      "question": "What help should the list give?",
+      "truth": "Each therapist's specialty, and a specialty filter"
+    },
+    {
+      "id": "U-B5",
+      "line": { "file": "kickoff-notes.pdf", "text": "Handle cancellations properly." },
+      "question": "What must happen on a cancellation?",
+      "truth": "The slot is free again at once"
+    },
+    {
+      "id": "U-B6",
+      "line": {
+        "file": "kickoff-notes.pdf",
+        "text": "Reports for the owner would be good to have."
+      },
+      "question": "Which reports does the owner need?",
+      "truth": "None in this release; the admin bookings list is enough"
+    }
+  ],
+  "open": [
+    {
+      "id": "O-B1",
+      "topic": "Two patients pick the same slot at once",
+      "keywords": ["same", "slot", "time"],
+      "question": "What happens when two patients pick the same slot at the same time?",
+      "truth": "The first booking wins; the second sees \"This slot was just taken\""
+    },
+    {
+      "id": "O-B2",
+      "topic": "Whether therapists log in",
+      "keywords": ["therapist", "login", "account"],
+      "question": "Do therapists log in to see their sessions?",
+      "truth": "No; one admin page for the front desk"
+    },
+    {
+      "id": "O-B3",
+      "topic": "Payment at booking",
+      "keywords": ["pay", "payment", "fee"],
+      "question": "Do patients pay when they book?",
+      "truth": "No online payment"
+    }
+  ],
+  "support": [{ "file": "whatsapp-chat.txt", "text": "45 min is our standard" }]
+}

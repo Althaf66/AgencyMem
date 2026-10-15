@@ -39,9 +39,10 @@ async function docxPages(data: Uint8Array): Promise<Pages> {
 }
 
 async function pdfPages(data: Uint8Array): Promise<Pages> {
-  // pdf.js takes ownership of the buffer it reads, so give it a copy.
-  const doc = await getDocument({ data: data.slice(), isEvalSupported: false, verbosity: 0 })
-    .promise;
+  // pdf.js takes ownership of the buffer it reads and refuses a Node Buffer, so give it a plain
+  // Uint8Array copy (Buffer.slice would return a Buffer view).
+  const copy = new Uint8Array(data);
+  const doc = await getDocument({ data: copy, isEvalSupported: false, verbosity: 0 }).promise;
   try {
     const pages: Pages = [];
     for (let n = 1; n <= doc.numPages; n++) {

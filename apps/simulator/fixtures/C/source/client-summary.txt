@@ -1,0 +1,62 @@
+Bluehill Kids Clinic: summary of the kickoff meeting
+From: Dr. Nisha Rao. To: Asha Nair. Friday 10 October.
+
+Dear Asha,
+Thank you for the meeting on Wednesday. This is our summary of what the clinic needs.
+Please tell me if anything here does not match your notes.
+
+About the clinic
+Bluehill Kids Clinic is a children's clinic in Northfield.
+We have two doctors and one front desk.
+We opened in 2019 and see about 40 children a day.
+This summary follows the order of the topics in the meeting.
+
+Our doctors
+Dr. Nisha Rao, Paediatrics.
+Dr. Thomas Kurian, Child development.
+Parents should see each doctor's specialty before they choose a slot.
+
+Our patients
+Most visits are check-ups, vaccines and visits for fever or a cough.
+Visits for fever are the most common in the rainy season.
+Parents usually bring the child's health card to the visit.
+
+Booking rules
+We book children in 20-minute slots.
+Parents can book up to 7 days ahead.
+Children up to 12 years can be booked.
+Parents use their booking code to look up a visit.
+
+The booking pages
+The site should feel friendly for parents.
+Each doctor has their own calendar of free slots.
+
+The home page
+The home page shows our name, address, opening hours and phone number.
+Please use the photos of the waiting room that Priya sends.
+We would like a short line under the name: "A clinic for children in Northfield."
+
+The admin page
+The admin page holds the list of doctors, their weekly hours and the list of bookings.
+
+What parents ask us most
+Parents ask about our opening hours, how to reach us, and which doctor to see for their child.
+We hope the home page and the doctor list answer these questions on the website.
+
+Contact for the project
+I am the contact for the clinic. If I am not available, please write to the clinic email address.
+I will send the bus directions and the text for the home page by Tuesday.
+
+Before we go live
+Priya would like to try the booking pages for one week with test bookings,
+which we delete before parents start to use the site.
+We will tell parents about the website at the counter and on our notice board.
+We will also put the address of the site on the back of the health card.
+
+Thank you also for the clear demo; it helped us see how the booking will work.
+Our staff meeting on Thursday will look at the first version together.
+Priya will join the next meeting as well, so she can follow the project.
+We are happy to answer questions by chat or by phone at any time during the day.
+Thank you again. We look forward to the first version next Wednesday.
+Dr. Nisha Rao
+Bluehill Kids Clinic

@@ -84,6 +84,12 @@ describe("Done when: fixture files give the same episodes on every run", () => {
     ]);
   });
 
+  it("reads a PDF passed as a Node Buffer, as an upload or a file read gives it", async () => {
+    const data = Buffer.from(await pdf([LINES]));
+    expect((await ingest({ name: "a.pdf", data })).episodes).toEqual(EPISODES);
+    expect(data.length).toBeGreaterThan(0); // the caller's buffer is not taken over
+  });
+
   it("gives no_text and no episodes for a PDF with no text layer (US-01)", async () => {
     const data = await pdf(["shapes"]);
     expect(await ingest({ name: "scanned.pdf", data })).toEqual({

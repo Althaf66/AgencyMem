@@ -1,0 +1,137 @@
+{
+  "set": "A",
+  "expectedBand": "low",
+  "contradictions": [
+    {
+      "id": "C-A1",
+      "lines": [
+        { "file": "kickoff-notes.pdf", "text": "Each appointment slot is 20 minutes long." },
+        { "file": "client-summary.docx", "text": "Appointments are booked in 30-minute slots." }
+      ],
+      "question": "Is a slot 20 or 30 minutes long?",
+      "truth": "20 minutes"
+    },
+    {
+      "id": "C-A2",
+      "lines": [
+        {
+          "file": "kickoff-notes.pdf",
+          "text": "The clinic is open Monday to Saturday, 9 am to 5 pm."
+        },
+        { "file": "whatsapp-chat.txt", "text": "we r closed on weekends so no bookings sat or sun" }
+      ],
+      "question": "Is the clinic open on Saturday?",
+      "truth": "Open Saturday; closed Sunday"
+    },
+    {
+      "id": "C-A3",
+      "lines": [
+        { "file": "client-summary.docx", "text": "Patients can book up to 14 days ahead." },
+        { "file": "whatsapp-chat.txt", "text": "patients shld be able to book a month in advance" }
+      ],
+      "question": "How far ahead can patients book: 14 days or a month?",
+      "truth": "14 days"
+    },
+    {
+      "id": "C-A4",
+      "lines": [
+        {
+          "file": "kickoff-notes.pdf",
+          "text": "Patients may cancel up to 2 hours before the appointment."
+        },
+        {
+          "file": "client-summary.docx",
+          "text": "Cancellation is not allowed on the day of the appointment."
+        }
+      ],
+      "question": "Until when can a patient cancel?",
+      "truth": "Up to 2 hours before"
+    },
+    {
+      "id": "C-A5",
+      "lines": [
+        { "file": "client-summary.docx", "text": "A phone number is required for every booking." },
+        { "file": "whatsapp-chat.txt", "text": "phone can be optional, name is enough" }
+      ],
+      "question": "Is the phone number required?",
+      "truth": "Required, 10 digits"
+    },
+    {
+      "id": "C-A6",
+      "lines": [
+        {
+          "file": "kickoff-notes.pdf",
+          "text": "No appointments between 1 pm and 2 pm because of lunch."
+        },
+        {
+          "file": "client-summary.docx",
+          "text": "Doctors see patients without a break from 9 am to 5 pm."
+        }
+      ],
+      "question": "Is there a lunch break with no slots?",
+      "truth": "Yes, 13:00 to 14:00"
+    }
+  ],
+  "unclear": [
+    {
+      "id": "U-A1",
+      "line": { "file": "kickoff-notes.pdf", "text": "The website should load fast." },
+      "question": "What load time counts as fast?",
+      "truth": "Home page in under 2 seconds on a 4G phone"
+    },
+    {
+      "id": "U-A2",
+      "line": { "file": "client-summary.docx", "text": "The design should be simple and modern." },
+      "question": "What should the design look like?",
+      "truth": "Clinic colours green and white; one column on phones"
+    },
+    {
+      "id": "U-A3",
+      "line": { "file": "kickoff-notes.pdf", "text": "Show a few days of free slots." },
+      "question": "How many days should the calendar show?",
+      "truth": "7 days per view, with a next-week button up to 14 days"
+    },
+    {
+      "id": "U-A4",
+      "line": { "file": "whatsapp-chat.txt", "text": "admin should manage stuff easily" },
+      "question": "What must the admin page do?",
+      "truth": "Add and edit doctors, set weekly hours, see the bookings list"
+    },
+    {
+      "id": "U-A5",
+      "line": { "file": "client-summary.docx", "text": "Reminders would be nice." },
+      "question": "Are reminders part of this release?",
+      "truth": "No"
+    },
+    {
+      "id": "U-A6",
+      "line": { "file": "client-summary.docx", "text": "The calendar should feel easy to use." },
+      "question": "What makes the calendar easy to use?",
+      "truth": "Each free slot is one button; one tap opens the booking form"
+    }
+  ],
+  "open": [
+    {
+      "id": "O-A1",
+      "topic": "What the booking confirmation shows",
+      "keywords": ["confirmation", "code", "show"],
+      "question": "What does the booking confirmation show?",
+      "truth": "Doctor, date, time and a 6-character booking code"
+    },
+    {
+      "id": "O-A2",
+      "topic": "What happens to bookings when the admin changes hours",
+      "keywords": ["hours", "change", "existing"],
+      "question": "What happens to existing bookings when the admin changes a doctor's hours?",
+      "truth": "Existing bookings stay; the admin sees them listed"
+    },
+    {
+      "id": "O-A3",
+      "topic": "Whether patients need an account",
+      "keywords": ["account", "login", "sign"],
+      "question": "Do patients need an account to book?",
+      "truth": "No accounts; the booking code is the key"
+    }
+  ],
+  "support": [{ "file": "whatsapp-chat.txt", "text": "doctors keep 20 min per patient" }]
+}

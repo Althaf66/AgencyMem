@@ -1,0 +1,55 @@
+Lotus Family Clinic: summary of the kickoff meeting
+From: Ravi, clinic manager. To: Asha Nair. Wednesday 8 October.
+
+Dear Asha,
+Thank you for the meeting on Monday. Below is our summary of what the clinic needs.
+Please tell me if anything here does not match your notes.
+
+About the clinic
+This summary follows the order of the topics in the meeting.
+Lotus Family Clinic is a family practice in Hillview with three doctors.
+We see adults and children for general check-ups, child health and skin problems.
+
+Our doctors
+Dr. Anita Menon, General medicine.
+Dr. Rahul Varma, Paediatrics.
+Dr. Sameera Iqbal, Dermatology.
+Patients should be able to see each doctor's specialty before they choose.
+
+Booking rules
+Appointments are booked in 30-minute slots.
+Doctors see patients without a break from 9 am to 5 pm.
+Patients can book up to 14 days ahead.
+A phone number is required for every booking.
+The patient's name is required as well.
+The reason for the visit is optional and at most 200 characters.
+Cancellation is not allowed on the day of the appointment.
+
+The booking pages
+The calendar should feel easy to use.
+Each doctor has their own calendar of free slots.
+When a slot is booked, no other patient can book it.
+Patients use their booking code to look up a booking or to cancel it.
+
+The admin page
+Only the front desk uses the admin page.
+Two staff members work at the front desk: Meena in the morning and Latha in the afternoon.
+Both of them will use the admin page, so please show them how it works.
+
+Look and feel
+The design should be simple and modern.
+Please use the clinic logo that I sent on Tuesday.
+
+Later ideas
+Reminders would be nice.
+
+Before patients use the website, Meena and Latha would like to try the booking pages
+themselves for one week, with test bookings that we delete afterwards.
+We will tell our patients about the website on the notice board at the counter
+and on the printed card we give after each visit.
+
+Thank you also for showing us the earlier project; it helped us picture the steps.
+We are happy to answer questions by chat or by phone.
+Thank you again. We look forward to the first version next Monday.
+Ravi
+Clinic manager, Lotus Family Clinic

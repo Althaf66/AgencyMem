@@ -14,6 +14,9 @@ importers:
       '@agencymem/graph':
         specifier: workspace:*
         version: link:packages/graph
+      '@agencymem/ingest':
+        specifier: workspace:*
+        version: link:packages/ingest
       '@agencymem/memory':
         specifier: workspace:*
         version: link:packages/memory
@@ -23,15 +26,24 @@ importers:
       '@types/node':
         specifier: 22.20.5
         version: 22.20.5
+      '@types/pdfkit':
+        specifier: 0.17.6
+        version: 0.17.6
       dependency-cruiser:
         specifier: 18.4.0
         version: 18.4.0
+      docx:
+        specifier: 9.8.0
+        version: 9.8.0
       eslint:
         specifier: 10.11.0
         version: 10.11.0(supports-color@7.2.0)
       globals:
         specifier: 17.13.0
         version: 17.13.0
+      pdfkit:
+        specifier: 0.20.2
+        version: 0.20.2
       prettier:
         specifier: 3.9.9
         version: 3.9.9

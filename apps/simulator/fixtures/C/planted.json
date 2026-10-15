@@ -1,0 +1,95 @@
+{
+  "set": "C",
+  "expectedBand": "medium",
+  "contradictions": [
+    {
+      "id": "C-C1",
+      "lines": [
+        { "file": "kickoff-notes.pdf", "text": "Each visit slot is 15 minutes." },
+        { "file": "client-summary.docx", "text": "We book children in 20-minute slots." }
+      ],
+      "question": "Is a slot 15 or 20 minutes?",
+      "truth": "15 minutes"
+    },
+    {
+      "id": "C-C2",
+      "lines": [
+        { "file": "kickoff-notes.pdf", "text": "The clinic is open Monday to Friday." },
+        { "file": "whatsapp-chat.txt", "text": "saturday mornings also open for vaccines" }
+      ],
+      "question": "Can parents book on Saturday?",
+      "truth": "No; Saturday vaccines are walk-in only"
+    },
+    {
+      "id": "C-C3",
+      "lines": [
+        { "file": "client-summary.docx", "text": "Parents can book up to 7 days ahead." },
+        { "file": "kickoff-notes.pdf", "text": "Parents can book up to 30 days ahead." }
+      ],
+      "question": "How far ahead can parents book?",
+      "truth": "7 days"
+    },
+    {
+      "id": "C-C4",
+      "lines": [
+        { "file": "client-summary.docx", "text": "Children up to 12 years can be booked." },
+        { "file": "whatsapp-chat.txt", "text": "we see kids till 17" }
+      ],
+      "question": "Up to what age can a child be booked?",
+      "truth": "0 to 17"
+    },
+    {
+      "id": "C-C5",
+      "lines": [
+        {
+          "file": "kickoff-notes.pdf",
+          "text": "Parents can cancel up to 1 hour before the visit."
+        },
+        { "file": "whatsapp-chat.txt", "text": "no cancellations online, they must call" }
+      ],
+      "question": "Can parents cancel online?",
+      "truth": "Yes, up to 1 hour before"
+    }
+  ],
+  "unclear": [
+    {
+      "id": "U-C1",
+      "line": {
+        "file": "client-summary.docx",
+        "text": "The site should feel friendly for parents."
+      },
+      "question": "What makes the site friendly for parents?",
+      "truth": "Plain words and buttons at least 44 px high"
+    },
+    {
+      "id": "U-C2",
+      "line": { "file": "kickoff-notes.pdf", "text": "Show enough slots so parents can choose." },
+      "question": "How many days of slots should show?",
+      "truth": "The next 7 days"
+    }
+  ],
+  "open": [
+    {
+      "id": "O-C1",
+      "topic": "What the confirmation shows",
+      "keywords": ["confirmation", "code", "show"],
+      "question": "What does the booking confirmation show?",
+      "truth": "Doctor, date, time, child name and booking code"
+    },
+    {
+      "id": "O-C2",
+      "topic": "One parent booking for two children",
+      "keywords": ["two", "children", "sibling"],
+      "question": "Can one parent book for two children?",
+      "truth": "One booking per child; two bookings in a row are allowed"
+    },
+    {
+      "id": "O-C3",
+      "topic": "Who sees the bookings list",
+      "keywords": ["see", "bookings", "list"],
+      "question": "Who sees the list of bookings?",
+      "truth": "The front desk, through the admin page; no doctor logins"
+    }
+  ],
+  "support": []
+}

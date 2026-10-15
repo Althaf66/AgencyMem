@@ -1,0 +1,42 @@
+[Mon 15:02] Ravi (clinic): hi asha, thanks for today
+[Mon 15:04] Asha (agency): thanks ravi, notes coming tonight
+[Mon 15:05] Ravi (clinic): gr8. dr menon liked the demo
+[Mon 15:07] Asha (agency): glad to hear it. can u send the logo?
+[Mon 15:09] Ravi (clinic): will send it tmrw, need to find the file
+[Mon 15:10] Ravi (clinic): we r closed on weekends so no bookings sat or sun
+
+[Tue 09:41] Ravi (clinic): morning. logo attached, 2 photos also
+[Tue 09:44] Asha (agency): got them, thx. photos look good
+[Tue 09:46] Ravi (clinic): one more thing
+[Tue 09:46] Ravi (clinic): patients shld be able to book a month in advance
+[Tue 09:50] Asha (agency): noted, will add it to the list for the next meeting
+[Tue 09:52] Ravi (clinic): ok
+[Tue 11:20] Asha (agency): short q, who will use the admin page?
+[Tue 11:31] Ravi (clinic): only the front desk, meena and latha
+[Tue 11:33] Asha (agency): thx, we will show them the admin page on monday
+[Tue 11:35] Ravi (clinic): ok gr8
+[Tue 16:05] Ravi (clinic): doctors keep 20 min per patient
+[Tue 16:06] Ravi (clinic): dr varma asked, so u know
+
+[Wed 10:12] Ravi (clinic): summary sent by mail, pls check
+[Wed 10:20] Asha (agency): got it, reading now
+[Wed 10:58] Asha (agency): about the form: name and phone both needed?
+[Wed 11:15] Ravi (clinic): phone can be optional, name is enough
+[Wed 11:20] Asha (agency): ok, we will ask about it at the meeting
+[Wed 14:30] Ravi (clinic): admin should manage stuff easily
+[Wed 14:32] Asha (agency): sure. vikram is building the admin page now
+[Wed 14:35] Ravi (clinic): gr8
+
+[Thu 09:05] Asha (agency): ravi, can dr menon join on monday?
+[Thu 09:30] Ravi (clinic): yes she will be there
+[Thu 09:31] Ravi (clinic): dr iqbal maybe also
+[Thu 09:40] Asha (agency): perfect. 10 am at the clinic
+[Thu 09:41] Ravi (clinic): yes. pls bring the laptop with the demo
+[Thu 09:43] Asha (agency): will do
+[Thu 12:15] Ravi (clinic): parking is behind the building btw
+[Thu 12:16] Asha (agency): good to know, thx
+
+[Fri 17:10] Ravi (clinic): small q, will the site work on old phones?
+[Fri 17:25] Asha (agency): we test it on an older android phone, we will show u
+[Fri 17:26] Ravi (clinic): thx asha, have a good weekend
+[Fri 17:27] Asha (agency): u too

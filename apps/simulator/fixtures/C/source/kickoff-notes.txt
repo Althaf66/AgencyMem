@@ -1,0 +1,79 @@
+Bluehill Kids Clinic: kickoff meeting notes
+Wednesday 8 October, 11 am, at the clinic. Notes by Asha Nair, delivery lead.
+
+Attendees
+Dr. Nisha Rao, paediatrician and owner, Bluehill Kids Clinic.
+Dr. Thomas Kurian, doctor, Bluehill Kids Clinic.
+Priya, front desk, Bluehill Kids Clinic.
+Asha Nair, delivery lead, and Vikram Shah, developer, from the agency.
+
+Why the clinic wants a website
+Parents call the clinic to book a visit for their child, and Priya writes each visit in a diary.
+Dr. Rao says the phone rings most at 8 am, when parents call before work and school.
+Parents who cannot get through come to the counter instead, and the waiting room fills up.
+Dr. Rao wants parents to book online at any time of day, so the phone stays free for urgent calls.
+
+What we showed
+Asha showed the booking flow from an earlier project: pick a doctor, pick a slot, fill a form.
+Vikram showed the admin page of the same project.
+After the meeting, Dr. Rao showed the team the waiting room and the two consulting rooms.
+Asha will set up a shared folder for the project files and send Dr. Rao the link.
+Dr. Rao said that parents book on their phones, often while they wait outside the school.
+Priya asked whether the site works on the front desk computer, which has an older browser.
+Vikram will test the site on that browser before the first demo.
+
+Discussion about the home page
+Priya said that parents ask for directions on the phone almost every day.
+Asha suggested a short line under the address on how to reach the clinic by bus.
+Dr. Rao agreed and will send the text.
+
+Questions from the meeting
+Dr. Kurian asked how long the agency needs for the first version. Asha said two weeks.
+Priya asked who to call with a question about the website. Asha will be the contact.
+
+The clinic
+The clinic is open Monday to Friday.
+Opening hours are 10 am to 6 pm.
+There is no lunch break; the two doctors take their lunch at different times.
+Each visit slot is 15 minutes.
+One slot is for one child with one doctor.
+
+Pages we agreed on
+1. A home page with the clinic name, address, opening hours and phone number.
+2. A list of the doctors, with a filter by specialty.
+3. A calendar of free slots for the chosen doctor.
+4. A booking form for the chosen slot.
+5. A page where a parent enters a booking code to see the booking or cancel it.
+6. An admin page: doctors, weekly hours and the list of bookings.
+The clinic is at 27 Bluehill Road, Northfield, and the phone number is 0491 570 158.
+
+Calendar
+Show enough slots so parents can choose.
+A slot that is already booked does not appear as free.
+
+Booking rules
+Parents can book up to 30 days ahead.
+The booking form asks for the parent's name, the child's name, the child's age and a phone number.
+A child can have one booking per day.
+Each booking gets a booking code of 6 characters, made of letters and digits.
+
+Cancellation
+Parents can cancel up to 1 hour before the visit.
+
+Not part of this release
+Patient accounts. Reminders by text message or email.
+
+Tools at the clinic today
+The front desk has one computer and a printer.
+The diary stays in use until the website is live.
+Next week's visits from the diary will be entered into the website before it goes live.
+
+Open points for the next meeting
+Vikram will bring a first version of the doctor list, the calendar and the booking form.
+Dr. Rao will send a written summary of the clinic rules by Friday.
+Dr. Kurian will confirm his weekly hours.
+Priya will send photos of the waiting room for the home page.
+
+Next steps
+Asha shares these notes with Dr. Rao, Dr. Kurian and Priya today.
+Next meeting: Wednesday 15 October, 11 am, at the clinic.

@@ -20,17 +20,22 @@
     "test:load": "tsx scripts/stub.ts test:load 6.1",
     "test:restart": "tsx scripts/stub.ts test:restart 6.2",
     "test:isolation": "tsx scripts/stub.ts test:isolation 6.3",
-    "eval:discovery": "tsx scripts/stub.ts eval:discovery 6.4"
+    "eval:discovery": "tsx scripts/stub.ts eval:discovery 6.4",
+    "fixtures:build": "tsx scripts/build-fixtures.ts"
   },
   "devDependencies": {
     "@agencymem/contracts": "workspace:*",
     "@agencymem/graph": "workspace:*",
+    "@agencymem/ingest": "workspace:*",
     "@agencymem/memory": "workspace:*",
     "@eslint/js": "10.0.1",
     "@types/node": "22.20.5",
+    "@types/pdfkit": "0.17.6",
     "dependency-cruiser": "18.4.0",
+    "docx": "9.8.0",
     "eslint": "10.11.0",
     "globals": "17.13.0",
+    "pdfkit": "0.20.2",
     "prettier": "3.9.9",
     "tsx": "4.23.15",
     "typescript": "5.9.3",
