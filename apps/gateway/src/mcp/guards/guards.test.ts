@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Envelope, RejectionCounter } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, close, connect, readQuery, type FalkorDB } from "@agencymem/graph";
-import { createProject } from "@agencymem/memory";
+import { createProject, deleteTestClient } from "@agencymem/memory";
 import { createEvents } from "../../events/bus";
 import {
   CLAIMS,
@@ -52,7 +52,7 @@ beforeAll(async () => {
   clientGraph = `client_${client.id}`;
 });
 afterAll(async () => {
-  await db.selectGraph(clientGraph).delete();
+  await deleteTestClient(db, clientGraph);
   await close();
 });
 

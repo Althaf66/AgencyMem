@@ -16,7 +16,7 @@ import {
 } from "@agencymem/contracts";
 import { close, connect, type FalkorDB } from "@agencymem/graph";
 import { ingest } from "@agencymem/ingest";
-import { setStage, writeDocument } from "@agencymem/memory";
+import { setStage, writeDocument, deleteTestClient } from "@agencymem/memory";
 import { createEvents } from "../events/bus";
 import { createGateway } from "../main";
 import { runStage } from "../stage/effects";
@@ -46,7 +46,7 @@ beforeAll(async () => {
 afterAll(async () => {
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
-  for (const graph of graphs) await db.selectGraph(graph).delete();
+  for (const graph of graphs) await deleteTestClient(db, graph);
   await close();
   await rm(uploads, { recursive: true, force: true });
 });

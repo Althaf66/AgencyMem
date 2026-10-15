@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { close, connect, graphFor, readQuery, type FalkorDB } from "@agencymem/graph";
-import { createProject } from "./index";
+import { createProject, deleteTestClient } from "./index";
 
 const URL_ = process.env.FALKORDB_URL ?? "redis://localhost:6380";
 const created: string[] = [];
@@ -12,7 +12,7 @@ beforeAll(async () => {
   db = await connect(URL_);
 });
 afterAll(async () => {
-  for (const graph of new Set(created)) await db.selectGraph(graph).delete();
+  for (const graph of new Set(created)) await deleteTestClient(db, graph);
   await close();
 });
 

@@ -316,3 +316,36 @@ TASK: t`,
     await expect(chat(request("c.txt"))).rejects.toThrow(/no recorded reply fits/);
   });
 });
+
+describe("replayChat fact placeholders", () => {
+  it("puts in the id of the current CONTEXT fact with that subject, attribute and value", async () => {
+    const context = {
+      facts: [
+        {
+          id: "01JA00000000000000000000F1",
+          subject: "clinic",
+          attribute: "hours",
+          value: "9 am to 5 pm",
+        },
+        { id: "01JA00000000000000000000F2", subject: "clinic", attribute: "note", value: "a: b" },
+      ],
+    };
+    const req = {
+      tier: "deep" as const,
+      maxTokens: 10,
+      messages: [
+        {
+          role: "user" as const,
+          content: `CONTEXT: ${JSON.stringify(context)}
+TASK: t`,
+        },
+      ],
+    };
+    const chat = replayChat([
+      JSON.stringify({ ids: ["{{fact:clinic:hours:9 am to 5 pm}}", "{{fact:clinic:note:a: b}}"] }),
+    ]);
+    expect(JSON.parse((await chat(req)).content)).toEqual({
+      ids: ["01JA00000000000000000000F1", "01JA00000000000000000000F2"],
+    });
+  });
+});

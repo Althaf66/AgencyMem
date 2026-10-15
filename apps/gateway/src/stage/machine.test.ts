@@ -100,6 +100,12 @@ const rows: [string, StageState, StageEvent, StageResult][] = [
     { effects: [] },
   ],
   [
+    "T4 discovery done: no effects (G1 is decidable once no Question is open, read from the gates)",
+    intakeDone({ stage: "discovery" }),
+    { type: "item_completed", kind: "discovery", outcome: "done", actor: "discovery" },
+    { effects: [] },
+  ],
+  [
     "startup repairs a missed T3: every intake item done, still in intake",
     intakeDone(),
     { type: "startup" },

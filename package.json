@@ -20,7 +20,7 @@
     "test:load": "tsx scripts/stub.ts test:load 6.1",
     "test:restart": "tsx scripts/stub.ts test:restart 6.2",
     "test:isolation": "tsx scripts/stub.ts test:isolation 6.3",
-    "eval:discovery": "tsx scripts/stub.ts eval:discovery 6.4",
+    "eval:discovery": "tsx --env-file-if-exists=.env tests/discovery-eval/score.ts",
     "fixtures:build": "tsx scripts/build-fixtures.ts"
   },
   "devDependencies": {

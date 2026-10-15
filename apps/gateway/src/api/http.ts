@@ -1,7 +1,8 @@
 // What the REST routes share (contracts.md section 8): bodies checked by their contracts schema,
 // the X-AM-Actor header, and every failure as `{ error: Rejection }` with the status of section 6.
 import type { Request, Response } from "express";
-import { PersonActor, httpStatus, type ErrorBody, type Rejection } from "@agencymem/contracts";
+import { Id, PersonActor, httpStatus, type ErrorBody, type Rejection } from "@agencymem/contracts";
+import { UnknownProjectError, graphFor, type FalkorDB } from "@agencymem/graph";
 
 /** The part of a zod schema these helpers use. */
 type Schema<T> = {
@@ -49,3 +50,23 @@ export const MISSING_ACTOR: Rejection = {
   code: "VALIDATION_FAILED",
   reason: "A write needs X-AM-Actor: human:<name> or persona:<projectId>.",
 };
+
+/** The project of a /projects/:id path and its graph, or the rejection to send (400 or 404). */
+export async function pathProject(
+  db: FalkorDB,
+  raw: string | undefined,
+): Promise<{ ok: true; id: string; graph: string } | { ok: false; error: Rejection }> {
+  const id = Id.safeParse(raw);
+  if (!id.success) {
+    return {
+      ok: false,
+      error: { code: "VALIDATION_FAILED", reason: "The project id is not an id." },
+    };
+  }
+  try {
+    return { ok: true, id: id.data, graph: await graphFor(db, id.data) };
+  } catch (e) {
+    if (!(e instanceof UnknownProjectError)) throw e;
+    return { ok: false, error: { code: "NOT_FOUND", reason: `Unknown project ${id.data}.` } };
+  }
+}

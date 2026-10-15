@@ -11,3 +11,4 @@ docs/
 # Agent prompts are code: the runner reads them at run time.
 !apps/runner/src/agents/**/*.md
 !tests/runner/**/*.md
+tests/discovery-eval/out/

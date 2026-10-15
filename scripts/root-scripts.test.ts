@@ -28,7 +28,6 @@ describe("root scripts", () => {
     ["test:load", "6.1"],
     ["test:restart", "6.2"],
     ["test:isolation", "6.3"],
-    ["eval:discovery", "6.4"],
   ])("stub %s names the task that replaces it (%s)", (name, task) => {
     const cmd = pkg.scripts[name] ?? "";
     expect(cmd).toMatch(/^tsx scripts\/stub\.ts /);

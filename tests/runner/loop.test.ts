@@ -7,7 +7,7 @@ import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadConfig, type Envelope, type ProjectInfo } from "@agencymem/contracts";
 import { close, connect, type FalkorDB } from "@agencymem/graph";
-import { setStage } from "@agencymem/memory";
+import { setStage, deleteTestClient } from "@agencymem/memory";
 import { createModelClient, replayChat } from "@agencymem/llm";
 import { createEvents } from "../../apps/gateway/src/events/bus";
 import { createGateway } from "../../apps/gateway/src/main";
@@ -35,7 +35,7 @@ beforeAll(async () => {
 afterAll(async () => {
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
-  for (const graph of graphs) await db.selectGraph(graph).delete();
+  for (const graph of graphs) await deleteTestClient(db, graph);
   await close();
 });
 

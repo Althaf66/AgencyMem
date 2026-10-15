@@ -9,7 +9,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ToolName, loadConfig } from "@agencymem/contracts";
 import { close, connect } from "@agencymem/graph";
-import { createProject } from "@agencymem/memory";
+import { createProject, deleteTestClient } from "@agencymem/memory";
 import { createEvents } from "../events/bus";
 import { createGateway } from "../main";
 import { createMcpServer } from "./server";
@@ -44,7 +44,7 @@ afterAll(async () => {
   await Promise.allSettled(clients.map((c) => c.close()));
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
-  await (await connect(FALKORDB_URL)).selectGraph(clientGraph).delete();
+  await deleteTestClient(await connect(FALKORDB_URL), clientGraph);
   await close();
 });
 

@@ -10,6 +10,7 @@ import pkg from "../package.json" with { type: "json" };
 import { filesRouter } from "./api/files";
 import { listProjects, projectsRouter } from "./api/projects";
 import { queryRouter } from "./api/query";
+import { questionsRouter } from "./api/questions";
 import { runsRouter } from "./api/runs";
 import { requireToken, tokenMatches } from "./auth";
 import { createEvents, type Events } from "./events/bus";
@@ -98,6 +99,7 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
     express.json(),
     projectsRouter({ db, events }),
     filesRouter({ db, events, uploadsDir: required(cfg.UPLOADS_DIR, "UPLOADS_DIR") }),
+    questionsRouter({ db, events }),
     queryRouter({ db, events }),
     notFound,
   );

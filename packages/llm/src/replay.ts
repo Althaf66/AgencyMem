@@ -4,6 +4,8 @@
 // Node ids are new on every run, so a recording names them by placeholders that are filled in
 // from the CONTEXT of the request being replayed:
 //   {{episode:<documentName>:<page>:<lineStart>}}  the id of that episode in CONTEXT.episodes
+//   {{fact:<subject>:<attribute>:<value>}}         the id of that current fact in CONTEXT.facts
+//                                                  (the value is the rest, colons and all)
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import type { Chat, ChatRequest } from "./chat";
@@ -13,6 +15,7 @@ export const Recording = z.object({ replies: z.array(z.string()).min(1) });
 export type Recording = z.infer<typeof Recording>;
 
 const EPISODE = /\{\{episode:([^:}]+):(\d+):(\d+)\}\}/g;
+const FACT = /\{\{fact:([^:}]+):([^:}]+):([^}]+)\}\}/g;
 
 type Context = {
   episodes?: {
@@ -21,6 +24,7 @@ type Context = {
     page: number | null;
     lineStart: number | null;
   }[];
+  facts?: { id: string; subject: string; attribute: string; value: string }[];
 };
 
 /** The CONTEXT JSON of the agent's user message (agent-prompts.md, Model request). */
@@ -32,7 +36,8 @@ function contextOf(req: ChatRequest): Context {
 
 /** The reply with its placeholders filled in, or null when one does not resolve. */
 function resolve(reply: string, req: ChatRequest): string | null {
-  if (!reply.includes("{{episode:")) return reply; // nothing to fill: CONTEXT is not read
+  // Nothing to fill: CONTEXT is not read.
+  if (!reply.includes("{{episode:") && !reply.includes("{{fact:")) return reply;
   const context = contextOf(req);
   let missing = false;
   const filled = reply.replace(EPISODE, (_all, doc: string, page: string, line: string) => {
@@ -42,7 +47,17 @@ function resolve(reply: string, req: ChatRequest): string | null {
     if (!found) missing = true;
     return found?.id ?? "";
   });
-  return missing ? null : filled;
+  const withFacts = filled.replace(
+    FACT,
+    (_all, subject: string, attribute: string, value: string) => {
+      const found = context.facts?.find(
+        (f) => f.subject === subject && f.attribute === attribute && f.value === value,
+      );
+      if (!found) missing = true;
+      return found?.id ?? "";
+    },
+  );
+  return missing ? null : withFacts;
 }
 
 /**

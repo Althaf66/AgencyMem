@@ -77,3 +77,17 @@ export async function setStage(
   const rows = await writeQuery(db, REGISTRY_GRAPH, "write/set-stage", { projectId, from, to });
   return rows.length > 0;
 }
+
+/**
+ * Test cleanup only: deletes a test client's graph (`client_<clientId>`) and removes the client and
+ * its Projects from the registry. Only clients named `test-client-*` are removed.
+ */
+export async function deleteTestClient(db: FalkorDB, graph: string): Promise<void> {
+  const clientId = graph.replace(/^client_/, "");
+  const removed = await writeQuery(db, REGISTRY_GRAPH, "write/delete-test-client", { clientId });
+  if (removed.length === 0) return; // not a test client: its graph stays too
+  await db
+    .selectGraph(graph)
+    .delete()
+    .catch(() => undefined); // the graph may not exist (nothing was written to it)
+}

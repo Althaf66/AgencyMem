@@ -8,20 +8,19 @@ import express, { type Request, type Response, type Router } from "express";
 import multer from "multer";
 import {
   Document,
-  Id,
   UPLOAD_RULES,
   type DocumentInfo,
   type PersonActor,
   type Rejection,
 } from "@agencymem/contracts";
-import { UnknownProjectError, graphFor, readQuery, type FalkorDB } from "@agencymem/graph";
+import { readQuery, type FalkorDB } from "@agencymem/graph";
 import { ingest } from "@agencymem/ingest";
 import { writeDocument, type Ctx } from "@agencymem/memory";
 import type { Events } from "../events/bus";
 import { reject, rejectAndCount } from "../mcp/guards";
 import { runStage } from "../stage/effects";
 import { readStageState } from "../stage/state";
-import { MISSING_ACTOR, personActor, sendError } from "./http";
+import { MISSING_ACTOR, pathProject, personActor, sendError } from "./http";
 
 const TOOL = "POST /api/projects/:id/files";
 const NO_TEXT = "no text found"; // ui.md, Files screen
@@ -54,21 +53,6 @@ function toInfo(d: Document): DocumentInfo {
     error: d.error,
     uploadedAt: d.uploadedAt,
   };
-}
-
-/** The project of the path and its graph, or the rejection to send. */
-async function project(
-  db: FalkorDB,
-  raw: string | undefined,
-): Promise<{ ok: true; id: string; graph: string } | { ok: false; error: Rejection }> {
-  const id = Id.safeParse(raw);
-  if (!id.success) return { ok: false, error: invalid("The project id is not an id.") };
-  try {
-    return { ok: true, id: id.data, graph: await graphFor(db, id.data) };
-  } catch (e) {
-    if (!(e instanceof UnknownProjectError)) throw e;
-    return { ok: false, error: { code: "NOT_FOUND", reason: `Unknown project ${id.data}.` } };
-  }
 }
 
 /** Every file of the request is checked before any is stored: one bad file refuses them all. */
@@ -139,7 +123,7 @@ export function filesRouter(deps: {
     const actor = personActor(req);
     if (!actor) return sendError(res, MISSING_ACTOR);
     const db = await deps.db();
-    const found = await project(db, req.params.id);
+    const found = await pathProject(db, req.params.id);
     if (!found.ok) return sendError(res, found.error);
 
     // T2: uploads only while the stage is intake; after that, new information is a change request.
@@ -196,7 +180,7 @@ export function filesRouter(deps: {
   // 5. GET /api/projects/:id/documents (snapshot), in upload order.
   router.get("/projects/:id/documents", async (req, res) => {
     const db = await deps.db();
-    const found = await project(db, req.params.id);
+    const found = await pathProject(db, req.params.id);
     if (!found.ok) return sendError(res, found.error);
     const seq = deps.events.current(found.id); // read before the snapshot (C12)
     const rows = await readQuery<{ d: { properties: Record<string, unknown> } }>(

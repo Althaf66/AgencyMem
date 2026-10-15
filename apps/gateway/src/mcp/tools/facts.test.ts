@@ -8,7 +8,13 @@ import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadConfig, type Envelope, type WorkItemKind } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, close, connect, readQuery, type FalkorDB } from "@agencymem/graph";
-import { createProject, openItem, writeDocument, type Ctx } from "@agencymem/memory";
+import {
+  createProject,
+  openItem,
+  writeDocument,
+  type Ctx,
+  deleteTestClient,
+} from "@agencymem/memory";
 import { createEvents } from "../../events/bus";
 import { createGateway } from "../../main";
 
@@ -34,7 +40,7 @@ afterAll(async () => {
   await Promise.allSettled(clients.map((c) => c.close()));
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
-  for (const graph of graphs) await db.selectGraph(graph).delete();
+  for (const graph of graphs) await deleteTestClient(db, graph);
   await close();
 });
 

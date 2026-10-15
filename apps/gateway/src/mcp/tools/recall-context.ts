@@ -1,4 +1,5 @@
 import {
+  Document,
   WorkItem,
   type AgentId,
   type Context,
@@ -58,6 +59,31 @@ export async function recallContextTool(
       "read/entities",
       { projectId },
     );
+  }
+
+  // agent-prompts.md section 3: a discovery item reads the current facts, the entities and the
+  // documents (names and word counts).
+  if (item.kind === "discovery") {
+    const facts = await readQuery<
+      Omit<NonNullable<Context["facts"]>[number], "validTo" | "replacedBy">
+    >(ctx.db, graph, "read/current-facts", { projectId });
+    context.facts = facts.map((f) => ({ ...f, validTo: null, replacedBy: null }));
+    context.entities = await readQuery<NonNullable<Context["entities"]>[number]>(
+      ctx.db,
+      graph,
+      "read/entities",
+      { projectId },
+    );
+    const documents = await readQuery<{ d: { properties: Record<string, unknown> } }>(
+      ctx.db,
+      graph,
+      "read/documents",
+      { projectId },
+    );
+    context.documents = documents
+      .map((r) => Document.parse(r.d.properties))
+      .filter((d) => d.status === "processed")
+      .map((d) => ({ id: d.id, name: d.name, wordCount: d.wordCount }));
   }
 
   // contracts.md section 7: cut until it fits, handoffs to the newest 5, then episode text to 300.

@@ -4,7 +4,7 @@ import { ulid } from "ulid";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import type { Envelope } from "@agencymem/contracts";
 import { close, connect, type FalkorDB } from "@agencymem/graph";
-import { claimItem, createProject, openItem, type Ctx } from "@agencymem/memory";
+import { claimItem, createProject, openItem, type Ctx, deleteTestClient } from "@agencymem/memory";
 import { createEvents } from "./bus";
 import { sweepOnce } from "./sweeper";
 
@@ -24,7 +24,7 @@ beforeAll(async () => {
   ctx = { db, graph: `client_${client.id}`, projectId: project.id };
 });
 afterAll(async () => {
-  await db.selectGraph(ctx.graph).delete();
+  await deleteTestClient(db, ctx.graph);
   await close();
 });
 
@@ -68,4 +68,5 @@ it("leaves alone a project whose client graph does not exist", async () => {
   await sweepOnce({ db, events: createEvents() }, Date.now());
   // A write query on a missing graph would create it; the sweeper must not.
   expect(await db.list()).not.toContain(gone);
+  await deleteTestClient(db, gone); // the registry entry; the graph is already gone
 });

@@ -11,7 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { loadConfig, type ServerMessage } from "@agencymem/contracts";
 import { close, connect, type FalkorDB } from "@agencymem/graph";
-import { createProject, openItem, type Ctx } from "@agencymem/memory";
+import { createProject, openItem, type Ctx, deleteTestClient } from "@agencymem/memory";
 import { createGateway } from "../main";
 import { createEvents } from "./bus";
 
@@ -59,7 +59,7 @@ afterAll(async () => {
   await agent.close();
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
-  await db.selectGraph(ctx.graph).delete();
+  await deleteTestClient(db, ctx.graph);
   await close();
 });
 
