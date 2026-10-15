@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "pnpm --parallel --filter @agencymem/gateway --filter @agencymem/runner --filter @agencymem/web dev",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck && tsc --noEmit -p scripts/tsconfig.json",
+    "typecheck": "pnpm -r typecheck && tsc --noEmit -p scripts/tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "deps": "depcruise apps packages --config .dependency-cruiser.cjs",
@@ -27,6 +27,7 @@
     "@agencymem/contracts": "workspace:*",
     "@agencymem/graph": "workspace:*",
     "@agencymem/ingest": "workspace:*",
+    "@agencymem/llm": "workspace:*",
     "@agencymem/memory": "workspace:*",
     "@eslint/js": "10.0.1",
     "@types/node": "22.20.5",
@@ -40,6 +41,7 @@
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "typescript-eslint": "8.70.1",
-    "vitest": "5.0.2"
+    "vitest": "5.0.2",
+    "zod": "4.6.5"
   }
 }

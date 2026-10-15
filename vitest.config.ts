@@ -10,6 +10,7 @@ export default defineConfig({
           include: [
             "{packages,scripts}/**/*.test.ts",
             "apps/{gateway,runner,simulator}/**/*.test.ts",
+            "tests/**/*.test.ts",
           ],
           exclude: ["**/node_modules/**", "**/dist/**"],
         },

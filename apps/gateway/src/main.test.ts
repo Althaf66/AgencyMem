@@ -50,7 +50,9 @@ describe("/healthz", () => {
 
 describe("one token check per route group", () => {
   it.each([
-    ["/api/projects", "ui-t", ["agent-t", "hook-t"]],
+    ["/api/projects/01ARZ3NDEKTSV4RRFFQ69G5FAV", "ui-t", ["agent-t", "hook-t"]],
+    // Route 2 also takes the agent token, so the runner can find projects (task 2.4).
+    ["/api/projects", "agent-t", ["hook-t"]],
     ["/api/runs/steps", "agent-t", ["ui-t", "hook-t"]],
     ["/hooks/commit", "hook-t", ["ui-t", "agent-t"]],
     ["/mcp", "agent-t", ["hook-t"]],

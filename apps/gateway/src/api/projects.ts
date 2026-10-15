@@ -1,5 +1,5 @@
 // Routes 1, 2 and 3 of contracts.md section 8: create a project, list projects, read one project.
-import express, { type Router } from "express";
+import express, { type RequestHandler, type Router } from "express";
 import { CreateProjectBody, Id } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, readQuery, type FalkorDB } from "@agencymem/graph";
 import { createProject } from "@agencymem/memory";
@@ -7,6 +7,19 @@ import type { Events } from "../events/bus";
 import { projectInfo } from "../project-info";
 import { runStage } from "../stage/effects";
 import { MISSING_ACTOR, parseBody, personActor, sendError } from "./http";
+
+/**
+ * 2. GET /api/projects: every project, oldest first. main.ts mounts it for the UI and the agent
+ * tokens, so the runner can find the projects it works on (task 2.4 decision).
+ */
+export function listProjects(deps: { db: () => Promise<FalkorDB> }): RequestHandler {
+  return async (_req, res) => {
+    const db = await deps.db();
+    const rows = await readQuery<{ id: string }>(db, REGISTRY_GRAPH, "read/projects", {});
+    const projects = await Promise.all(rows.map((row) => projectInfo(db, row.id)));
+    res.json({ projects: projects.filter((p) => p !== null) });
+  };
+}
 
 export function projectsRouter(deps: { db: () => Promise<FalkorDB>; events: Events }): Router {
   const router = express.Router();
@@ -36,14 +49,6 @@ export function projectsRouter(deps: { db: () => Promise<FalkorDB>; events: Even
     });
     await runStage(db, deps.events, project.id, { type: "project_created", actor }); // T1: the gates
     res.status(201).json({ project: await projectInfo(db, project.id) });
-  });
-
-  // 2. GET /api/projects: every project, oldest first.
-  router.get("/projects", async (_req, res) => {
-    const db = await deps.db();
-    const rows = await readQuery<{ id: string }>(db, REGISTRY_GRAPH, "read/projects", {});
-    const projects = await Promise.all(rows.map((row) => projectInfo(db, row.id)));
-    res.json({ projects: projects.filter((p) => p !== null) });
   });
 
   // 3. GET /api/projects/:id (snapshot): the project and the seq the snapshot reflects (C12).

@@ -8,3 +8,6 @@ sim-state/
 docs/
 *.md
 .claude
+# Agent prompts are code: the runner reads them at run time.
+!apps/runner/src/agents/**/*.md
+!tests/runner/**/*.md

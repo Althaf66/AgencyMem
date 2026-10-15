@@ -8,8 +8,9 @@ import { loadConfig, type Config, type ErrorBody, type HealthResponse } from "@a
 import { connect, isReachable } from "@agencymem/graph";
 import pkg from "../package.json" with { type: "json" };
 import { filesRouter } from "./api/files";
-import { projectsRouter } from "./api/projects";
+import { listProjects, projectsRouter } from "./api/projects";
 import { queryRouter } from "./api/query";
+import { runsRouter } from "./api/runs";
 import { requireToken, tokenMatches } from "./auth";
 import { createEvents, type Events } from "./events/bus";
 import { startLeaseSweeper } from "./events/sweeper";
@@ -87,7 +88,10 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
   const db = () => connect(falkordbUrl);
   const isUp = () => isReachable(falkordbUrl);
 
-  app.use("/api/runs", requireToken(agent), notFound);
+  app.use("/api/runs", requireToken(agent), express.json(), runsRouter({ db, events }), notFound);
+  // Route 2 also takes the agent token: the runner lists projects to find work. Every other /api
+  // route stays UI only.
+  app.get("/api/projects", requireToken(agent, ui), listProjects({ db }));
   app.use(
     "/api",
     requireToken(ui),

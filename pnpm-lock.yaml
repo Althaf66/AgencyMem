@@ -17,6 +17,9 @@ importers:
       '@agencymem/ingest':
         specifier: workspace:*
         version: link:packages/ingest
+      '@agencymem/llm':
+        specifier: workspace:*
+        version: link:packages/llm
       '@agencymem/memory':
         specifier: workspace:*
         version: link:packages/memory
@@ -59,6 +62,9 @@ importers:
       vitest:
         specifier: 5.0.2
         version: 5.0.2(@types/node@22.20.5)(vite@8.3.1(@types/node@22.20.5)(esbuild@0.28.2)(tsx@4.23.15))
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   apps/gateway:
     dependencies:
@@ -105,6 +111,15 @@ importers:
       '@agencymem/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@agencymem/llm':
+        specifier: workspace:*
+        version: link:../../packages/llm
+      '@modelcontextprotocol/sdk':
+        specifier: 1.30.1
+        version: 1.30.1(supports-color@7.2.0)(zod@4.6.5)
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
 
   apps/simulator:
     dependencies:
