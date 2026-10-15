@@ -1,5 +1,6 @@
 export type { Ctx } from "./ctx";
-export { countRejection, createProject } from "./projects";
+export { createGates, writeDocument, type EpisodeInput } from "./documents";
+export { countRejection, createProject, setStage } from "./projects";
 export { applySchema, type SchemaName } from "./schema";
 export { writeVersioned, type PropValue } from "./versioned";
 export {

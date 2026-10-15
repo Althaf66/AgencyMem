@@ -7,6 +7,7 @@ import { WebSocketServer } from "ws";
 import { loadConfig, type Config, type ErrorBody, type HealthResponse } from "@agencymem/contracts";
 import { connect, isReachable } from "@agencymem/graph";
 import pkg from "../package.json" with { type: "json" };
+import { filesRouter } from "./api/files";
 import { projectsRouter } from "./api/projects";
 import { queryRouter } from "./api/query";
 import { requireToken, tokenMatches } from "./auth";
@@ -14,6 +15,7 @@ import { createEvents, type Events } from "./events/bus";
 import { startLeaseSweeper } from "./events/sweeper";
 import { attachEventSocket } from "./events/ws";
 import { mcpRouter } from "./mcp/server";
+import { startup } from "./stage/effects";
 
 /** The technical design binds the gateway to 127.0.0.1 by default. */
 const HOST = "127.0.0.1";
@@ -91,6 +93,7 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
     requireToken(ui),
     express.json(),
     projectsRouter({ db, events }),
+    filesRouter({ db, events, uploadsDir: required(cfg.UPLOADS_DIR, "UPLOADS_DIR") }),
     queryRouter({ db, events }),
     notFound,
   );
@@ -140,8 +143,18 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   try {
     const cfg = loadConfig(process.env, "gateway");
-    createGateway(cfg).listen(cfg.AM_PORT, HOST, () => {
+    const events = createEvents();
+    createGateway(cfg, { events }).listen(cfg.AM_PORT, HOST, () => {
       console.log(`gateway listening on http://${HOST}:${cfg.AM_PORT}`);
+      // Stage machine rule 3: repair anything a crash left half done.
+      connect(required(cfg.FALKORDB_URL, "FALKORDB_URL"))
+        .then((db) => startup(db, events))
+        .catch((e: unknown) => {
+          // The message only: a connection error must not log the URL, which can hold a password.
+          console.error(
+            `gateway: startup repair failed: ${e instanceof Error ? e.message : "error"}`,
+          );
+        });
     });
   } catch (e) {
     console.error(e instanceof Error ? e.message : e);

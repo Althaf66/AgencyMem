@@ -16,7 +16,9 @@ export type ErrorCode = z.infer<typeof ErrorCode>;
 export const REASON_CODES = {
   tenancy: ["PROJECT_MISSING", "PROJECT_UNKNOWN", "FOREIGN_NODE"],
   ownership: ["LABEL_NOT_OWNED", "ITEM_KIND_NOT_OWNED"],
-  gate: ["GATE_NOT_APPROVED"],
+  // WRONG_STAGE (P, task 2.2): a stage-bound route called in another stage, such as an upload
+  // after intake (stage-machine.md T2), with `stage` in details.
+  gate: ["GATE_NOT_APPROVED", "WRONG_STAGE"],
   source: ["SOURCE_MISSING", "SOURCE_UNKNOWN"],
   version: ["VERSION_OLD"],
   lease: ["LEASE_ENDED", "LEASE_OTHER_WORKER", "LEASE_HELD"],

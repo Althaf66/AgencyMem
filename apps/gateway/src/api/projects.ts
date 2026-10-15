@@ -5,13 +5,15 @@ import { REGISTRY_GRAPH, readQuery, type FalkorDB } from "@agencymem/graph";
 import { createProject } from "@agencymem/memory";
 import type { Events } from "../events/bus";
 import { projectInfo } from "../project-info";
+import { runStage } from "../stage/effects";
 import { MISSING_ACTOR, parseBody, personActor, sendError } from "./http";
 
 export function projectsRouter(deps: { db: () => Promise<FalkorDB>; events: Events }): Router {
   const router = express.Router();
 
   // 1. POST /api/projects: writes Client (found by name, or new) and Project to the registry, and
-  // creates the client graph's indexes, so the project's graph is usable at once.
+  // creates the client graph's indexes, so the project's graph is usable at once. Then T1 creates
+  // the project's gates.
   router.post("/projects", async (req, res) => {
     const actor = personActor(req);
     if (!actor) return sendError(res, MISSING_ACTOR);
@@ -32,6 +34,7 @@ export function projectsRouter(deps: { db: () => Promise<FalkorDB>; events: Even
       version: project.version,
       summary: `Project ${project.name} created`,
     });
+    await runStage(db, deps.events, project.id, { type: "project_created", actor }); // T1: the gates
     res.status(201).json({ project: await projectInfo(db, project.id) });
   });
 

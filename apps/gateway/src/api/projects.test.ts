@@ -136,10 +136,15 @@ describe("Done when: creating a project makes its client graph usable", () => {
     const off = events.on((e) => sent.push(e));
     const { project } = await create(`test-client-${randomUUID()}`);
     off();
+    // The Project, then the four Gates that T1 creates in one write.
     expect(sent.filter((e) => e.projectId === project.id)).toEqual([
       expect.objectContaining({
         type: "node.written",
         data: expect.objectContaining({ label: "Project", id: project.id, version: 1 }),
+      }),
+      expect.objectContaining({
+        type: "node.written",
+        data: expect.objectContaining({ label: "Gate", ids: expect.any(Array) }),
       }),
     ]);
   });

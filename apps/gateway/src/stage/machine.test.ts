@@ -1,0 +1,70 @@
+// stage-machine.md section 1, rule 4: one row per transition.
+import { describe, expect, it } from "vitest";
+import { next, type StageEvent, type StageResult, type StageState } from "./machine";
+
+const ana = "human:ana" as const;
+const D1 = "01JA0000000000000000000001";
+const D2 = "01JA0000000000000000000002";
+const fresh: StageState = { stage: "intake", createdBy: ana, gates: [], unopened: [] };
+
+const rows: [string, StageState, StageEvent, StageResult][] = [
+  [
+    "T1 project created: gates G1, G2, G3 and G5, stage intake",
+    fresh,
+    { type: "project_created", actor: ana },
+    { effects: [{ type: "create_gates", keys: ["G1", "G2", "G3", "G5"], createdBy: ana }] },
+  ],
+  [
+    "T2 files uploaded: an intake item per processed Document, none for no_text or failed",
+    { ...fresh, gates: ["G1", "G2", "G3", "G5"] },
+    {
+      type: "files_uploaded",
+      actor: ana,
+      documents: [
+        { id: D1, status: "processed" },
+        { id: "01JA0000000000000000000003", status: "no_text" },
+        { id: "01JA0000000000000000000004", status: "failed" },
+        { id: D2, status: "processed" },
+      ],
+    },
+    {
+      effects: [
+        { type: "open_item", kind: "intake", subjectId: D1, createdBy: ana },
+        { type: "open_item", kind: "intake", subjectId: D2, createdBy: ana },
+      ],
+    },
+  ],
+  [
+    "startup repairs missing gates and a processed Document that never got its intake item",
+    {
+      stage: "intake",
+      createdBy: ana,
+      gates: ["G1", "G3"],
+      unopened: [{ documentId: D1, createdBy: "persona:01JA0000000000000000000009" }],
+    },
+    { type: "startup" },
+    {
+      effects: [
+        { type: "create_gates", keys: ["G2", "G5"], createdBy: ana },
+        {
+          type: "open_item",
+          kind: "intake",
+          subjectId: D1,
+          createdBy: "persona:01JA0000000000000000000009",
+        },
+      ],
+    },
+  ],
+  [
+    "startup with nothing half done does nothing",
+    { ...fresh, gates: ["G1", "G2", "G3", "G5"] },
+    { type: "startup" },
+    { effects: [] },
+  ],
+];
+
+describe("machine.next", () => {
+  it.each(rows)("%s", (_name, state, event, expected) => {
+    expect(next(state, event)).toEqual(expected);
+  });
+});

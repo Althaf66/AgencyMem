@@ -5,6 +5,7 @@ import {
   type Mode,
   type PersonActor,
   type RejectionCounter,
+  type Stage,
 } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, clientGraphName, type FalkorDB } from "@agencymem/graph";
 import { writeQuery } from "@agencymem/graph/write";
@@ -61,4 +62,18 @@ export async function createProject(
   const project = Project.parse(row.p.properties);
   await applySchema(db, clientGraphName(client.id), "client");
   return { client, project };
+}
+
+/**
+ * Moves a Project from stage `from` to stage `to`. False when the Project is not in `from` (any
+ * more), so a repeated effect changes nothing (stage-machine.md section 1, rule 2).
+ */
+export async function setStage(
+  db: FalkorDB,
+  projectId: string,
+  from: Stage,
+  to: Stage,
+): Promise<boolean> {
+  const rows = await writeQuery(db, REGISTRY_GRAPH, "write/set-stage", { projectId, from, to });
+  return rows.length > 0;
 }
