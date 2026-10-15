@@ -3,7 +3,12 @@
 import type { RunInput } from "@agencymem/contracts";
 import { z } from "zod";
 import type { Chat, Message, Tier } from "./chat";
-import { ModelOutputError, ModelRequestError, ModelUnavailableError } from "./errors";
+import {
+  ModelCheckError,
+  ModelOutputError,
+  ModelRequestError,
+  ModelUnavailableError,
+} from "./errors";
 import { PRICES, type Prices } from "./prices";
 
 export type JsonRequest<T> = {
@@ -13,8 +18,9 @@ export type JsonRequest<T> = {
   /** CONTEXT: and TASK: lines. */
   user: string;
   schema: z.ZodType<T>;
-  /** Reference errors, such as an id that is not in CONTEXT. Empty means the output is good. */
-  check?: (output: T) => string[];
+  /** Reference errors, such as an id that is not in CONTEXT. Empty means the output is good. A
+   * check that needs I/O (the Test agent lists its spec files) returns a Promise. */
+  check?: (output: T) => string[] | Promise<string[]>;
   maxTokens?: number;
 };
 
@@ -24,7 +30,10 @@ export type ModelClient = {
 
 const MAX_TOKENS = 4000;
 
-function validate<T>(content: string, req: JsonRequest<T>): { output?: T; errors: string[] } {
+async function validate<T>(
+  content: string,
+  req: JsonRequest<T>,
+): Promise<{ output?: T; errors: string[] }> {
   let raw: unknown;
   try {
     raw = JSON.parse(content);
@@ -39,7 +48,7 @@ function validate<T>(content: string, req: JsonRequest<T>): { output?: T; errors
       ),
     };
   }
-  const errors = req.check?.(parsed.data) ?? [];
+  const errors = (await req.check?.(parsed.data)) ?? [];
   return errors.length ? { errors } : { output: parsed.data, errors: [] };
 }
 
@@ -91,7 +100,15 @@ export function createModelClient(deps: { chat: Chat; prices?: Prices }): ModelC
           ms: reply.ms,
           cost: cost(reply.model, reply.tokensIn, reply.tokensOut),
         });
-        const { output, errors } = validate(reply.content, req);
+        let checked: Awaited<ReturnType<typeof validate<T>>>;
+        try {
+          checked = await validate(reply.content, req);
+        } catch (e) {
+          const error = new ModelCheckError(`check failed: ${e instanceof Error ? e.message : e}`);
+          error.runs = runs;
+          throw error;
+        }
+        const { output, errors } = checked;
         if (output !== undefined) return { output, runs };
         if (step === "repair") {
           const error = new ModelOutputError(errors);

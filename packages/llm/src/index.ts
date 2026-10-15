@@ -9,6 +9,11 @@ export {
   type Tier,
 } from "./chat";
 export { createModelClient, type JsonRequest, type ModelClient } from "./client";
-export { ModelOutputError, ModelRequestError, ModelUnavailableError } from "./errors";
+export {
+  ModelCheckError,
+  ModelOutputError,
+  ModelRequestError,
+  ModelUnavailableError,
+} from "./errors";
 export { PRICES, type Price, type Prices } from "./prices";
 export { Recording, loadRecording, replayChat } from "./replay";

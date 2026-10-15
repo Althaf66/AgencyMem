@@ -8,6 +8,8 @@
 //                                                  (the value is the rest, colons and all)
 //   {{answer:<start of text>}}                     the id of the answer episode in CONTEXT.episodes
 //                                                  whose text starts with these words
+//   {{task:<CARD key>}}                            the key itself, when CONTEXT.tasks holds that card
+//                                                  (one reply per card, in any claim order)
 import { readFile } from "node:fs/promises";
 import { z } from "zod";
 import type { Chat, ChatRequest } from "./chat";
@@ -19,6 +21,7 @@ export type Recording = z.infer<typeof Recording>;
 const EPISODE = /\{\{episode:([^:}]+):(\d+):(\d+)\}\}/g;
 const FACT = /\{\{fact:([^:}]+):([^:}]+):([^}]+)\}\}/g;
 const ANSWER = /\{\{answer:([^}]+)\}\}/g;
+const TASK = /\{\{task:([^}]+)\}\}/g;
 
 type Context = {
   episodes?: {
@@ -30,6 +33,7 @@ type Context = {
     lineStart: number | null;
   }[];
   facts?: { id: string; subject: string; attribute: string; value: string }[];
+  tasks?: { key: string }[];
 };
 
 /** The CONTEXT JSON of the agent's user message (agent-prompts.md, Model request). */
@@ -42,7 +46,9 @@ function contextOf(req: ChatRequest): Context {
 /** The reply with its placeholders filled in, or null when one does not resolve. */
 function resolve(reply: string, req: ChatRequest): string | null {
   // Nothing to fill: CONTEXT is not read.
-  if (!["{{episode:", "{{fact:", "{{answer:"].some((p) => reply.includes(p))) return reply;
+  if (!["{{episode:", "{{fact:", "{{answer:", "{{task:"].some((p) => reply.includes(p))) {
+    return reply;
+  }
   const context = contextOf(req);
   let missing = false;
   const filled = reply.replace(EPISODE, (_all, doc: string, page: string, line: string) => {
@@ -67,7 +73,11 @@ function resolve(reply: string, req: ChatRequest): string | null {
     if (!found) missing = true;
     return found?.id ?? "";
   });
-  return missing ? null : withAnswers;
+  const withTasks = withAnswers.replace(TASK, (_all, key: string) => {
+    if (!context.tasks?.some((t) => t.key === key)) missing = true;
+    return key;
+  });
+  return missing ? null : withTasks;
 }
 
 /**

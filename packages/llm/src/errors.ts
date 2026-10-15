@@ -22,6 +22,12 @@ export class ModelRequestError extends ModelError {
   }
 }
 
+/** The agent's own check threw (the Test agent's git or file work), not the model's reply. The
+ * runner fails the item with the message; retrying would pay for the same reply again. */
+export class ModelCheckError extends ModelError {
+  override name = "ModelCheckError";
+}
+
 /** The reply failed its checks twice: once, and again after the one repair. */
 export class ModelOutputError extends ModelError {
   override name = "ModelOutputError";

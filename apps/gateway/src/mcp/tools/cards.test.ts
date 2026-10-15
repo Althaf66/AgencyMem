@@ -13,6 +13,7 @@ import {
   createProject,
   deleteTestClient,
   openItem,
+  setStage,
   writeDesign,
   writeDocument,
   writeFacts,
@@ -357,5 +358,125 @@ describe("write_cards: create", () => {
     expect(await direct(card(1))).toBeNull();
     expect(await direct(card(3, { requirementKey: "REQ-09", dependsOn: [] }))).toBeNull();
     expect(await rows(ctx, q("MATCH", "(t:Task)", "RETURN", "count(t) AS n"))).toEqual([{ n: 2 }]);
+  });
+});
+
+describe("write_tests (task 3.8)", () => {
+  /** CARD-01 with two criteria and CARD-02 with one, in planning, with their write_tests items. */
+  async function planned() {
+    const { ctx } = await setup();
+    const now = Date.now();
+    const two = card(1, {
+      criteria: [
+        { key: "AC-01-1", text: "Given one, when two, then three.", testIds: ["book-submit"] },
+        { key: "AC-01-2", text: "Given four, when five, then six.", testIds: ["booking-code"] },
+      ],
+    });
+    const { taskIds } = (await writeCards(ctx, {
+      cards: [two, card(2)] as never,
+      createdBy: "planner",
+      now,
+    }))!;
+    await setStage(db, ctx.projectId, "intake", "planning");
+    const item = (await openItem(ctx, {
+      kind: "write_tests",
+      subjectId: taskIds[0]!,
+      createdBy: "planner",
+      now,
+    }))!;
+    // T15 opens one per card.
+    await openItem(ctx, { kind: "write_tests", subjectId: taskIds[1]!, createdBy: "planner", now });
+    return { ctx, item, card1: taskIds[0]!, card2: taskIds[1]! };
+  }
+  const SHA = "a".repeat(40);
+  const spec = (ac: string) => ({
+    criterionKey: ac,
+    file: `tests/e2e/CARD-01/${ac}.spec.ts`,
+    title: `${ac}: the test`,
+  });
+  const tests = (itemId: string, taskId: string, cases: unknown[]) => ({
+    itemId,
+    taskId,
+    sha: SHA,
+    cases,
+  });
+  const callTests = async (client: Client, args: Record<string, unknown>) => {
+    const result = (await client.callTool({ name: "write_tests", arguments: args })) as Result;
+    return { isError: result.isError === true, out: result.structuredContent ?? {} };
+  };
+  const column = async (ctx: Ctx, taskId: string) =>
+    (
+      await rows(
+        ctx,
+        q("MATCH", `(t:Task {id: '${taskId}'})`, "RETURN", "t.column AS c, t.version AS v"),
+      )
+    )[0];
+
+  it("rejects another agent, a criterion of another card, and a task that is not the item's", async () => {
+    const { ctx, item, card1, card2 } = await planned();
+    const planner = await agent(ctx.projectId);
+    expect(
+      error((await callTests(planner, tests(item.id, card1, [spec("AC-01-1")]))).out),
+    ).toMatchObject({
+      guard: "ownership",
+    });
+    const tester = await agent(ctx.projectId, "test");
+    const foreign = await callTests(tester, tests(item.id, card1, [spec("AC-02-1")]));
+    expect(error(foreign.out)).toMatchObject({ guard: "source" });
+    const other = await callTests(tester, tests(item.id, card2, [spec("AC-02-1")]));
+    expect(error(other.out)).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(await rows(ctx, q("MATCH", "(x:TestCase)", "RETURN", "count(x) AS n"))).toEqual([
+      { n: 0 },
+    ]);
+  });
+
+  it("moves the card to Ready once every criterion has a TestCase, and starts the build (T16)", async () => {
+    const { ctx, item, card1 } = await planned();
+    const tester = await agent(ctx.projectId, "test");
+    const first = await callTests(tester, tests(item.id, card1, [spec("AC-01-1")]));
+    expect(first.out).toMatchObject({ taskColumn: "Backlog" });
+    expect(await column(ctx, card1)).toEqual({ c: "Backlog", v: 1 });
+
+    const sent: Envelope[] = [];
+    const off = events.on((e) => e.projectId === ctx.projectId && sent.push(e));
+    const both = await callTests(tester, tests(item.id, card1, [spec("AC-01-1"), spec("AC-01-2")]));
+    off();
+    expect(both.out).toMatchObject({ taskColumn: "Ready" });
+    const ids = both.out.testCaseIds as string[];
+    expect(ids[0]).toBe((first.out.testCaseIds as string[])[0]); // MERGE by file
+    expect(await column(ctx, card1)).toEqual({ c: "Ready", v: 2 });
+    expect(
+      await rows(
+        ctx,
+        q(
+          "MATCH",
+          "(x:TestCase)-[:VERIFIES]->(k:AcceptanceCriterion)",
+          "RETURN",
+          "k.key AS key, x.file AS file, x.version AS v",
+          "ORDER BY key",
+        ),
+      ),
+    ).toEqual([
+      { key: "AC-01-1", file: "tests/e2e/CARD-01/AC-01-1.spec.ts", v: 2 },
+      { key: "AC-01-2", file: "tests/e2e/CARD-01/AC-01-2.spec.ts", v: 1 },
+    ]);
+    expect(sent.map((e) => [e.type, (e.data as { label?: string }).label ?? null])).toEqual([
+      ["node.written", "TestCase"],
+      ["task.moved", null],
+    ]);
+    expect(sent[1]!.data).toMatchObject({
+      taskId: card1,
+      key: "CARD-01",
+      from: "Backlog",
+      to: "Ready",
+      version: 2,
+    });
+    const [project] = await readQuery<{ p: { properties: { stage: string } } }>(
+      db,
+      REGISTRY_GRAPH,
+      "read/project",
+      { projectId: ctx.projectId },
+    );
+    expect(project!.p.properties.stage).toBe("build");
   });
 });

@@ -215,6 +215,21 @@ export async function recallContextTool(
     }));
   }
 
+  // agent-prompts.md section 7: a write_tests item reads its card, the Endpoints, Screens and
+  // DataEntities the card uses, and the current facts (seed values such as staff names and hours).
+  if (item.kind === "write_tests" && item.subjectId) {
+    const tasks = await readQuery<Ctx["tasks"][number]>(ctx.db, graph, "read/task", {
+      projectId,
+      taskId: item.subjectId,
+    });
+    context.tasks = tasks;
+    const uses = new Set(tasks.flatMap((t) => t.designKeys));
+    context.design = (await readDesign(ctx.db, graph, projectId)).filter(
+      (n) => uses.has(n.key) && ["Endpoint", "Screen", "DataEntity"].includes(n.label),
+    );
+    context.facts = await currentFacts();
+  }
+
   // contracts.md section 7: cut until it fits, handoffs to the newest 5, then episode text to 300.
   const size = () => JSON.stringify({ item, project, context }).length;
   let chars = size();

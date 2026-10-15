@@ -3,6 +3,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import type { RunInput } from "@agencymem/contracts";
 import {
+  ModelCheckError,
   ModelOutputError,
   ModelRequestError,
   ModelUnavailableError,
@@ -142,7 +143,11 @@ export async function runItem(
       runs.push(...e.runs);
       return complete("failed", "model unavailable");
     }
-    if (e instanceof ModelOutputError || e instanceof ModelRequestError) {
+    if (
+      e instanceof ModelOutputError ||
+      e instanceof ModelRequestError ||
+      e instanceof ModelCheckError
+    ) {
       runs.push(...e.runs);
       return complete("failed", e.message);
     }

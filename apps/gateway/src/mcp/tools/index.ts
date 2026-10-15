@@ -11,6 +11,7 @@ import { writeCardsTool } from "./write-cards";
 import { writeDesignTool } from "./write-design";
 import { writeFactTool } from "./write-fact";
 import { writeQuestionTool } from "./write-question";
+import { writeTestsTool } from "./write-tests";
 import { writeHandoffTool } from "./write-handoff";
 import { writeProductTool } from "./write-product";
 
@@ -31,6 +32,7 @@ export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   record_change_request: recordChangeRequestTool,
   write_design: writeDesignTool,
   write_cards: writeCardsTool,
+  write_tests: writeTestsTool,
   find_impact: findImpactTool,
   read_query: readQueryTool,
 };

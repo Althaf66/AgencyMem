@@ -34,8 +34,9 @@ export type Agent<O> = {
   handoff: WorkItemKind[];
   /** The part of recall_context sent to the model as CONTEXT. */
   select(recall: Recall): unknown;
-  /** Reference errors: an id or key in the output that is not in the context. */
-  check?(output: O, recall: Recall): string[];
+  /** Reference errors: an id or key in the output that is not in the context. A check that needs
+   * I/O (the Test agent lists its spec files) returns a Promise. */
+  check?(output: O, recall: Recall): string[] | Promise<string[]>;
   act(output: O, recall: Recall, act: Act): Promise<ActResult>;
 };
 

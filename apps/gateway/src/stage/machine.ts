@@ -1,7 +1,7 @@
 // The stage machine (stage-machine.md): one pure function from the project state and an event to a
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
 // T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2), C1 and C2
-// (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5), T15 (task 3.6).
+// (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5), T15 (task 3.6), T16 (task 3.8).
 import type {
   Actor,
   ChangeRequestStatus,
@@ -63,6 +63,8 @@ export type StageState = {
   plannerDone: boolean;
   /** Build Tasks in Backlog with no write_tests item. */
   untestedCards: { taskId: Id }[];
+  /** Build Tasks past Backlog and Rework (T16 and its repair). */
+  readyCards: number;
 };
 
 type GateState = {
@@ -84,6 +86,8 @@ export type StageEvent =
       subjectId?: Id | null;
     }
   | { type: "change_request_created"; crId: Id; actor: Actor }
+  /** T16: write_tests moved a card to Ready. */
+  | { type: "card_ready" }
   /** T12: route 21 before G3 wrote the human_edit Episode; `note` names the section, if any. */
   | { type: "chat"; episodeId: Id; note: string; actor: Actor }
   | { type: "question_answered"; episodeId: Id; actor: Actor }
@@ -283,6 +287,13 @@ export function next(state: StageState, event: StageEvent): StageResult {
     case "chat":
       return { effects: [revise(event.episodeId, event.note, event.actor)] };
 
+    // T16: the first Ready card starts the build.
+    // T15 is repaired with it: a card that never got its write_tests item gets it now.
+    case "card_ready":
+      return state.stage === "planning"
+        ? { stage: "build", effects: writeTests(state) }
+        : { effects: [] };
+
     // C1: route 22 has written the ChangeRequest and its episode.
     case "change_request_created":
       return { effects: [applyChangeRequest(event.crId, event.actor)] };
@@ -377,8 +388,10 @@ export function next(state: StageState, event: StageEvent): StageResult {
         ) {
           effects.push(reviseDesign(g3.reason, by));
         }
-      } else if (state.stage === "planning" && state.plannerDone) {
+      } else if ((state.stage === "planning" || state.stage === "build") && state.plannerDone) {
+        // T15 repair (also after the build started), then T16 repair.
         effects.push(...writeTests(state));
+        if (state.stage === "planning" && state.readyCards > 0) return { stage: "build", effects };
       }
       return { effects };
     }

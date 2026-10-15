@@ -148,6 +148,26 @@ describe("runItem: act-step failures (agent-prompts.md section 1)", () => {
     expect((complete.runs as unknown[]).length).toBe(2);
   });
 
+  it("fails the item, with its run, when the agent's own check throws (no endless retry)", async () => {
+    const { s, calls } = session();
+    const broken = {
+      ...agent(),
+      check: async () => {
+        throw new Error("git worktree add failed");
+      },
+    };
+    expect(await runItem(broken, s, llm([good]), opts)).toBe("failed");
+    expect(calls.at(-1)).toEqual([
+      "complete_item",
+      {
+        itemId: ITEM,
+        outcome: "failed",
+        note: "check failed: git worktree add failed",
+        runs: [expect.objectContaining({ step: "think" })],
+      },
+    ]);
+  });
+
   it('fails the item with "model unavailable" when both endpoints fail', async () => {
     const { s, calls } = session();
     const down: Chat = async () => {

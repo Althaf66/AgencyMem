@@ -25,6 +25,7 @@ const fresh: StageState = {
   lastRevision: null,
   plannerDone: false,
   untestedCards: [],
+  readyCards: 0,
 };
 const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
 const intakeDone = (over: Partial<StageState> = {}): StageState => ({
@@ -577,6 +578,39 @@ rows.push(
     planning({ plannerDone: false }),
     { type: "startup" },
     { effects: [] },
+  ],
+);
+
+rows.push(
+  [
+    "T16 the first card moves to Ready in planning: stage build",
+    planning({ untestedCards: [], readyCards: 1 }),
+    { type: "card_ready" },
+    { stage: "build", effects: [] },
+  ],
+  [
+    "T16 a card moves to Ready in build: nothing",
+    planning({ stage: "build", untestedCards: [], readyCards: 2 }),
+    { type: "card_ready" },
+    { effects: [] },
+  ],
+  [
+    "T16 with a card that never got its write_tests item: opens it with the move to build",
+    planning({ untestedCards: [{ taskId: CARD2 }], readyCards: 1 }),
+    { type: "card_ready" },
+    { stage: "build", effects: [openWriteTests(CARD2)] },
+  ],
+  [
+    "startup repairs a missed T15 after the build started",
+    planning({ stage: "build", untestedCards: [{ taskId: CARD2 }], readyCards: 1 }),
+    { type: "startup" },
+    { effects: [openWriteTests(CARD2)] },
+  ],
+  [
+    "startup repairs a missed T16: in planning with a card already Ready",
+    planning({ untestedCards: [], readyCards: 1 }),
+    { type: "startup" },
+    { stage: "build", effects: [] },
   ],
 );
 

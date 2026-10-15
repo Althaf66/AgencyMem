@@ -1,10 +1,13 @@
 // The Planner (agent-prompts.md section 6): splits the approved design into cards a build run can
 // finish in one go. Replan (update mode) is not built yet.
+import { readFile } from "node:fs/promises";
 import { findCycle } from "@agencymem/contracts";
 import { loadPrompt, type Agent, type Recall } from "../../agent";
 import { PlannerOutput } from "./output";
 
 const MAX_CARDS = 10; // the cost cap
+// The data-testid rule and the reserved names (sample-app.md section 8), shared with the Test agent.
+const TESTIDS = await readFile(new URL("../testids.md", import.meta.url), "utf8");
 
 /** Reference errors the model can repair. */
 export function checkCards(output: PlannerOutput, recall: Recall): string[] {
@@ -48,7 +51,8 @@ export const planner: Agent<PlannerOutput> = {
   tier: "deep",
   maxTokens: 8000, // up to 10 cards with 3 criteria each
   task: "Write the cards.",
-  prompt: await loadPrompt(import.meta.url, "Planner"),
+  prompt: `${await loadPrompt(import.meta.url, "Planner")}
+${TESTIDS}`,
   output: PlannerOutput,
   handoff: ["planner"],
   select: (recall) => ({

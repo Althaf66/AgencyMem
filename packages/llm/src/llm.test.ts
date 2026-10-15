@@ -8,6 +8,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { RunInput } from "@agencymem/contracts";
 import { z } from "zod";
 import {
+  ModelCheckError,
   ModelOutputError,
   ModelRequestError,
   ModelUnavailableError,
@@ -222,6 +223,40 @@ describe("JSON check and one repair (agent-prompts.md, Model request)", () => {
     const repair = primary.requests[1]!.messages as { content: string }[];
     expect(repair[3]!.content).toMatch(/facts\.0\.id/); // the schema error names the field
   });
+
+  it("turns a check() that throws into ModelCheckError with the runs so far", async () => {
+    primary.replies.push({
+      status: 200,
+      body: completion(JSON.stringify({ facts: [{ id: "f1", value: "x" }] }), "primary-deep"),
+    });
+    const check = async () => {
+      throw new Error("git worktree add failed");
+    };
+    const err = await createModelClient({ chat: chat() })
+      .json({ ...ask, check })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(ModelCheckError);
+    expect((err as ModelCheckError).message).toBe("check failed: git worktree add failed");
+    expect((err as ModelCheckError).runs.map((r) => r.step)).toEqual(["think"]);
+  });
+
+  it("waits for an async check(), and repairs once on its errors", async () => {
+    const good = JSON.stringify({ facts: [{ id: "f1", value: "x" }] });
+    const bad = JSON.stringify({ facts: [{ id: "f9", value: "x" }] });
+    primary.replies.push(
+      { status: 200, body: completion(bad, "primary-deep") },
+      { status: 200, body: completion(good, "primary-deep") },
+    );
+    const check = async (o: z.infer<typeof Output>) => {
+      await new Promise((r) => setTimeout(r, 5));
+      return o.facts.filter((f) => f.id !== "f1").map((f) => `${f.id} is not on disk`);
+    };
+    const { output, runs } = await createModelClient({ chat: chat() }).json({ ...ask, check });
+    expect(output.facts[0]!.id).toBe("f1");
+    expect(runs.map((r) => r.step)).toEqual(["think", "repair"]);
+    const repair = primary.requests[1]!.messages as { content: string }[];
+    expect(repair[3]!.content).toMatch(/f9 is not on disk/);
+  });
 });
 
 describe("meter", () => {
@@ -372,5 +407,28 @@ TASK: t`,
     const first = await chat(request("No accounts; the booking code is the key."));
     expect(JSON.parse(first.content)).toEqual({ id: "01JA00000000000000000000A1" });
     await expect(chat(request("Yes."))).rejects.toThrow(/no recorded reply fits/);
+  });
+});
+
+describe("replayChat task placeholders", () => {
+  it("puts in the card key only when CONTEXT.tasks holds that card", async () => {
+    const request = (key: string) => ({
+      tier: "deep" as const,
+      maxTokens: 10,
+      messages: [
+        {
+          role: "user" as const,
+          content: `CONTEXT: ${JSON.stringify({ tasks: [{ id: "T", key }] })}
+TASK: t`,
+        },
+      ],
+    });
+    const chat = replayChat([
+      JSON.stringify({ path: "tests/e2e/{{task:CARD-01}}/AC-01-1.spec.ts" }),
+      JSON.stringify({ path: "tests/e2e/{{task:CARD-02}}/AC-02-1.spec.ts" }),
+    ]);
+    const second = await chat(request("CARD-02"));
+    expect(JSON.parse(second.content)).toEqual({ path: "tests/e2e/CARD-02/AC-02-1.spec.ts" });
+    await expect(chat(request("CARD-03"))).rejects.toThrow(/no recorded reply fits/);
   });
 });

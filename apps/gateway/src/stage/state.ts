@@ -25,6 +25,7 @@ type Row = {
   lastRevision: { createdAt: unknown; doneAt: unknown } | null;
   plannerDone: boolean;
   untestedCards: { taskId: unknown }[];
+  readyCards: number;
   unopenedEdits: { episodeId: unknown; text: unknown; createdBy: unknown }[];
   changeRequests: (Omit<StageState["changeRequests"][number], "id" | "status" | "createdBy"> & {
     id: unknown;
@@ -97,6 +98,7 @@ export async function readStageState(
     lastRevision: times(state?.lastRevision),
     plannerDone: state?.plannerDone ?? false,
     untestedCards: (state?.untestedCards ?? []).map((c) => ({ taskId: Id.parse(c.taskId) })),
+    readyCards: state?.readyCards ?? 0,
     unopenedAnswers: (state?.unopenedAnswers ?? []).map((a) => ({
       episodeId: Id.parse(a.episodeId),
       createdBy: Actor.parse(a.createdBy),
