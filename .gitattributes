@@ -1,3 +1,5 @@
+# Every text file checks out LF: a CRLF .cypher file fails to parse, and prettier wants LF.
+* text=auto eol=lf
 # Fixture text stays LF: scripts/build-fixtures.ts matches lines exactly and builds the PDF and DOCX from them.
 apps/simulator/fixtures/** text eol=lf
 *.pdf binary
