@@ -1,6 +1,6 @@
 // Route 22 of contracts.md section 8: a person records a change request (stage-machine.md C1).
 import express, { type Router } from "express";
-import { ChangeRequestBody, type Stage } from "@agencymem/contracts";
+import { ChangeRequestBody, type Actor, type Rejection, type Stage } from "@agencymem/contracts";
 import type { FalkorDB } from "@agencymem/graph";
 import { createChangeRequest } from "@agencymem/memory";
 import type { Events } from "../events/bus";
@@ -11,7 +11,53 @@ import { MISSING_ACTOR, parseBody, pathProject, personActor, sendError } from ".
 
 const TOOL = "POST /api/projects/:id/change-requests";
 // stage-machine.md section 7: from G2 approval until the project closes.
-const OPEN_STAGES: Stage[] = ["design", "planning", "build", "e2e", "launch", "maintenance"];
+export const OPEN_STAGES: Stage[] = ["design", "planning", "build", "e2e", "launch", "maintenance"];
+
+/**
+ * C1: writes the ChangeRequest FROM its change_request Episode and runs the stage machine, which
+ * opens the change_request item. Routes 21 (after G3) and 22 share it; the caller checked the stage.
+ */
+export async function openChangeRequest(
+  db: FalkorDB,
+  events: Events,
+  project: { id: string; graph: string },
+  text: string,
+  actor: Actor,
+): Promise<
+  | { ok: true; output: { crId: string; episodeId: string; workItemId: string } }
+  | { ok: false; error: Rejection }
+> {
+  const ctx = { db, graph: project.graph, projectId: project.id };
+  const { changeRequest, episode } = await createChangeRequest(ctx, {
+    text,
+    createdBy: actor,
+    now: Date.now(),
+  });
+  events.emit(project.id, "node.written", {
+    label: "ChangeRequest",
+    id: changeRequest.id,
+    version: changeRequest.version,
+    summary: "Change request open",
+    ids: [changeRequest.id, episode.id],
+  });
+  const opened = await runStage(db, events, project.id, {
+    type: "change_request_created",
+    crId: changeRequest.id,
+    actor,
+  });
+  const item = opened.find((o) => o.kind === "change_request");
+  if (!item) {
+    // The startup repair opens it (C1); the CR itself is written.
+    return {
+      ok: false,
+      error: { code: "INTERNAL", reason: "The change request item did not open." },
+    };
+  }
+  return {
+    ok: true,
+    output: { crId: changeRequest.id, episodeId: episode.id, workItemId: item.id },
+  };
+}
 
 export function changeRequestsRouter(deps: {
   db: () => Promise<FalkorDB>;
@@ -45,30 +91,9 @@ export function changeRequestsRouter(deps: {
       return sendError(res, await rejectAndCount(db, found.id, refused, at));
     }
 
-    const ctx = { db, graph: found.graph, projectId: found.id };
-    const { changeRequest, episode } = await createChangeRequest(ctx, {
-      text: body.data.text,
-      createdBy: actor,
-      now: Date.now(),
-    });
-    deps.events.emit(found.id, "node.written", {
-      label: "ChangeRequest",
-      id: changeRequest.id,
-      version: changeRequest.version,
-      summary: "Change request open",
-      ids: [changeRequest.id, episode.id],
-    });
-    const opened = await runStage(db, deps.events, found.id, {
-      type: "change_request_created",
-      crId: changeRequest.id,
-      actor,
-    });
-    const item = opened.find((o) => o.kind === "change_request");
-    if (!item) {
-      // The startup repair opens it (C1); the CR itself is written.
-      return sendError(res, { code: "INTERNAL", reason: "The change request item did not open." });
-    }
-    res.status(201).json({ crId: changeRequest.id, episodeId: episode.id, workItemId: item.id });
+    const opened = await openChangeRequest(db, deps.events, found, body.data.text, actor);
+    if (!opened.ok) return sendError(res, opened.error);
+    res.status(201).json(opened.output);
   });
 
   return router;

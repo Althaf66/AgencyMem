@@ -1007,6 +1007,15 @@ describe("contract rules", () => {
     ).toBe(false);
   });
 
+  it("numbers document sections from 0, as the Architect's outline does", () => {
+    const input = toolFixtures.write_design.input as { sections: Record<string, unknown>[] };
+    const parse = (order: number) =>
+      tools.write_design.input.safeParse({ ...input, sections: [{ ...input.sections[0], order }] })
+        .success;
+    expect(parse(0)).toBe(true);
+    expect(parse(-1)).toBe(false);
+  });
+
   it("needs answer text when the recommendation is not accepted", () => {
     expect(AnswerBody.safeParse({ version: 1, accept: false }).success).toBe(false);
     expect(AnswerBody.safeParse({ version: 1, accept: true }).success).toBe(true);

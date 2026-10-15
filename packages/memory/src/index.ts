@@ -1,5 +1,7 @@
 export { createChangeRequest } from "./change-requests";
+export { writeHumanEdit } from "./chat";
 export type { Ctx } from "./ctx";
+export { writeDesign, type DesignNodeWrite, type DocSectionWrite } from "./design";
 export { createGates, reopenGate, writeDocument, type EpisodeInput } from "./documents";
 export { supersedeFacts, writeFacts, type EntityWrite, type FactWrite } from "./facts";
 export { flagImpact, type Flagged } from "./impact";

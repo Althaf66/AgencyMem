@@ -411,7 +411,7 @@ export const DesignNodeInput = z
 export type DesignNodeInput = z.infer<typeof DesignNodeInput>;
 export const DocSectionInput = z.object({
   doc: Doc,
-  order: z.int().min(1),
+  order: z.int().min(0), // agent-prompts.md section 5 numbers the outline from 0
   title: text(80),
   body: text(1500), // Markdown
   renders: z.array(z.string()).min(1), // keys of Requirements, Features or design nodes

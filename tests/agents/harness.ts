@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   loadConfig,
   type Envelope,
+  type GateKey,
   type GateView,
   type ProjectInfo,
   type QuestionView,
@@ -43,6 +44,14 @@ export type Harness = {
   run(agent: Agent<unknown>, recording: string, projectId: string, items: number): Promise<void>;
   /** Answers every question as `own` says (route 9), then approves G1 (route 11). */
   answerAndApprove(projectId: string, own: Record<number, string>): Promise<void>;
+  /** Decides gate `key` as `actor` (route 11); throws unless it answers 200. */
+  decide(
+    projectId: string,
+    key: GateKey,
+    decision: "approve" | "reject",
+    actor: string,
+    reason?: string,
+  ): Promise<void>;
   /** A read query on the project's client graph: rows of values. */
   rows(projectId: string, cypher: string): Promise<unknown[][]>;
   stop(): Promise<void>;
@@ -139,6 +148,22 @@ export async function startHarness(): Promise<Harness> {
         decision: "approve",
       });
       if (!res.ok) throw new Error(`G1 approve failed: ${res.status}`);
+    },
+    async decide(projectId, key, decision, actor, reason) {
+      const headers = {
+        ...ui,
+        "Content-Type": "application/json",
+        "X-AM-Project": projectId,
+        "X-AM-Actor": actor,
+      };
+      const res = await fetch(`${base}/api/projects/${projectId}/gates`, { headers });
+      const gate = ((await res.json()) as { gates: GateView[] }).gates.find((g) => g.key === key)!;
+      const decided = await fetch(`${base}/api/gates/${gate.id}/decision`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ version: gate.version, decision, ...(reason ? { reason } : {}) }),
+      });
+      if (!decided.ok) throw new Error(`${key} ${decision} failed: ${decided.status}`);
     },
     async rows(projectId, cypher) {
       const res = await fetch(`${base}/api/query`, {

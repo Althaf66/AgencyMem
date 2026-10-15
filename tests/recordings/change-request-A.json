@@ -1,0 +1,5 @@
+{
+  "replies": [
+    "{\"changes\":[{\"oldFactId\":\"{{fact:appointment-slot:length_minutes:20 minutes}}\",\"statement\":\"An appointment slot is 30 minutes long.\",\"value\":\"30 minutes\"}],\"requirementUpdates\":[{\"key\":\"REQ-03\",\"text\":\"A patient can see the free 30-minute slots of the chosen doctor, 7 days per view, up to 14 days ahead.\"}]}"
+  ]
+}

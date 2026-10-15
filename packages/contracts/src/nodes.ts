@@ -199,7 +199,7 @@ export type EndpointNode = z.infer<typeof EndpointNode>;
 
 export const DocSection = BaseNode.extend({
   doc: Doc,
-  order: z.int().min(1),
+  order: z.int().min(0),
   title: text(80),
   body: text(1500),
   stale: z.boolean(),

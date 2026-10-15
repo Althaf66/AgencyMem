@@ -19,6 +19,18 @@ function agentFor(kind: WorkItemKind): AgentId {
   return (entry?.[0] ?? "build") as AgentId; // every kind has exactly one claimer
 }
 
+type DesignRow = NonNullable<Context["design"]>[number];
+
+/** The design nodes; method and path only on an Endpoint (a missing property reads as null). */
+async function readDesign(db: ToolCtx["db"], graph: string, projectId: string) {
+  const rows = await readQuery<
+    Omit<DesignRow, "method" | "path"> & { method: string | null; path: string | null }
+  >(db, graph, "read/design", { projectId });
+  return rows.map(({ method, path, ...n }): DesignRow =>
+    method && path ? { ...n, method, path } : n,
+  );
+}
+
 /**
  * recall_context (contracts.md section 7). Guard: tenancy. Returns the item, its project and the
  * context groups: `handoffs` always, and the groups each item kind reads (agent-prompts.md); the
@@ -45,6 +57,24 @@ export async function recallContextTool(
     handoffs: rows.map((r) => ({ ...r, agent: agentFor(r.kind) })),
   };
   const { graph, projectId } = ctx.binding;
+  type Ctx = Required<Context>;
+  const currentFacts = async (): Promise<Ctx["facts"]> => {
+    const facts = await readQuery<Omit<Ctx["facts"][number], "validTo" | "replacedBy">>(
+      ctx.db,
+      graph,
+      "read/current-facts",
+      { projectId },
+    );
+    return facts.map((f) => ({ ...f, validTo: null, replacedBy: null }));
+  };
+  const currentProduct = async () => ({
+    requirements: await readQuery<Ctx["requirements"][number]>(ctx.db, graph, "read/requirements", {
+      projectId,
+    }),
+    features: await readQuery<Ctx["features"][number]>(ctx.db, graph, "read/features", {
+      projectId,
+    }),
+  });
 
   // agent-prompts.md section 2: an intake item reads its Document's episodes and every entity.
   if (item.kind === "intake" && item.subjectId) {
@@ -65,7 +95,6 @@ export async function recallContextTool(
   // agent-prompts.md section 2: an intake_answer item reads its answer episode, the question it
   // answers, that question's facts, and every entity.
   if (item.kind === "intake_answer" && item.subjectId) {
-    type Ctx = Required<Context>;
     const [row] = await readQuery<{
       episode: Ctx["episodes"][number];
       question: Ctx["questions"][number];
@@ -85,10 +114,7 @@ export async function recallContextTool(
   // agent-prompts.md section 3: a discovery item reads the current facts, the entities and the
   // documents (names and word counts).
   if (item.kind === "discovery") {
-    const facts = await readQuery<
-      Omit<NonNullable<Context["facts"]>[number], "validTo" | "replacedBy">
-    >(ctx.db, graph, "read/current-facts", { projectId });
-    context.facts = facts.map((f) => ({ ...f, validTo: null, replacedBy: null }));
+    context.facts = await currentFacts();
     context.entities = await readQuery<NonNullable<Context["entities"]>[number]>(
       ctx.db,
       graph,
@@ -111,14 +137,7 @@ export async function recallContextTool(
   // answers, the entities, the lessons of every featureKind in every band (agency graph), and the
   // current product (empty the first time).
   if (item.kind === "proposal") {
-    type Ctx = Required<Context>;
-    const facts = await readQuery<Omit<Ctx["facts"][number], "validTo" | "replacedBy">>(
-      ctx.db,
-      graph,
-      "read/current-facts",
-      { projectId },
-    );
-    context.facts = facts.map((f) => ({ ...f, validTo: null, replacedBy: null }));
+    context.facts = await currentFacts();
     const questions = await readQuery<{
       q: { properties: Record<string, unknown> };
       a: { properties: Record<string, unknown> };
@@ -156,21 +175,12 @@ export async function recallContextTool(
       n,
       text,
     }));
-    context.requirements = await readQuery<Ctx["requirements"][number]>(
-      ctx.db,
-      graph,
-      "read/requirements",
-      { projectId },
-    );
-    context.features = await readQuery<Ctx["features"][number]>(ctx.db, graph, "read/features", {
-      projectId,
-    });
+    Object.assign(context, await currentProduct());
   }
 
   // agent-prompts.md section 4: a change_request item reads its ChangeRequest, the current facts
   // and the current product.
   if (item.kind === "change_request" && item.subjectId) {
-    type Ctx = Required<Context>;
     const [changeRequest] = await readQuery<Ctx["changeRequest"]>(
       ctx.db,
       graph,
@@ -178,22 +188,29 @@ export async function recallContextTool(
       { projectId, crId: item.subjectId },
     );
     if (changeRequest) context.changeRequest = changeRequest;
-    const facts = await readQuery<Omit<Ctx["facts"][number], "validTo" | "replacedBy">>(
-      ctx.db,
-      graph,
-      "read/current-facts",
-      { projectId },
-    );
-    context.facts = facts.map((f) => ({ ...f, validTo: null, replacedBy: null }));
-    context.requirements = await readQuery<Ctx["requirements"][number]>(
-      ctx.db,
-      graph,
-      "read/requirements",
-      { projectId },
-    );
-    context.features = await readQuery<Ctx["features"][number]>(ctx.db, graph, "read/features", {
-      projectId,
-    });
+    context.facts = await currentFacts();
+    Object.assign(context, await currentProduct());
+  }
+
+  // agent-prompts.md section 5: an architect or architect_revise item reads the requirements, the
+  // features, the current facts, and the current design and sections (empty the first time).
+  if (item.kind === "architect" || item.kind === "architect_revise") {
+    Object.assign(context, await currentProduct());
+    context.facts = await currentFacts();
+    context.design = await readDesign(ctx.db, graph, projectId);
+    const sections = await readQuery<{
+      s: { properties: Record<string, unknown> };
+      renders: { key: string }[];
+    }>(ctx.db, graph, "read/doc-sections", { projectId, doc: null });
+    context.docSections = sections.map(({ s, renders }) => ({
+      id: s.properties.id as string,
+      doc: s.properties.doc as Ctx["docSections"][number]["doc"],
+      order: s.properties.order as number,
+      title: s.properties.title as string,
+      body: s.properties.body as string,
+      stale: s.properties.stale as boolean,
+      renders: renders.map((n) => n.key),
+    }));
   }
 
   // contracts.md section 7: cut until it fits, handoffs to the newest 5, then episode text to 300.
@@ -205,6 +222,12 @@ export async function recallContextTool(
   }
   if (chars > ctx.recallMaxChars && context.episodes) {
     context.episodes = context.episodes.map((e) => ({ ...e, text: e.text.slice(0, 300) }));
+    chars = size();
+  }
+  // codeChanges (cut from the oldest) arrive with the build loop; then design and section bodies.
+  if (chars > ctx.recallMaxChars && (context.design || context.docSections)) {
+    context.design = context.design?.map((n) => ({ ...n, body: n.body.slice(0, 300) }));
+    context.docSections = context.docSections?.map((s) => ({ ...s, body: s.body.slice(0, 300) }));
     chars = size();
   }
   return ok({ item, project, context, chars });

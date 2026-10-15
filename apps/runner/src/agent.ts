@@ -22,6 +22,8 @@ export type Agent<O> = {
   /** The work item kinds this agent claims. */
   kinds: WorkItemKind[];
   tier: Tier;
+  /** The reply limit; 4,000 tokens when not set (agent-prompts.md section 1, Model request). */
+  maxTokens?: number;
   /** The TASK line of the user message; a function when it depends on the item (a revision). */
   task: string | ((recall: Recall) => string);
   /** The system prompt: the shared preamble, then prompt.md. */

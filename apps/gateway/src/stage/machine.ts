@@ -1,7 +1,7 @@
 // The stage machine (stage-machine.md): one pure function from the project state and an event to a
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
 // T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2), C1 and C2
-// (task 3.3).
+// (task 3.3), T12 (task 3.4).
 import type {
   Actor,
   ChangeRequestStatus,
@@ -59,6 +59,8 @@ export type StageState = {
     revise: boolean;
     replan: boolean;
   }[];
+  /** human_edit Episodes with no architect_revise item (startup repair of T12). */
+  unopenedEdits: { episodeId: Id; text: string; createdBy: Actor }[];
 };
 
 export type StageEvent =
@@ -73,6 +75,8 @@ export type StageEvent =
       subjectId?: Id | null;
     }
   | { type: "change_request_created"; crId: Id; actor: Actor }
+  /** T12: route 21 before G3 wrote the human_edit Episode; `note` names the section, if any. */
+  | { type: "chat"; episodeId: Id; note: string; actor: Actor }
   | { type: "question_answered"; episodeId: Id; actor: Actor }
   | {
       type: "gate_decided";
@@ -156,6 +160,14 @@ const revisionDone = (s: StageState) =>
 
 type ChangeRequestState = StageState["changeRequests"][number];
 
+const revise = (episodeId: Id, note: string, createdBy: Actor): Effect => ({
+  type: "open_item",
+  kind: "architect_revise",
+  subjectId: episodeId,
+  createdBy,
+  note,
+});
+
 /** C1: Proposal applies the change request. */
 const applyChangeRequest = (crId: Id, createdBy: Actor): Effect => ({
   type: "open_item",
@@ -220,6 +232,10 @@ export function next(state: StageState, event: StageEvent): StageResult {
       }
       return { effects: [] };
 
+    // T12: the Architect revises with the chat text (and its section) as the item's note.
+    case "chat":
+      return { effects: [revise(event.episodeId, event.note, event.actor)] };
+
     // C1: route 22 has written the ChangeRequest and its episode.
     case "change_request_created":
       return { effects: [applyChangeRequest(event.crId, event.actor)] };
@@ -256,6 +272,8 @@ export function next(state: StageState, event: StageEvent): StageResult {
       const missing = PROJECT_GATES.filter((key) => !state.gates.includes(key));
       if (missing.length)
         effects.push({ type: "create_gates", keys: missing, createdBy: state.createdBy });
+      // ponytail: the repaired note is the episode's text; the section name the route added is lost.
+      for (const e of state.unopenedEdits) effects.push(revise(e.episodeId, e.text, e.createdBy));
       for (const cr of state.changeRequests) {
         if (!cr.hasItem) effects.push(applyChangeRequest(cr.id, cr.createdBy));
         else if (cr.itemDone) effects.push(...followUps(cr));

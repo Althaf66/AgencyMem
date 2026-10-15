@@ -1,0 +1,5 @@
+{
+  "replies": [
+    "{\"nodes\":[{\"label\":\"Screen\",\"key\":\"SCR-01\",\"name\":\"Home\",\"body\":\"Shows the clinic name first. Uses home-page, home-name, home-address, home-phone, home-hours.\",\"requirementKeys\":[\"REQ-01\"]}],\"sections\":[{\"doc\":\"prd\",\"order\":0,\"title\":\"Summary\",\"body\":\"Lotus Family Clinic gets a booking site: patients find a doctor, see free slots, book with a phone number and cancel with a code. Six features.\",\"renders\":[\"FEAT-01\",\"FEAT-02\",\"FEAT-03\",\"FEAT-04\",\"FEAT-05\",\"FEAT-06\"]}]}"
+  ]
+}

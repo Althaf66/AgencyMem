@@ -20,6 +20,7 @@ const fresh: StageState = {
   openProposal: 0,
   lastProposal: null,
   changeRequests: [],
+  unopenedEdits: [],
 };
 const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
 const intakeDone = (over: Partial<StageState> = {}): StageState => ({
@@ -392,6 +393,46 @@ rows.push(
     building({ revise: true, replan: true }),
     { type: "startup" },
     { effects: [] },
+  ],
+);
+
+const EDIT = "01JA00000000000000000000H1";
+const NOTE = 'On section "Summary" (prd 0): say the clinic name first.';
+rows.push(
+  [
+    "T12 chat before G3: opens architect_revise for the human_edit episode, the text as its note",
+    intakeDone({ stage: "design" }),
+    { type: "chat", episodeId: EDIT, note: NOTE, actor: ana },
+    {
+      effects: [
+        {
+          type: "open_item",
+          kind: "architect_revise",
+          subjectId: EDIT,
+          createdBy: ana,
+          note: NOTE,
+        },
+      ],
+    },
+  ],
+  [
+    "startup repairs a missed T12: a human_edit episode that never got its architect_revise item",
+    intakeDone({
+      stage: "design",
+      unopenedEdits: [{ episodeId: EDIT, text: "Say the clinic name first.", createdBy: ana }],
+    }),
+    { type: "startup" },
+    {
+      effects: [
+        {
+          type: "open_item",
+          kind: "architect_revise",
+          subjectId: EDIT,
+          createdBy: ana,
+          note: "Say the clinic name first.",
+        },
+      ],
+    },
   ],
 );
 

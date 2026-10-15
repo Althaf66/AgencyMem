@@ -22,6 +22,7 @@ type Row = {
   }[];
   openProposal: number;
   lastProposal: { createdAt: unknown; doneAt: unknown } | null;
+  unopenedEdits: { episodeId: unknown; text: unknown; createdBy: unknown }[];
   changeRequests: (Omit<StageState["changeRequests"][number], "id" | "status" | "createdBy"> & {
     id: unknown;
     status: unknown;
@@ -68,6 +69,11 @@ export async function readStageState(
       ? { status: g2.status, reason: g2.reason, decidedAt: g2.decidedAt, decidedBy: g2.decidedBy }
       : null,
     openProposal: state?.openProposal ?? 0,
+    unopenedEdits: (state?.unopenedEdits ?? []).map((e) => ({
+      episodeId: Id.parse(e.episodeId),
+      text: String(e.text),
+      createdBy: Actor.parse(e.createdBy),
+    })),
     changeRequests: (state?.changeRequests ?? []).map((cr) => ({
       ...cr,
       id: Id.parse(cr.id),

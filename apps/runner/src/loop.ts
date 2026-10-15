@@ -89,6 +89,7 @@ export async function runItem(
         user: `CONTEXT: ${JSON.stringify(agent.select(recall))}\nTASK: ${taskLine(agent, recall)}${note}`,
         schema: agent.output,
         check: agent.check ? (output) => agent.check!(output, recall) : undefined,
+        ...(agent.maxTokens ? { maxTokens: agent.maxTokens } : {}),
       });
       runs.push(...thought.runs);
       const last = thought.runs.at(-1)!;
