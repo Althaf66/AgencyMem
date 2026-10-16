@@ -78,6 +78,35 @@ describe("Architect agent (agent-prompts.md section 5)", () => {
     ]);
   });
 
+  it("names the stale sections in a revision, and asks again when one is left out", () => {
+    const flagged = recall("architect_revise", "The phone number is now 0491 570 999.");
+    const section = (doc: "prd" | "tdd", order: number, title: string, stale: boolean) => ({
+      id: `S-${doc}-${order}`,
+      doc,
+      order,
+      title,
+      body: "Old text.",
+      stale,
+      renders: ["REQ-01"],
+    });
+    (flagged.context as { docSections: unknown[] }).docSections = [
+      section("prd", 1, "Users and goals", true),
+      section("tdd", 3, "API endpoints", true),
+      section("prd", 0, "Summary", false),
+    ];
+    const task = architect.task as (r: Recall) => string;
+    expect(task(flagged)).toBe(
+      "Change the design and the sections this note asks for: The phone number is now 0491 570 999." +
+        " Also rewrite these stale sections: prd 1 Users and goals; tdd 3 API endpoints.",
+    );
+    expect(checkDesign(output(), flagged)).toEqual([
+      'sections: prd 1 "Users and goals" is stale; return it rewritten',
+    ]);
+    const users = { doc: "prd", order: 1, title: "Users", body: "New.", renders: ["REQ-01"] };
+    const all = output({ sections: [...output().sections, users as never] });
+    expect(checkDesign(all, flagged)).toEqual([]);
+  });
+
   it("writes with write_design at the current design version", async () => {
     const calls: [string, Record<string, unknown>][] = [];
     const result = await architect.act(output(), recall("architect"), {

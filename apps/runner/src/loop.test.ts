@@ -119,6 +119,7 @@ describe("runItem: one item from claim to complete", () => {
     expect(calls[3]![1]).toMatchObject({
       itemId: ITEM,
       outcome: "done",
+      summary: "2 episodes read", // the agent strip's last step (ItemView.lastStep)
       runs: [{ step: "think", model: "replay", endpoint: "primary" }],
     });
     expect(steps.map((st) => st.text)).toEqual([

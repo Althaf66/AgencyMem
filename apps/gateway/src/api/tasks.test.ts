@@ -217,13 +217,17 @@ async function patch(ctx: Ctx, id: string, body: Record<string, unknown>, header
 const reason = (body: Record<string, unknown>) =>
   body.error as { code: string; guard?: string; reason: string; details?: { reasonCode?: string } };
 
-async function buildWorker(projectId: string): Promise<Client> {
+async function buildWorker(
+  projectId: string,
+  agent = "build",
+  worker = "build-1",
+): Promise<Client> {
   const client = new Client({ name: "test", version: "0" });
   const headers = {
     "X-AM-Token": "agent-t",
-    "X-AM-Agent": "build",
+    "X-AM-Agent": agent,
     "X-AM-Project": projectId,
-    "X-AM-Worker": "build-1",
+    "X-AM-Worker": worker,
   };
   await client.connect(
     new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers } }),
@@ -450,6 +454,47 @@ describe("board, progress and retry (routes 12, 14, 15, 31)", () => {
       status: "blocked",
       attempts: 3,
     });
+  });
+
+  it("shows a done item's summary as its last step, never the note it was opened with", async () => {
+    const { ctx } = await setup();
+    const now = Date.now();
+    for (const text of ["Rule 1 is B.", "Rule 2 is B."]) {
+      const { changeRequest } = await createChangeRequest(ctx, {
+        text,
+        createdBy: "human:ana",
+        now,
+      });
+      await openItem(ctx, {
+        kind: "architect_revise",
+        subjectId: changeRequest.id,
+        note: text,
+        createdBy: "proposal",
+        now,
+      });
+    }
+    const architect = await buildWorker(ctx.projectId, "architect", "architect-1");
+    const call = async (name: string, args: Record<string, unknown>) => {
+      const res = (await architect.callTool({ name, arguments: args })) as {
+        isError?: boolean;
+        structuredContent?: Record<string, unknown>;
+      };
+      expect(res.isError).toBeFalsy();
+      return res.structuredContent!;
+    };
+    const claimed = [];
+    for (let i = 0; i < 2; i++) {
+      const { item } = await call("claim_item", { kinds: ["architect_revise"] });
+      claimed.push((item as { id: string }).id);
+    }
+    const [summed, bare] = claimed as [string, string];
+    const summary = "Design version 2: 1 design node and 2 sections";
+    await call("complete_item", { itemId: summed, outcome: "done", summary, runs: [] });
+    await call("complete_item", { itemId: bare, outcome: "done", runs: [] });
+
+    const items = (await board(ctx)).items;
+    expect(items.find((i) => i.id === summed)).toMatchObject({ status: "done", lastStep: summary });
+    expect(items.find((i) => i.id === bare)).toMatchObject({ status: "done", lastStep: null });
   });
 
   it("counts done cards per lane and lists a metric's nodes", async () => {

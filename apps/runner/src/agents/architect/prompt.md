@@ -25,4 +25,4 @@ Section outline:
 - Use the stack in CONTEXT.conventions. Endpoints follow /api/<resource> with JSON bodies.
 - A DataEntity body lists its fields with types. A Screen body lists the data-testid names it uses, following the data-testid rule.
 - Section bodies are Markdown, at most 1,500 characters, and start with their point.
-- For a revision, return only the nodes and sections that change.
+- For a revision, return only the nodes and sections that change, and every section CONTEXT marks stale, rewritten.

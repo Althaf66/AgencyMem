@@ -4,7 +4,7 @@
 // "no lesson". Set A runs through Intake, Discovery, the answers and G1 on recorded replies, then
 // the Proposal agent writes the product (no Lesson exists yet, so every estimate says "no lesson").
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { FeatureView, GateView, ProjectInfo } from "@agencymem/contracts";
+import type { Envelope, FeatureView, GateView, ProjectInfo } from "@agencymem/contracts";
 import { discovery } from "../../apps/runner/src/agents/discovery/agent";
 import { intake } from "../../apps/runner/src/agents/intake/agent";
 import { proposal } from "../../apps/runner/src/agents/proposal/agent";
@@ -197,10 +197,24 @@ describe("Done when: the persona rejects G2 once, and the revised version is app
   });
 
   it("approves the revision: G2 approved, stage design, an architect item open", async () => {
+    const sent: Envelope[] = [];
+    const off = h.events.on((e) => e.projectId === project.id && sent.push(e));
     const res = await decide(await g2(), { decision: "approve" });
+    off();
     expect(res.status).toBe(200);
     const body = (await res.json()) as { gate: GateView; opened: { kind: string }[] };
-    expect(body.gate).toMatchObject({ status: "approved", decidedBy: `persona:${project.id}` });
+    // The approval clears the rejection reason; the revision item keeps it as its note.
+    expect(body.gate).toMatchObject({
+      status: "approved",
+      decidedBy: `persona:${project.id}`,
+      reason: null,
+    });
+    expect(await g2()).toMatchObject({ status: "approved", reason: null });
+    expect(sent.find((e) => e.type === "gate.changed")!.data).toMatchObject({
+      gateKey: "G2",
+      status: "approved",
+      reason: null,
+    });
     expect(body.opened).toEqual([expect.objectContaining({ kind: "architect" })]);
     const info = await fetch(`${h.base}/api/projects/${project.id}`, { headers: ui });
     expect(((await info.json()) as { project: ProjectInfo }).project.stage).toBe("design");

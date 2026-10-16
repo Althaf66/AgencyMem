@@ -8,7 +8,10 @@ import { ArchitectOutput } from "./output";
 // sample-app.md's stack, API rules and data-testid rule: static text, sent as CONTEXT.conventions.
 const CONVENTIONS = await readFile(new URL("./conventions.md", import.meta.url), "utf8");
 
-/** Reference errors the model can repair. */
+/** The sections a change request marked stale; a revision must rewrite each (stage-machine C2). */
+const staleSections = (recall: Recall) => (recall.context.docSections ?? []).filter((s) => s.stale);
+
+/** Reference errors and left-out stale sections, which the model can repair. */
 export function checkDesign(output: ArchitectOutput, recall: Recall): string[] {
   const requirements = new Set((recall.context.requirements ?? []).map((r) => r.key));
   const known = new Set([
@@ -32,6 +35,11 @@ export function checkDesign(output: ArchitectOutput, recall: Recall): string[] {
       }
     }
   });
+  for (const s of staleSections(recall)) {
+    if (!output.sections.some((o) => o.doc === s.doc && o.order === s.order)) {
+      errors.push(`sections: ${s.doc} ${s.order} "${s.title}" is stale; return it rewritten`);
+    }
+  }
   return errors;
 }
 
@@ -42,10 +50,14 @@ export const architect: Agent<ArchitectOutput> = {
   kinds: ["architect", "architect_revise"],
   tier: "deep",
   maxTokens: 8000, // agent-prompts.md section 1, Model request
-  task: (recall) =>
-    recall.item.kind === "architect_revise"
-      ? `Change the design and the sections this note asks for: ${recall.item.note ?? ""}`
-      : "Write the design and the three documents.",
+  task: (recall) => {
+    if (recall.item.kind !== "architect_revise") return "Write the design and the three documents.";
+    const stale = staleSections(recall).map((s) => `${s.doc} ${s.order} ${s.title}`);
+    return (
+      `Change the design and the sections this note asks for: ${recall.item.note ?? ""}` +
+      (stale.length ? ` Also rewrite these stale sections: ${stale.join("; ")}.` : "")
+    );
+  },
   prompt: await loadPrompt(import.meta.url, "Architect"),
   output: ArchitectOutput,
   handoff: ["architect"],

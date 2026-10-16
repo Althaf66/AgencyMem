@@ -15,6 +15,7 @@ import { ToolRejected, listProjects, openSession, type Gateway, type Session } f
 export type ItemResult = "idle" | "done" | "failed" | "stopped";
 
 const NOTE_MAX = 1000; // complete_item note
+const SUMMARY_MAX = 200; // complete_item summary
 
 const leaseLost = (e: unknown) => e instanceof ToolRejected && e.rejection.guard === "lease";
 
@@ -54,13 +55,18 @@ export async function runItem(
   }, opts.heartbeatMs);
 
   const runs: RunInput[] = [];
-  const complete = async (outcome: "done" | "failed", note?: string): Promise<ItemResult> => {
+  const complete = async (
+    outcome: "done" | "failed",
+    note?: string,
+    summary?: string,
+  ): Promise<ItemResult> => {
     if (lost) return "stopped";
     try {
       await session.call("complete_item", {
         itemId,
         outcome,
         ...(note === undefined ? {} : { note: note.slice(0, NOTE_MAX) }),
+        ...(summary === undefined ? {} : { summary: summary.slice(0, SUMMARY_MAX) }),
         runs,
       });
     } catch (e) {
@@ -136,7 +142,7 @@ export async function runItem(
       });
       await say("handoff", "Handed off");
     }
-    return await complete("done");
+    return await complete("done", undefined, result.summary);
   } catch (e) {
     if (leaseLost(e)) return "stopped";
     if (e instanceof ModelUnavailableError) {

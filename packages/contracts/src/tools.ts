@@ -62,6 +62,7 @@ export const CompleteItemInput = z.object({
   itemId: Id,
   outcome: z.enum(["done", "failed"]),
   note: text(1000).optional(),
+  summary: text(200).optional(), // done only: the agent strip's last step (ItemView.lastStep)
   runs: z.array(RunInput),
   result: z
     .object({ mergedSha: Sha.optional(), conflictFiles: z.array(z.string()).optional() })

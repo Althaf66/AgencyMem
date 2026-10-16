@@ -229,6 +229,7 @@ export const WorkItem = BaseNode.extend({
   subjectId: maybe(Id),
   note: maybe(text(2000)),
   handoff: maybe(text(2000)),
+  summary: maybe(text(200)),
   outputIds: z.array(Id),
   leaseOwner: maybe(WorkerId),
   leaseUntil: maybe(EpochMs),

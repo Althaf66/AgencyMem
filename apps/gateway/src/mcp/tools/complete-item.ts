@@ -46,6 +46,7 @@ export async function completeItemTool(
     agent,
     outcome: input.outcome,
     note: input.note,
+    summary: input.summary,
     runs: input.runs,
     now,
   });

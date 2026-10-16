@@ -133,13 +133,9 @@ export function gatesRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
       {
         id: view.id,
         version: body.data.version,
-        // An approval keeps the reason of an earlier rejection, as the gate panel shows it.
-        props: {
-          status,
-          decidedBy: actor,
-          decidedAt: Date.now(),
-          ...(reason ? { reason } : {}),
-        },
+        // An approval clears the reason of an earlier rejection (null removes it, C10); the
+        // revision item keeps that reason as its note. A G5 override reason is kept.
+        props: { status, decidedBy: actor, decidedAt: Date.now(), reason },
       },
     );
     if (written === null) {
@@ -163,7 +159,7 @@ export function gatesRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
         gateKey: key,
         status,
         decidedBy: actor,
-        reason: reason ?? view.reason,
+        reason,
       });
     }
     const gate = (await readViews(db, graph, projectId)).find((g) => g.id === view.id)!;

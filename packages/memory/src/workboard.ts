@@ -108,6 +108,7 @@ export async function complete(
     agent: AgentId;
     outcome: "done" | "failed";
     note?: string;
+    summary?: string;
     runs: RunInput[];
     now: number;
   },
@@ -118,6 +119,7 @@ export async function complete(
     workerId: input.workerId,
     outcome: input.outcome,
     note: input.note ?? null,
+    summary: input.summary ?? null,
     now: input.now,
     runs: runRows(input.runs, {
       projectId: ctx.projectId,

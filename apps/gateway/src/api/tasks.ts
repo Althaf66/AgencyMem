@@ -93,8 +93,9 @@ function toItem(w: Props): ItemView {
     leaseOwner: item.leaseOwner,
     leaseUntil: item.leaseUntil,
     attempts: item.attempts,
-    // Run steps are not stored; the handoff (or the failure note) is the last word on the item.
-    lastStep: item.handoff ?? item.note ?? null,
+    // Run steps are not stored; the handoff, else the summary sent with complete_item, is the last
+    // word on a done item. Never `note`: that is the item's input (a G2 reason, a CR text).
+    lastStep: item.handoff ?? item.summary ?? null,
     doneAt: item.doneAt,
   });
 }
