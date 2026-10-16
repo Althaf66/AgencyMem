@@ -17,7 +17,7 @@ export type ItemResult = "idle" | "done" | "failed" | "stopped";
 const NOTE_MAX = 1000; // complete_item note
 const SUMMARY_MAX = 200; // complete_item summary
 
-const leaseLost = (e: unknown) => e instanceof ToolRejected && e.rejection.guard === "lease";
+export const leaseLost = (e: unknown) => e instanceof ToolRejected && e.rejection.guard === "lease";
 
 /** "Read 0 handoffs, 14 facts": one count per context group recall_context filled. */
 function readText(recall: Recall): string {

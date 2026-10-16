@@ -5,11 +5,13 @@ import type { Agent } from "./agent";
 import { AGENTS } from "./agents";
 import { writeTestsAgent } from "./agents/test/write-tests";
 import { runLoop } from "./loop";
+import { checkOpenCodeVersion, opencodeBin } from "./opencode";
 import { assertWorkspacesOutside } from "./opencode-config";
 
 try {
   const cfg = loadConfig(process.env, "runner");
   assertWorkspacesOutside(cfg.WORKSPACES_DIR!);
+  await checkOpenCodeVersion(await opencodeBin(), cfg.OPENCODE_VERSION!);
   const llm = createModelClient({ chat: createChat(cfg) });
   const deps = {
     gatewayUrl: cfg.GATEWAY_URL!,
