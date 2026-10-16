@@ -1,7 +1,9 @@
 // The OpenCode runner (technical design "Build loop and OpenCode", steps 4 and 5): one
 // `opencode run` process per card in its worktree, its JSON events read line by line, a heartbeat
 // while it runs, and a stop on lease loss, timeout or stall. The caller picks the model; Build
-// runs on the fallback for now (developer decision, 2026-10-16).
+// runs on the fallback only (developer decisions, 2026-10-16): the primary endpoint refuses
+// OpenCode, so a provider error is not retried on another model. It ends the run as one failed
+// attempt (failureNote), and 2 failed attempts block the card (claim_task skips it).
 import { execFile, spawn } from "node:child_process";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -25,6 +27,8 @@ export type RunResult = {
   exitCode: number | null;
   ms: number;
   tokens: { input: number; output: number };
+  /** OpenCode's `error` event after its own retries gave up (HTTP 429, 5xx, a network error). */
+  providerError: { status: number | null } | null;
 };
 
 /** The variables the worker gives each run, on top of its own environment (which holds the keys). */
@@ -59,6 +63,8 @@ export async function checkOpenCodeVersion(bin: string[], expected: string): Pro
 type StepFinish = {
   type?: string;
   part?: { reason?: string; tokens?: { input?: number; output?: number } };
+  // ponytail: only the status is kept; the provider's message and body never reach a note or a log.
+  error?: { name?: string; data?: { statusCode?: number } };
 };
 
 /**
@@ -138,6 +144,7 @@ export async function runOpenCode(opts: {
   };
 
   const tokens = { input: 0, output: 0 };
+  let providerError: RunResult["providerError"] = null;
   let empty = 0;
   createInterface({ input: child.stdout }).on("line", (line) => {
     let event: StepFinish;
@@ -150,6 +157,9 @@ export async function runOpenCode(opts: {
       opts.onEvent?.(event);
     } catch {
       // a listener's bug must not stop the run or the runner
+    }
+    if (event.type === "error" && event.error?.name === "APIError") {
+      providerError = { status: event.error.data?.statusCode ?? null };
     }
     if (event.type !== "step_finish") return;
     const t = event.part?.tokens;
@@ -188,5 +198,25 @@ export async function runOpenCode(opts: {
   clearInterval(beat);
   clearTimeout(timer);
   killTree(); // leftovers whose parent already exited
-  return { reason: end, exitCode, ms: Date.now() - started, tokens };
+  return { reason: end, exitCode, ms: Date.now() - started, tokens, providerError };
+}
+
+/** The note on a failed attempt: why a run ended without complete_task (the card's note). */
+export function failureNote(result: RunResult): string {
+  if (result.providerError) {
+    const status = result.providerError.status;
+    return `Provider error (${status === null ? "no HTTP status" : `HTTP ${status}`}).`;
+  }
+  switch (result.reason) {
+    case "timeout":
+      return `The run passed its ${TIMEOUT_MS / 60_000}-minute limit.`;
+    case "stall":
+      return "The provider sent only empty replies.";
+    case "spawn":
+      return "OpenCode did not start.";
+    case "lease":
+      return "The lease ended.";
+    case "exit":
+      return `OpenCode exited (code ${result.exitCode}) without calling complete_task.`;
+  }
 }

@@ -116,7 +116,12 @@ describe("mapEvent", () => {
 });
 
 describe("finalStep", () => {
-  const result = { exitCode: 0, ms: 29_400, tokens: { input: 13_000, output: 400 } };
+  const result = {
+    exitCode: 0,
+    ms: 29_400,
+    tokens: { input: 13_000, output: 400 },
+    providerError: null,
+  };
 
   it("posts the run's end with the token totals, as the one step that writes a Run", () => {
     expect(finalStep("T1", { ...result, reason: "exit" }, "fallback/vendor/model-y")).toEqual({

@@ -11,7 +11,7 @@ import { promisify } from "node:util";
 import { afterAll, describe, expect, it } from "vitest";
 import { ToolRejected } from "./mcp-client";
 import { writeCardConfig } from "./opencode-config";
-import { checkOpenCodeVersion, opencodeBin, runOpenCode } from "./opencode";
+import { checkOpenCodeVersion, failureNote, opencodeBin, runOpenCode } from "./opencode";
 import { ensureRepo } from "./repo";
 import { ensureWorktree } from "./worktree";
 
@@ -48,7 +48,12 @@ describe("runOpenCode", () => {
       onEvent: (e) => events.push(e as never),
     });
 
-    expect(result).toMatchObject({ reason: "exit", exitCode: 0, tokens: { input: 15, output: 4 } });
+    expect(result).toMatchObject({
+      reason: "exit",
+      exitCode: 0,
+      tokens: { input: 15, output: 4 },
+      providerError: null,
+    });
     expect(events.map((e) => e.type)).toEqual([
       "args",
       "tool_use",
@@ -118,6 +123,37 @@ describe("runOpenCode", () => {
   it("stops a run that stalls on empty steps (a provider that sends nothing)", async () => {
     const result = await runOpenCode({ ...base, bin: withMode("stall"), timeoutMs: 10_000 });
     expect(result.reason).toBe("stall");
+  });
+});
+
+// Task 4.12, Done when: a simulated HTTP 429. Build runs on the fallback model only (developer
+// decision, 2026-10-16), so there is no other model to retry on: the run is one failed attempt with
+// the provider error as its note, and 2 failed attempts block the card (claim_task skips it).
+describe("a provider error", () => {
+  it("reports a simulated HTTP 429 as a provider error and notes the failed attempt", async () => {
+    const result = await runOpenCode({ ...base, bin: withMode("429") });
+    expect(result).toMatchObject({ reason: "exit", exitCode: 1, providerError: { status: 429 } });
+    expect(failureNote(result)).toBe("Provider error (HTTP 429).");
+  });
+
+  it("notes every other way a run ends without complete_task", () => {
+    const run = {
+      reason: "exit" as const,
+      exitCode: 0,
+      ms: 1,
+      tokens: { input: 0, output: 0 },
+      providerError: null,
+    };
+    expect(failureNote({ ...run, providerError: { status: null } })).toBe(
+      "Provider error (no HTTP status).",
+    );
+    expect(failureNote({ ...run, reason: "timeout" })).toBe("The run passed its 30-minute limit.");
+    expect(failureNote({ ...run, reason: "stall" })).toBe("The provider sent only empty replies.");
+    expect(failureNote({ ...run, reason: "spawn" })).toBe("OpenCode did not start.");
+    expect(failureNote({ ...run, reason: "lease" })).toBe("The lease ended.");
+    expect(failureNote({ ...run, reason: "exit" })).toBe(
+      "OpenCode exited (code 0) without calling complete_task.",
+    );
   });
 });
 

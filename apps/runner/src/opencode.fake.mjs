@@ -41,6 +41,17 @@ if (mode === "ok") {
   step("stop", 5, 2);
   process.exit(0);
 }
+if (mode === "429") {
+  // What OpenCode 1.18.32 prints after its own retries on HTTP 429 (seen in the 4.12 probe).
+  say({
+    type: "error",
+    error: {
+      name: "APIError",
+      data: { message: "Rate limit exceeded", statusCode: 429, isRetryable: true },
+    },
+  });
+  process.exit(1);
+}
 if (mode === "stall") setInterval(() => step("unknown", 0, 0), 5);
 if (mode === "hang") setInterval(() => {}, 1000);
 if (mode === "tree") {
