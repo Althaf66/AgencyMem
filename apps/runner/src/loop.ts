@@ -9,7 +9,14 @@ import {
   ModelUnavailableError,
   type ModelClient,
 } from "@agencymem/llm";
-import { JobFailed, type ActResult, type Agent, type Job, type Recall } from "./agent";
+import {
+  JobFailed,
+  type ActResult,
+  type Agent,
+  type Job,
+  type MergeResult,
+  type Recall,
+} from "./agent";
 import { ToolRejected, listProjects, openSession, type Gateway, type Session } from "./mcp-client";
 
 export type ItemResult = "idle" | "done" | "failed" | "stopped";
@@ -59,6 +66,7 @@ export async function runItem(
     outcome: "done" | "failed",
     note?: string,
     summary?: string,
+    result?: MergeResult,
   ): Promise<ItemResult> => {
     if (lost) return "stopped";
     try {
@@ -67,6 +75,7 @@ export async function runItem(
         outcome,
         ...(note === undefined ? {} : { note: note.slice(0, NOTE_MAX) }),
         ...(summary === undefined ? {} : { summary: summary.slice(0, SUMMARY_MAX) }),
+        ...(result === undefined ? {} : { result }),
         runs,
       });
     } catch (e) {
@@ -86,7 +95,7 @@ export async function runItem(
       lost: () => lost,
     });
     if (lost) return "stopped";
-    return complete("done", undefined, result.summary);
+    return complete("done", undefined, result.summary, result.result);
   };
 
   try {
@@ -171,7 +180,7 @@ export async function runItem(
       return complete("failed", e.message);
     }
     if (e instanceof ToolRejected) return complete("failed", e.rejection.reason);
-    if (e instanceof JobFailed) return complete("failed", e.message);
+    if (e instanceof JobFailed) return complete("failed", e.message, undefined, e.result);
     throw e; // the gateway is unreachable: runLoop backs off; the lease ends on its own
   } finally {
     clearInterval(beat);

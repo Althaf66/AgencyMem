@@ -26,6 +26,7 @@ export {
   completeTask,
   setTaskNote,
   complete,
+  completeMerge,
   expireLeases,
   openItem,
   renew,

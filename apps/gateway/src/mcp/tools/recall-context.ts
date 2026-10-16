@@ -286,6 +286,14 @@ export async function recallContextTool(
     }
   }
 
+  // A merge item reads its card: the runner merges card/<key>.
+  if (item.kind === "merge" && item.subjectId) {
+    context.tasks = await readQuery<Ctx["tasks"][number]>(ctx.db, graph, "read/task", {
+      projectId,
+      taskId: item.subjectId,
+    });
+  }
+
   // contracts.md section 7: cut until it fits, handoffs to the newest 5, then episode text to 300.
   const size = () => JSON.stringify({ item, project, context }).length;
   let chars = size();

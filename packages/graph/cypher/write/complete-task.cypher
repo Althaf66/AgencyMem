@@ -22,7 +22,7 @@ SET t.version = t.version + 1, t.leaseOwner = null, t.leaseUntil = null,
     WHEN $outcome = 'failed' AND $note IS NOT NULL THEN $note
     // A closed card keeps no reason that only explained why it could not close yet.
     WHEN $outcome = 'done' AND (t.note STARTS WITH 'Rejected by evidence guard:'
-      OR t.note STARTS WITH 'Tests failed:') THEN null
+      OR t.note STARTS WITH 'Tests failed:' OR t.note STARTS WITH 'Merge conflict:') THEN null
     ELSE t.note END
 FOREACH (x IN CASE WHEN $outcome = 'done' AND openMerge = 0 THEN [1] ELSE [] END |
   CREATE (:WorkItem {id: $itemId, projectId: $projectId, kind: 'merge', status: 'open',

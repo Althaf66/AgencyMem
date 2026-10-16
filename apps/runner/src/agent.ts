@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 import type { z } from "zod";
 import type { AgentId, WorkItemKind } from "@agencymem/contracts";
 import type { Tier } from "@agencymem/llm";
-import type { Session, ToolOut } from "./mcp-client";
+import type { Session, ToolIn, ToolOut } from "./mcp-client";
 
 export type Recall = ToolOut<"recall_context">;
 
@@ -17,8 +17,11 @@ export type Act = {
   lost?(): boolean;
 };
 
+/** A merge item's result for complete_item (contracts.md section 7). */
+export type MergeResult = NonNullable<ToolIn<"complete_item">["result"]>;
+
 /** `summary` is the handoff text; `outputIds` are the nodes the item wrote. */
-export type ActResult = { outputIds: string[]; summary: string };
+export type ActResult = { outputIds: string[]; summary: string; result?: MergeResult };
 
 export type Agent<O> = {
   id: AgentId;
@@ -77,4 +80,11 @@ export type Job = {
 /** A job's own failure (Playwright gave no report): the item fails with this message as its note. */
 export class JobFailed extends Error {
   override name = "JobFailed";
+  /** A merge conflict's files, sent with the failure. */
+  constructor(
+    message: string,
+    readonly result?: MergeResult,
+  ) {
+    super(message);
+  }
 }

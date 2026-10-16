@@ -158,6 +158,61 @@ export async function complete(
   return toItem(rows[0]);
 }
 
+/**
+ * Completes a merge item with its result: `mergedSha` sets Task.mergedSha (item done);
+ * `conflictFiles` sends a Done card to Ready with "Merge conflict: <files>" (C6, item cancelled,
+ * no attempt). Null when the caller holds no live lease on the item.
+ */
+export async function completeMerge(
+  ctx: Ctx,
+  input: {
+    itemId: string;
+    workerId: string;
+    agent: AgentId;
+    result: { mergedSha: string } | { conflictFiles: string[] };
+    note?: string;
+    summary?: string;
+    runs: RunInput[];
+    now: number;
+  },
+): Promise<{
+  item: WorkItem;
+  key: string;
+  from: Column;
+  to: Column;
+  taskVersion: number;
+} | null> {
+  const conflict = "conflictFiles" in input.result ? input.result.conflictFiles : null;
+  const rows = await writeQuery<
+    NodeRow & { key: string; fromColumn: Column; toColumn: Column; taskVersion: number }
+  >(ctx.db, ctx.graph, "write/complete-merge", {
+    projectId: ctx.projectId,
+    itemId: input.itemId,
+    workerId: input.workerId,
+    mergedSha: "mergedSha" in input.result ? input.result.mergedSha : null,
+    conflictNote: conflict ? `Merge conflict: ${conflict.join(", ")}`.slice(0, 500) : null, // Task.note ≤ 500
+    note: input.note ?? null,
+    summary: input.summary ?? null,
+    now: input.now,
+    runs: runRows(input.runs, {
+      projectId: ctx.projectId,
+      itemId: input.itemId,
+      agent: input.agent,
+      now: input.now,
+    }),
+  });
+  const row = rows[0];
+  return row
+    ? {
+        item: WorkItem.parse(row.w.properties),
+        key: row.key,
+        from: row.fromColumn,
+        to: row.toColumn,
+        taskVersion: row.taskVersion,
+      }
+    : null;
+}
+
 /** Frees the project's claimed items whose lease ended. Returns the items it changed. */
 export async function expireLeases(ctx: Ctx, input: { now: number }): Promise<WorkItem[]> {
   const rows = await writeQuery<NodeRow>(ctx.db, ctx.graph, "write/expire-item-leases", {
