@@ -1,5 +1,6 @@
 import type { ToolInput, ToolName } from "@agencymem/contracts";
 import { claimItemTool } from "./claim-item";
+import { claimTaskTool } from "./claim-task";
 import { completeItemTool } from "./complete-item";
 import type { Outcome, ToolCtx } from "./common";
 import { findImpactTool } from "./find-impact";
@@ -22,6 +23,7 @@ type Handler<K extends ToolName> = (ctx: ToolCtx, input: ToolInput<K>) => Promis
 /** The tools built so far. The others answer "not built yet" until their task. */
 export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   claim_item: claimItemTool,
+  claim_task: claimTaskTool,
   heartbeat: heartbeatTool,
   complete_item: completeItemTool,
   recall_context: recallContextTool,

@@ -2,10 +2,12 @@
 // so a claim or a lease check and its change cannot split.
 import {
   Id,
+  Task,
   WorkItem,
   text,
   type Actor,
   type AgentId,
+  type Column,
   type ReadinessCheck,
   type RunInput,
   type WorkItemKind,
@@ -71,6 +73,31 @@ export async function claimItem(
     leaseMs: input.leaseMs,
   });
   return toItem(rows[0]);
+}
+
+/**
+ * Claims a build card (the first free one, or `taskId`) and starts a lease for `workerId`; the card
+ * moves to In progress. `from` is its column before. Null means nothing to claim; with `taskId` the
+ * gateway reads the card to say why.
+ */
+export async function claimTask(
+  ctx: Ctx,
+  input: { taskId?: string; workerId: string; now: number; leaseMs: number },
+): Promise<{ task: Task; from: Column } | null> {
+  const rows = await writeQuery<{ t: { properties: Record<string, unknown> }; fromColumn: Column }>(
+    ctx.db,
+    ctx.graph,
+    "write/claim-task",
+    {
+      projectId: ctx.projectId,
+      taskId: input.taskId ?? null,
+      workerId: input.workerId,
+      now: input.now,
+      leaseMs: input.leaseMs,
+    },
+  );
+  const row = rows[0];
+  return row ? { task: Task.parse(row.t.properties), from: row.fromColumn } : null;
 }
 
 export type RenewResult =

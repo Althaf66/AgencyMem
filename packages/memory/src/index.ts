@@ -22,6 +22,7 @@ export { writeTests, type TestCaseWrite } from "./tests";
 export { writeVersioned, type PropValue } from "./versioned";
 export {
   claimItem,
+  claimTask,
   complete,
   expireLeases,
   openItem,
