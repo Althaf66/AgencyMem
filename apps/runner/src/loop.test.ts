@@ -3,8 +3,14 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { Rejection, ToolName } from "@agencymem/contracts";
-import { createModelClient, replayChat, type Chat, type ChatRequest } from "@agencymem/llm";
-import type { Agent } from "./agent";
+import {
+  createModelClient,
+  replayChat,
+  type Chat,
+  type ChatRequest,
+  type ModelClient,
+} from "@agencymem/llm";
+import { JobFailed, type Agent, type Job } from "./agent";
 import { runItem } from "./loop";
 import { ToolRejected, type Session, type StepBody } from "./mcp-client";
 
@@ -274,5 +280,45 @@ describe("runItem: act-step failures (agent-prompts.md section 1)", () => {
     });
     expect(await runItem(refused, s, llm([good]), opts)).toBe("failed");
     expect(calls.at(-1)![1]).toMatchObject({ outcome: "failed", note: "LABEL_NOT_OWNED reason" });
+  });
+});
+
+describe("runItem: a job with no model (agent-prompts.md section 1, Tiers)", () => {
+  const job = (run: Job["run"]): Job => ({ id: "test", kinds: ["test_run"], handoff: [], run });
+  const noModel = {} as ModelClient; // a job never asks the model
+
+  it("runs the job in place of think and act, then completes with its summary", async () => {
+    const { s, tools, calls } = session();
+    const done = job(async () => ({ outputIds: [], summary: "2 of 2 tests passed" }));
+    expect(await runItem(done, s, noModel, { heartbeatMs: 60_000 })).toBe("done");
+    expect(tools()).toEqual(["claim_item", "recall_context", "complete_item"]);
+    expect(calls.at(-1)![1]).toMatchObject({ outcome: "done", summary: "2 of 2 tests passed" });
+  });
+
+  it("fails the item with the job's own failure as the note (no endless retry as an outage)", async () => {
+    const { s, calls } = session();
+    const crashed = job(async () => {
+      throw new JobFailed("Playwright crashed or timed out: it wrote no report.");
+    });
+    expect(await runItem(crashed, s, noModel, { heartbeatMs: 60_000 })).toBe("failed");
+    expect(calls.at(-1)![1]).toMatchObject({
+      outcome: "failed",
+      note: "Playwright crashed or timed out: it wrote no report.",
+    });
+  });
+
+  it("tells the job when the lease is lost, and then completes nothing", async () => {
+    const { s, tools } = session({
+      heartbeat: () => new ToolRejected("heartbeat", rejection("lease", "LEASE_ENDED")),
+    });
+    let sawLost = false;
+    const slow = job(async (_recall, act) => {
+      while (!act.lost?.()) await new Promise((r) => setTimeout(r, 10));
+      sawLost = true;
+      throw new JobFailed("The lease ended during the run.");
+    });
+    expect(await runItem(slow, s, noModel, { heartbeatMs: 10 })).toBe("stopped");
+    expect(sawLost).toBe(true);
+    expect(tools()).not.toContain("complete_item");
   });
 });

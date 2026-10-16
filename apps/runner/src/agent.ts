@@ -10,7 +10,12 @@ import type { Session, ToolOut } from "./mcp-client";
 export type Recall = ToolOut<"recall_context">;
 
 /** What act() may do: call MCP tools, and post one run step text per call ("Wrote 14 facts"). */
-export type Act = { call: Session["call"]; say(text: string): Promise<void> };
+export type Act = {
+  call: Session["call"];
+  say(text: string): Promise<void>;
+  /** True once the item's lease is lost: a job must stop before it writes anything more. */
+  lost?(): boolean;
+};
 
 /** `summary` is the handoff text; `outputIds` are the nodes the item wrote. */
 export type ActResult = { outputIds: string[]; summary: string };
@@ -54,4 +59,22 @@ export async function loadPrompt(
   const preamble = await readFile(PREAMBLE, "utf8");
   const own = await readFile(new URL(`./${file}`, agentUrl), "utf8");
   return `${preamble.replace("<Agent>", name).trimEnd()}\n\n${own.trim()}\n`;
+}
+
+/**
+ * An agent step with no model (agent-prompts.md section 1, Tiers: the Test agent's test_run, the
+ * rule-based Launch agent): the same claim, recall, heartbeat and complete as a model agent, with
+ * `run` in place of think and act.
+ */
+export type Job = {
+  id: AgentId;
+  worker?: string;
+  kinds: WorkItemKind[];
+  handoff: WorkItemKind[];
+  run(recall: Recall, act: Act): Promise<ActResult>;
+};
+
+/** A job's own failure (Playwright gave no report): the item fails with this message as its note. */
+export class JobFailed extends Error {
+  override name = "JobFailed";
 }

@@ -9,6 +9,7 @@ import { heartbeatTool } from "./heartbeat";
 import { readQueryTool } from "./read-query";
 import { recordChangeRequestTool } from "./record-change-request";
 import { recallContextTool } from "./recall-context";
+import { submitTestRunTool } from "./submit-test-run";
 import { writeCardsTool } from "./write-cards";
 import { writeDesignTool } from "./write-design";
 import { writeFactTool } from "./write-fact";
@@ -37,6 +38,7 @@ export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   write_design: writeDesignTool,
   write_cards: writeCardsTool,
   write_tests: writeTestsTool,
+  submit_test_run: submitTestRunTool,
   find_impact: findImpactTool,
   read_query: readQueryTool,
 };

@@ -18,7 +18,7 @@ export { countRejection, createProject, deleteTestClient, setStage } from "./pro
 export { answerQuestion, writeQuestions, type QuestionWrite } from "./questions";
 export { applySchema, type SchemaName } from "./schema";
 export { seedBoardForTest } from "./test-seed";
-export { writeTests, type TestCaseWrite } from "./tests";
+export { recordTestRuns, writeTests, type TestCaseWrite, type TestResult } from "./tests";
 export { writeVersioned, type PropValue } from "./versioned";
 export {
   claimItem,

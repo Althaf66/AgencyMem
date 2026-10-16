@@ -1,8 +1,9 @@
 // The runner: one loop per model agent, each working on every open project through the gateway.
 import { loadConfig } from "@agencymem/contracts";
 import { createChat, createModelClient } from "@agencymem/llm";
-import type { Agent } from "./agent";
+import type { Agent, Job } from "./agent";
 import { AGENTS } from "./agents";
+import { testRunJob } from "./agents/test/run-tests";
 import { writeTestsAgent } from "./agents/test/write-tests";
 import { runLoop } from "./loop";
 import { checkOpenCodeVersion, opencodeBin } from "./opencode";
@@ -20,13 +21,14 @@ try {
     heartbeatMs: cfg.HEARTBEAT_MS!,
   };
   // The Test agent works in the project repositories under WORKSPACES_DIR.
-  const agents: Agent<unknown>[] = [
+  const agents: (Agent<unknown> | Job)[] = [
     ...AGENTS,
     writeTestsAgent({
       workspacesDir: cfg.WORKSPACES_DIR!,
       gatewayUrl: cfg.GATEWAY_URL!,
       hookToken: cfg.AM_HOOK_TOKEN!,
     }) as Agent<unknown>,
+    testRunJob({ workspacesDir: cfg.WORKSPACES_DIR! }),
   ];
   for (const agent of agents) {
     runLoop(agent, deps).catch((e: unknown) => {

@@ -46,3 +46,57 @@ export async function writeTests(
     version: row.version,
   };
 }
+
+export type TestResult = {
+  testCaseId: string;
+  passed: boolean;
+  durationMs: number;
+  error?: string;
+};
+
+/**
+ * Records one TestRun per result, tagged with the commit's sha. With `taskId` (scope "card") and
+ * the card in Testing, a failure moves the card to In progress with `note`. Ids follow the input
+ * order. The caller checks that every TestCase is the card's first: a missing one writes no run.
+ */
+export async function recordTestRuns(
+  ctx: Ctx,
+  input: {
+    sha: string;
+    taskId: string | null;
+    results: TestResult[];
+    note: string | null;
+    createdBy: Actor;
+    now: number;
+  },
+): Promise<{
+  testRunIds: string[];
+  from: Column | null;
+  to: Column | null;
+  version: number | null;
+}> {
+  const results = input.results.map((r) => ({ ...r, id: ulid(), error: r.error ?? null }));
+  const rows = await writeQuery<{
+    id: string;
+    fromColumn: Column | null;
+    toColumn: Column | null;
+    taskVersion: number | null;
+  }>(ctx.db, ctx.graph, "write/submit-test-run", {
+    projectId: ctx.projectId,
+    taskId: input.taskId,
+    sha: input.sha,
+    scope: input.taskId ? "card" : "e2e",
+    failed: results.some((r) => !r.passed),
+    note: input.note === null ? null : input.note.slice(0, 500), // Task.note is at most 500
+    results,
+    createdBy: input.createdBy,
+    now: input.now,
+  });
+  const ids = new Set(rows.map((r) => r.id));
+  return {
+    testRunIds: results.map((r) => r.id).filter((id) => ids.has(id)),
+    from: rows[0]?.fromColumn ?? null,
+    to: rows[0]?.toColumn ?? null,
+    version: rows[0]?.taskVersion ?? null,
+  };
+}

@@ -9,7 +9,7 @@ import {
   ModelUnavailableError,
   type ModelClient,
 } from "@agencymem/llm";
-import type { ActResult, Agent, Recall } from "./agent";
+import { JobFailed, type ActResult, type Agent, type Job, type Recall } from "./agent";
 import { ToolRejected, listProjects, openSession, type Gateway, type Session } from "./mcp-client";
 
 export type ItemResult = "idle" | "done" | "failed" | "stopped";
@@ -35,7 +35,7 @@ const taskLine = (agent: Agent<unknown>, recall: Recall) =>
  * the item is already back in the queue, so complete_item is not called.
  */
 export async function runItem(
-  agent: Agent<unknown>,
+  agent: Agent<unknown> | Job,
   session: Session,
   llm: ModelClient,
   opts: { heartbeatMs: number },
@@ -77,6 +77,18 @@ export async function runItem(
     return outcome;
   };
 
+  /** A job: no model, so no think step; its act is the whole run. */
+  const runJob = async (job: Job, recall: Recall): Promise<ItemResult> => {
+    if (lost) return "stopped";
+    const result = await job.run(recall, {
+      call: session.call.bind(session),
+      say: (text) => say("act", text),
+      lost: () => lost,
+    });
+    if (lost) return "stopped";
+    return complete("done", undefined, result.summary);
+  };
+
   try {
     const recallItem = async () => {
       const recall = await session.call("recall_context", { itemId });
@@ -84,6 +96,7 @@ export async function runItem(
       return recall;
     };
     let recall = await recallItem();
+    if ("run" in agent) return await runJob(agent, recall);
     let note = "";
     let retriedVersion = false;
     let retriedSource = false;
@@ -158,6 +171,7 @@ export async function runItem(
       return complete("failed", e.message);
     }
     if (e instanceof ToolRejected) return complete("failed", e.rejection.reason);
+    if (e instanceof JobFailed) return complete("failed", e.message);
     throw e; // the gateway is unreachable: runLoop backs off; the lease ends on its own
   } finally {
     clearInterval(beat);
@@ -185,7 +199,7 @@ const wait = (ms: number, signal?: AbortSignal) =>
  * One agent's loop: each pass tries every project once, keeping one MCP session per project. A
  * pass with no work waits idleMs; a gateway error backs off from 1 s, doubling, up to 30 s.
  */
-export async function runLoop(agent: Agent<unknown>, deps: LoopDeps): Promise<void> {
+export async function runLoop(agent: Agent<unknown> | Job, deps: LoopDeps): Promise<void> {
   const sessions = new Map<string, Session>();
   const projects = deps.projects ?? (() => listProjects(deps));
   const workerId = agent.worker ?? `${agent.id}-1`;

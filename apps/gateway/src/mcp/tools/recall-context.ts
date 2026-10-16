@@ -262,6 +262,30 @@ export async function recallContextTool(
     context.facts = await currentFacts();
   }
 
+  // agent-prompts.md section 7, test_run: the item's commit, and its card with the TestCases to run.
+  if (item.kind === "test_run" && item.subjectId) {
+    const changes = await readQuery<
+      NonNullable<Context["codeChanges"]>[number] & { taskId: string | null }
+    >(ctx.db, graph, "read/code-change", { projectId, id: item.subjectId });
+    context.codeChanges = changes.map((c) => ({
+      id: c.id,
+      sha: c.sha,
+      branch: c.branch,
+      taskKey: c.taskKey,
+      files: c.files,
+      message: c.message,
+      committedAt: c.committedAt,
+      linked: c.linked,
+    }));
+    const taskId = changes[0]?.taskId;
+    if (taskId) {
+      context.tasks = await readQuery<Ctx["tasks"][number]>(ctx.db, graph, "read/task", {
+        projectId,
+        taskId,
+      });
+    }
+  }
+
   // contracts.md section 7: cut until it fits, handoffs to the newest 5, then episode text to 300.
   const size = () => JSON.stringify({ item, project, context }).length;
   let chars = size();
