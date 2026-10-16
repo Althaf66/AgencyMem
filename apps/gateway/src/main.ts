@@ -16,6 +16,7 @@ import { filesRouter } from "./api/files";
 import { gatesRouter } from "./api/gates";
 import { graphRouter } from "./api/graph";
 import { nodesRouter } from "./api/nodes";
+import { metricsRouter } from "./api/metrics";
 import { listProjects, projectsRouter } from "./api/projects";
 import { queryRouter } from "./api/query";
 import { tasksRouter } from "./api/tasks";
@@ -120,6 +121,7 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
     graphRouter({ db, events }),
     queryRouter({ db, events }),
     tasksRouter({ db, events }),
+    metricsRouter({ db, events }),
     notFound,
   );
   app.use("/hooks", requireToken(hook), express.json(), hooksRouter({ db, events }), notFound);

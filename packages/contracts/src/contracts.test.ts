@@ -743,6 +743,7 @@ const restFixtures: [string, z.ZodType, unknown][] = [
           questions: 4,
           cardsReopenedPerCR: null,
           lessonsUsed: 0,
+          lessons: [],
         },
       ],
       lessons: [{ id: ID, featureKind: "form", clarityBand: "medium", ratio: 1.5, n: 1 }],

@@ -2,6 +2,7 @@
 // with its contracts schema. In the browser `base` is "" and the Vite dev proxy adds the UI token;
 // tests pass the gateway URL and the token in `headers`.
 import {
+  AgencyMetrics,
   AnswerResponse,
   BoardResponse,
   ChangeRequestResponse,
@@ -21,6 +22,7 @@ import {
   PathResponse,
   ProgressMetricResponse,
   ProgressView,
+  ProjectMetrics,
   QuestionsResponse,
   ReadinessResponse,
   RetryItemResponse,
@@ -111,6 +113,8 @@ export function createApi(opts: ApiOptions) {
       call(ChatResponse, "POST", "/api/chat", { body, project }),
     board: (id: string) => call(BoardResponse, "GET", `/api/projects/${id}/board`),
     progress: (id: string) => call(ProgressView, "GET", `/api/projects/${id}/progress`),
+    metrics: (id: string) => call(ProjectMetrics, "GET", `/api/projects/${id}/metrics`),
+    agencyMetrics: () => call(AgencyMetrics, "GET", "/api/agency/metrics"),
     progressMetric: (id: string, metric: string) =>
       call(ProgressMetricResponse, "GET", `/api/projects/${id}/progress/${metric}`),
     patchTask: (project: string, taskId: string, body: TaskPatch & { version: number }) =>

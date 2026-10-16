@@ -160,6 +160,7 @@ export function Shell(props: { store: AppStore; route: Route; children: ReactNod
           {nav("docs", "Docs", "docs/prd")}
           {nav("gates", "Gates")}
           {nav("graph", "Graph")}
+          {nav("health", "Health")}
         </nav>
       )}
       <main>{props.children}</main>

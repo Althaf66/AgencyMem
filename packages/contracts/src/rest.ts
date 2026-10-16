@@ -222,6 +222,8 @@ export const AgencyMetrics = z.object({
       questions: Count,
       cardsReopenedPerCR: z.number().nullable(),
       lessonsUsed: Count,
+      // (P, approved decision 6) the lessons its current estimates used, for the chart tooltip
+      lessons: z.array(z.object({ id: Id, featureKind: FeatureKind, clarityBand: ClarityBand })),
     }),
   ),
   lessons: z.array(LessonView),

@@ -21,6 +21,8 @@ function stubApi(seq = { value: 5 }) {
     questions: () => ok("questions", { questions: [] }),
     gates: () => ok("gates", { gates: [] }),
     readiness: () => ok("readiness", { report: null }),
+    metrics: () => ok("metrics", { questions: 0 }),
+    agencyMetrics: () => ok("agencyMetrics", { projects: [], lessons: [] }),
     doc: (_id: string, doc: string) => ok("doc", { doc, sections: [], designVersion: 0 }),
     features: () => ok("features", { features: [] }),
     board: () => ok("board", { columns: [], lanes: [], cards: [], items: [] }),
@@ -61,6 +63,7 @@ describe("store", () => {
     await store.getState().open(P);
     await store.getState().open(P); // opening it again loads nothing more
     expect(calls.sort()).toEqual([
+      "agencyMetrics",
       "board",
       "doc",
       "doc",
@@ -68,6 +71,7 @@ describe("store", () => {
       "documents",
       "features",
       "gates",
+      "metrics",
       "progress",
       "project",
       "questions",
@@ -89,7 +93,7 @@ describe("store", () => {
     seq.value = 7;
     store.getState().receive(event(6, "node.written", { label: "Question" }));
     await tick();
-    expect(calls.sort()).toEqual(["gates", "questions"]);
+    expect(calls.sort()).toEqual(["gates", "metrics", "questions"]);
     expect(store.getState().questions.seq).toBe(7);
     expect(store.getState().lastSeq).toBe(6);
 
@@ -98,7 +102,15 @@ describe("store", () => {
     store.getState().receive(event(8, "gate.changed", { gateKey: "G1" }));
     store.getState().receive(event(9, "node.written", { label: "Document" }));
     await tick();
-    expect(calls.sort()).toEqual(["documents", "gates", "progress", "project", "readiness"]);
+    expect(calls.sort()).toEqual([
+      "agencyMetrics",
+      "documents",
+      "gates",
+      "metrics",
+      "progress",
+      "project",
+      "readiness",
+    ]);
 
     // Route 27 has no seq: a report written by the Launch agent reloads it and the gates.
     calls.length = 0;
@@ -106,6 +118,18 @@ describe("store", () => {
     await tick();
     expect(calls.sort()).toEqual(["gates", "readiness"]);
     expect(store.getState().readiness).toMatchObject({ status: "ready", seq: 0, data: null });
+  });
+
+  it("reloads both health slices on metrics.updated (task 5.6)", async () => {
+    const { api, calls, seq } = stubApi();
+    const store = createAppStore(api);
+    await store.getState().open(P);
+    calls.length = 0;
+    seq.value = 7;
+    store.getState().receive(event(6, "metrics.updated", { metric: "rejectedWrites", value: 3 }));
+    await tick();
+    expect(calls.sort()).toEqual(["agencyMetrics", "metrics"]);
+    expect(store.getState().metrics.seq).toBe(7);
   });
 
   it("ignores another project's events, and reloads everything on reset", async () => {
@@ -127,6 +151,7 @@ describe("store", () => {
     store.getState().receive({ type: "reset", projectId: P, seq: 20 });
     await tick();
     expect(calls.sort()).toEqual([
+      "agencyMetrics",
       "board",
       "doc",
       "doc",
@@ -134,6 +159,7 @@ describe("store", () => {
       "documents",
       "features",
       "gates",
+      "metrics",
       "progress",
       "project",
       "questions",
@@ -231,7 +257,7 @@ describe("board", () => {
     seq.value = 7;
     store.getState().receive(event(6, "task.moved", { taskId: "T1", key: "CARD-01" }));
     await tick();
-    expect(calls.sort()).toEqual(["board", "progress"]);
+    expect(calls.sort()).toEqual(["board", "metrics", "progress"]);
     calls.length = 0;
     seq.value = 8;
     store.getState().receive(event(8, "lease.changed", { itemId: "T1", reason: "cancel" }));
@@ -315,7 +341,7 @@ describe("documents", () => {
     seq.value = 10;
     store.getState().receive(event(10, "node.written", { label: "Estimate" }));
     await tick();
-    expect(calls.sort()).toEqual(["doc", "doc", "doc", "features"]);
+    expect(calls.sort()).toEqual(["doc", "doc", "doc", "features", "metrics"]);
   });
 
   it("sends a chat with its section and says where it went", async () => {

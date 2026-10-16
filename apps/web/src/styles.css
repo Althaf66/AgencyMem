@@ -641,3 +641,26 @@ tr.episodes ul {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+/* Health */
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+.health svg {
+  width: 100%;
+  max-width: 480px;
+  font-size: 10px;
+  fill: var(--muted);
+  color: var(--muted);
+}
+.health svg circle {
+  fill: currentColor;
+}
+.health-numbers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  line-height: 1.8;
+}

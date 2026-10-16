@@ -19,6 +19,7 @@ import { CardDrawer } from "./board/CardDrawer";
 import { DocsView } from "./docs/Docs";
 import { GatesView } from "./gates/Gates";
 import { GraphPanelView } from "./graph/GraphPanel";
+import { HealthView } from "./health/Health";
 import { FilesView } from "./intake/Files";
 import { ProjectsView } from "./projects/Projects";
 import { QuestionnaireView, SourcePair } from "./questionnaire/Questionnaire";
@@ -678,5 +679,80 @@ describe("graph panel", () => {
     );
     expect(html).toContain("Unknown Defect.");
     expect(html).not.toContain("REQ-01");
+  });
+});
+
+describe("health panel (task 5.6)", () => {
+  const metrics = {
+    estimateError: 0.12,
+    questions: 15,
+    contradictions: 6,
+    changeRequests: 2,
+    cardsReopened: 6,
+    cardsReopenedPerCR: 3,
+    rejected: { writes: 2, claims: 4, completions: 1, queries: 1 },
+    coverage: { covered: 12, total: 12 },
+    tokensIn: 400000,
+    tokensOut: 12000,
+    cost: 3.1,
+    backtraceMs: 3,
+  };
+  const row = (name: string, order: number, estimateError: number | null) => ({
+    projectId: `01JA00000000000000000000P${order}`,
+    name,
+    order,
+    closedAt: estimateError === null ? null : 1,
+    clarityBand: "low" as const,
+    estimateError,
+    questions: 1,
+    cardsReopenedPerCR: null,
+    lessonsUsed: 1,
+    lessons: [
+      {
+        id: "01JA00000000000000000000L1",
+        featureKind: "calendar" as const,
+        clarityBand: "low" as const,
+      },
+    ],
+  });
+
+  it("draws the stored numbers and one point per closed project", () => {
+    const html = renderToString(
+      <HealthView
+        s={state({
+          metrics: ready(metrics),
+          agencyMetrics: ready({
+            projects: [row("A", 1, 0.45), row("B", 2, 0.12), row("Live", 3, null)],
+            lessons: [],
+          }),
+          board: ready(boardOf([], [])),
+        })}
+      />,
+    );
+    expect(html).toContain("Questions 15 · Contradictions 6");
+    expect(html).toContain("Cards reopened per CR 3.0");
+    expect(html).toContain("Rejected: claims 4 · writes 2 · completions 1 · queries 1");
+    expect(html).toContain("Coverage 12/12 · Backtrace 3 ms");
+    expect(html).toContain("Tokens 412k · Cost $3.10");
+    expect(html.match(/<circle/g)).toHaveLength(2); // the open project has no point
+    expect(html).toContain("calendar (low)"); // a point's tooltip lists its lessons
+    expect(html).toContain("Blocked items: none");
+  });
+
+  it("has its own route", () => {
+    expect(parseHash("#/p/01JA0000000000000000000001/health")).toMatchObject({ screen: "health" });
+  });
+
+  it("says when the curve appears while no project has closed", () => {
+    const html = renderToString(
+      <HealthView
+        s={state({
+          metrics: ready({ ...metrics, estimateError: null }),
+          agencyMetrics: ready({ projects: [row("Live", 1, null)], lessons: [] }),
+          board: ready(boardOf([], [])),
+        })}
+      />,
+    );
+    expect(html).toContain("The curve appears after the first project closes.");
   });
 });

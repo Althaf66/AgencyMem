@@ -3,6 +3,7 @@
 // a label it shows; nothing on screen changes without a gateway event or a snapshot.
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type {
+  AgencyMetrics,
   BoardResponse,
   CardView,
   Doc,
@@ -16,6 +17,7 @@ import type {
   Mode,
   ProgressMetricResponse,
   ProgressView,
+  ProjectMetrics,
   ProjectInfo,
   QuestionView,
   ReadinessResponse,
@@ -41,11 +43,14 @@ export type SliceName =
   | "docs"
   | "features"
   | "board"
-  | "progress";
+  | "progress"
+  | "metrics"
+  | "agencyMetrics";
 /** Route 27: the newest readiness report, or null. */
 export type Readiness = ReadinessResponse["report"];
 export type Board = Omit<BoardResponse, "seq">;
 export type Progress = Omit<ProgressView, "seq">;
+export type Metrics = Omit<ProjectMetrics, "seq">;
 export type MetricNode = ProgressMetricResponse["nodes"][number];
 /** The three documents of route 20, without their seq. */
 export type Docs = Record<Doc, Omit<DocResponse, "seq">>;
@@ -85,6 +90,9 @@ export type AppState = {
   features: Slice<FeatureView[]>;
   board: Slice<Board>;
   progress: Slice<Progress>;
+  metrics: Slice<Metrics>;
+  /** Route 25 is not a snapshot (no seq), like readiness. */
+  agencyMetrics: Slice<AgencyMetrics>;
   /** Not a snapshot route: its seq is the last event seq when it loaded. */
   graph: Slice<GraphData>;
   /** The last 50 run steps per work item. */
@@ -143,7 +151,13 @@ export const SLICES: SliceName[] = [
   "features",
   "board",
   "progress",
+  "metrics",
 ];
+/** Loaded with the snapshots, but with no seq: every event that names them reloads them. */
+const UNSEQ: SliceName[] = ["readiness", "agencyMetrics"];
+/** (P, task 5.6) the health slices. A node write reloads only this project's numbers: route 25
+ * has no seq and reads every project, so it waits for a gate or metrics event. */
+const HEALTH: SliceName[] = ["metrics", "agencyMetrics"];
 const DOCS: Doc[] = ["prd", "tdd", "plan"];
 // The labels a document section renders: a write to one changes the documents.
 const DESIGN = [
@@ -165,16 +179,19 @@ const RUN_LOG = 50;
 /** The slices an event makes stale. There is no stage event, so item and gate events re-read the
  * project (its stage). */
 function staleSlices(event: Envelope): SliceName[] {
-  if (event.type === "gate.changed") return ["gates", "readiness", "project", "progress"];
+  if (event.type === "gate.changed")
+    return ["gates", "readiness", "project", "progress", ...HEALTH];
+  if (event.type === "metrics.updated") return HEALTH;
   if (event.type === "doc.stale") return ["docs"];
-  if (event.type === "task.moved" || event.type === "task.edited") return ["board", "progress"];
+  if (event.type === "task.moved" || event.type === "task.edited")
+    return ["board", "progress", "metrics"];
   if (event.type === "lease.changed") return ["board"];
   if (event.type !== "node.written") return [];
   if (DESIGN.includes(event.data.label)) return ["docs"];
   switch (event.data.label) {
     case "Feature":
     case "Estimate":
-      return ["features", "docs"];
+      return ["features", "docs", "metrics"];
     case "Document":
       return ["documents"];
     case "Assumption":
@@ -182,7 +199,7 @@ function staleSlices(event: Envelope): SliceName[] {
     case "Question":
     case "Episode":
     case "Contradiction":
-      return ["questions", "gates"];
+      return ["questions", "gates", "metrics"];
     case "WorkItem":
       return ["project", "gates", "board"];
     case "Gate":
@@ -192,7 +209,12 @@ function staleSlices(event: Envelope): SliceName[] {
     case "Task":
     case "AcceptanceCriterion":
     case "TestCase":
-      return ["board", "progress"];
+      return ["board", "progress", "metrics"];
+    case "ChangeRequest":
+    case "TestRun":
+      // ponytail: Run writes do not reload the health numbers, so tokens and cost lag until one
+      // of these events; reload on run.step if that ever matters.
+      return ["metrics"];
     default:
       return [];
   }
@@ -255,6 +277,8 @@ export function createAppStore(api: Api): AppStore {
       features: empty(),
       board: empty(),
       progress: empty(),
+      metrics: empty(),
+      agencyMetrics: empty(),
       graph: empty(),
       runLog: {},
       toasts: [],
@@ -295,11 +319,13 @@ export function createAppStore(api: Api): AppStore {
           features: empty(),
           board: empty(),
           progress: empty(),
+          metrics: empty(),
+          agencyMetrics: empty(),
           graph: empty(),
           runLog: {},
           lastSeq: 0,
         });
-        await Promise.all([...SLICES, "readiness" as const].map((name) => fetchSlice(name)));
+        await Promise.all([...SLICES, ...UNSEQ].map((name) => fetchSlice(name)));
       },
 
       load: fetchSlice,
@@ -308,7 +334,7 @@ export function createAppStore(api: Api): AppStore {
         if (message.type === "error") return get().toast(message.error.reason);
         if (message.type === "reset") {
           if (message.projectId !== get().projectId) return;
-          for (const name of [...SLICES, "readiness" as const]) void fetchSlice(name);
+          for (const name of [...SLICES, ...UNSEQ]) void fetchSlice(name);
           return;
         }
         const { event } = message;
@@ -538,6 +564,16 @@ async function snapshot(
       if (!r.ok) return r;
       const { seq, ...progress } = r.data;
       return { ok: true, data: { seq, data: progress } };
+    }
+    case "metrics": {
+      const r = await api.metrics(id);
+      if (!r.ok) return r;
+      const { seq, ...metrics } = r.data;
+      return { ok: true, data: { seq, data: metrics } };
+    }
+    case "agencyMetrics": {
+      const r = await api.agencyMetrics();
+      return r.ok ? { ok: true, data: { seq: 0, data: r.data } } : r;
     }
     case "features": {
       const r = await api.features(id);

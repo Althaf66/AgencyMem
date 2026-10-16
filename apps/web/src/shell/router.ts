@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Doc } from "@agencymem/contracts";
 
-export type Screen = "board" | "files" | "questions" | "gates";
+export type Screen = "board" | "files" | "questions" | "gates" | "health";
 export type GraphViewName = "all" | "why" | "impact" | "backtrace";
 export const GRAPH_VIEWS: GraphViewName[] = ["all", "why", "impact", "backtrace"];
 export type Route =
@@ -15,7 +15,7 @@ export type Route =
 export const graphHash = (projectId: string, view: GraphViewName, focus: string | null) =>
   `#/p/${projectId}/graph?${new URLSearchParams(focus ? { focus, view } : { view }).toString()}`;
 
-const SCREENS: Screen[] = ["board", "files", "questions", "gates"];
+const SCREENS: Screen[] = ["board", "files", "questions", "gates", "health"];
 
 export function parseHash(hash: string): Route {
   const match = /^#\/p\/([0-9A-Za-z]+)(?:\/([a-z]+)(?:\/([a-z]+))?)?/.exec(hash);
