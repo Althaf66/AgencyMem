@@ -397,6 +397,7 @@ export const ReadinessResponse = z.object({
     })
     .nullable(),
 });
+export type ReadinessResponse = z.infer<typeof ReadinessResponse>;
 // 28 POST /api/projects/:id/bug-reports
 export const BugReportBody = z.object({ text: z.string().min(1).max(2000) });
 export const BugReportResponse = z.object({ episodeId: Id, workItemId: Id });

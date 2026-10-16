@@ -4,6 +4,7 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type {
+  ReadinessCheck,
   CardView,
   GraphView,
   FeatureView,
@@ -180,6 +181,54 @@ describe("gates", () => {
     expect(html).toContain("blocked: 2 questions still open");
     expect(html).toMatch(/<button[^>]*disabled[^>]*>Approve<\/button>/);
     expect(html).not.toContain("Reject");
+  });
+});
+
+describe("G5 deploy (task 5.2)", () => {
+  const check = (name: ReadinessCheck["name"], passed: boolean): ReadinessCheck => ({
+    name,
+    passed,
+    detail: passed ? "none" : `${name} failed`,
+    nodeIds: passed ? [] : ["01JA00000000000000000000N1", "01JA00000000000000000000N2"],
+  });
+  const report = (passed: boolean) => ({
+    id: "01JA00000000000000000000R1",
+    passed,
+    override: false,
+    createdAt: 1,
+    checks: [
+      check("cards_done", passed),
+      check("coverage", true),
+      check("open_assumptions", true),
+      check("open_defects", true),
+      check("drift", true),
+    ],
+  });
+  const g5 = gate({ key: "G5", canDecide: true, blockedBy: [] });
+
+  it("shows the five readiness checks with pass or fail, the failing node count, and the environment field", () => {
+    const html = renderToString(
+      <GatesView s={state({ gates: ready([g5]), readiness: ready(report(false)) })} />,
+    );
+    for (const name of ["cards_done", "coverage", "open_assumptions", "open_defects", "drift"]) {
+      expect(html).toContain(name);
+    }
+    expect(html.match(/>pass</g)).toHaveLength(4);
+    expect(html.match(/>fail</g)).toHaveLength(1);
+    expect(html).toContain("cards_done failed · 2 nodes");
+    expect(html).toContain('name="environment"');
+    expect(html).toContain("Approve anyway");
+  });
+
+  it("asks for no override when the report passed", () => {
+    const html = renderToString(
+      <GatesView s={state({ gates: ready([g5]), readiness: ready(report(true)) })} />,
+    );
+    expect(html.match(/>pass</g)).toHaveLength(5);
+    expect(html).not.toContain("Approve anyway");
+    // ui.md: never a silent grey button, also when only the form is incomplete.
+    expect(html).toContain("blocked: needs an environment");
+    expect(html).toMatch(/<button[^>]*disabled[^>]*>Approve<\/button>/);
   });
 });
 

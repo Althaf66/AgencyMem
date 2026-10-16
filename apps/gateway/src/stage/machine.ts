@@ -2,7 +2,7 @@
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
 // T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2), C1 and C2
 // (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5), T15 (task 3.6), T16 (task 3.8), H3
-// and C3 (task 3.9), T20, T21 and T30 (task 5.1).
+// and C3 (task 3.9), T20, T21 and T30 (task 5.1), T23 (task 5.2).
 import type {
   Actor,
   ChangeRequestStatus,
@@ -76,6 +76,8 @@ export type StageState = {
   buildBlockers: number;
   /** The newest e2e item's status (startup repair of T21). */
   lastE2e: WorkItemStatus | null;
+  /** T23's repair. T22 needs no effect: the gate route reads whether G5 is decidable. */
+  g5: GateStatus | null;
 };
 
 type GateState = {
@@ -250,6 +252,9 @@ const startLaunch: StageResult = {
   effects: [{ type: "open_item", kind: "launch", subjectId: null, createdBy: "test" }],
 };
 
+// T23: deployed; bug reports are allowed from now (T24).
+const deployed: StageResult = { stage: "maintenance", effects: [] };
+
 /** T30's condition: in e2e or launch, a build card is no longer Done and merged (C2, H4). */
 const leftDone = (s: StageState) =>
   (s.stage === "e2e" || s.stage === "launch") && s.buildCards.merged < s.buildCards.total;
@@ -422,6 +427,8 @@ export function next(state: StageState, event: StageEvent): StageResult {
         return { effects: [reviseDesign(event.reason, event.actor)] };
       }
       if (event.key === "G3" && event.decision === "approve") return startPlanning(event.actor);
+      // T23: the route wrote the approval and the Deployment in one query.
+      if (event.key === "G5" && event.decision === "approve") return deployed;
       return { effects: [] };
 
     // Rule 3: repair what a crash between a write and its effects left half done.
@@ -496,6 +503,8 @@ export function next(state: StageState, event: StageEvent): StageResult {
         }
       } else if (state.stage === "e2e" && state.lastE2e === "done") {
         return { stage: startLaunch.stage, effects: [...effects, ...startLaunch.effects] };
+      } else if (state.stage === "launch" && state.g5 === "approved") {
+        return { stage: deployed.stage, effects };
       }
       return { effects };
     }

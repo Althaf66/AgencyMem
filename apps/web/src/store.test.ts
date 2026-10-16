@@ -20,6 +20,7 @@ function stubApi(seq = { value: 5 }) {
     documents: () => ok("documents", { documents: [] }),
     questions: () => ok("questions", { questions: [] }),
     gates: () => ok("gates", { gates: [] }),
+    readiness: () => ok("readiness", { report: null }),
     doc: (_id: string, doc: string) => ok("doc", { doc, sections: [], designVersion: 0 }),
     features: () => ok("features", { features: [] }),
     board: () => ok("board", { columns: [], lanes: [], cards: [], items: [] }),
@@ -70,6 +71,7 @@ describe("store", () => {
       "progress",
       "project",
       "questions",
+      "readiness",
     ]);
     expect(store.getState().questions).toMatchObject({ status: "ready", seq: 5, data: [] });
   });
@@ -96,7 +98,14 @@ describe("store", () => {
     store.getState().receive(event(8, "gate.changed", { gateKey: "G1" }));
     store.getState().receive(event(9, "node.written", { label: "Document" }));
     await tick();
-    expect(calls.sort()).toEqual(["documents", "gates", "progress", "project"]);
+    expect(calls.sort()).toEqual(["documents", "gates", "progress", "project", "readiness"]);
+
+    // Route 27 has no seq: a report written by the Launch agent reloads it and the gates.
+    calls.length = 0;
+    store.getState().receive(event(10, "node.written", { label: "ReadinessReport" }));
+    await tick();
+    expect(calls.sort()).toEqual(["gates", "readiness"]);
+    expect(store.getState().readiness).toMatchObject({ status: "ready", seq: 0, data: null });
   });
 
   it("ignores another project's events, and reloads everything on reset", async () => {
@@ -128,6 +137,7 @@ describe("store", () => {
       "progress",
       "project",
       "questions",
+      "readiness",
     ]);
   });
 

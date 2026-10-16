@@ -38,6 +38,10 @@ async function hasCommit(repo: string): Promise<boolean> {
   );
 }
 
+/** The project's repository: <WORKSPACES_DIR>/<projectId>/repo, with no "../" from the id. */
+export const repoPath = (projectId: string, workspacesDir: string): string =>
+  resolve(workspacesPath(workspacesDir), Id.parse(projectId), "repo");
+
 /**
  * Makes sure the project's repository exists and returns its path. `install: false` skips
  * `npm ci` (tests, which have no network).
@@ -46,7 +50,7 @@ export async function ensureRepo(
   projectId: string,
   opts: { workspacesDir: string; install?: boolean },
 ): Promise<string> {
-  const repo = resolve(workspacesPath(opts.workspacesDir), Id.parse(projectId), "repo"); // no "../" in the path
+  const repo = repoPath(projectId, opts.workspacesDir);
   if (insideAgencyMem(repo)) {
     throw new Error(`WORKSPACES_DIR ${opts.workspacesDir} is inside the AgencyMem repository`);
   }

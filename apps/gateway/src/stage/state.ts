@@ -87,6 +87,7 @@ export async function readStageState(
     openIntakeAnswer: state?.openIntakeAnswer ?? 0,
     g2: gate("G2"),
     g3: gate("G3"),
+    g5: gates.find((g) => g.key === "G5")?.status ?? null,
     openProposal: state?.openProposal ?? 0,
     unopenedEdits: (state?.unopenedEdits ?? []).map((e) => ({
       episodeId: Id.parse(e.episodeId),

@@ -4,6 +4,7 @@ import {
   WorkItem,
   type AgentId,
   type Context,
+  type ReadinessCheck,
   type ToolInput,
   type ToolOutput,
   type WorkItemKind,
@@ -12,6 +13,55 @@ import { AGENCY_GRAPH, readQuery } from "@agencymem/graph";
 import { projectInfo } from "../../project-info";
 import { CLAIMS } from "../guards";
 import { fail, findOwn, ok, type Outcome, type ToolCtx } from "./common";
+
+type ReadinessRow = {
+  cards: number;
+  notDone: string[];
+  openAssumptions: string[];
+  openDefects: string[];
+  requirements: number;
+};
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/**
+ * The Launch agent's four graph checks (agent-prompts.md section 10). A check passes when no node
+ * fails it; `uncovered` are coverage.cypher's rows (task 5.1).
+ */
+export function readinessChecks(row: ReadinessRow, uncovered: string[]): ReadinessCheck[] {
+  const check = (
+    name: ReadinessCheck["name"],
+    nodeIds: string[],
+    failed: string,
+    passed: string,
+  ): ReadinessCheck => ({
+    name,
+    passed: nodeIds.length === 0,
+    detail: (nodeIds.length ? failed : passed).slice(0, 200),
+    nodeIds,
+  });
+  return [
+    check(
+      "cards_done",
+      row.notDone,
+      `${row.notDone.length} of ${plural(row.cards, "card")} are not Done`,
+      `All ${plural(row.cards, "card")} are Done`,
+    ),
+    check(
+      "coverage",
+      uncovered,
+      `${uncovered.length} of ${plural(row.requirements, "requirement")} have no passing e2e test`,
+      `All ${plural(row.requirements, "requirement")} pass`,
+    ),
+    check(
+      "open_assumptions",
+      row.openAssumptions,
+      plural(row.openAssumptions.length, "open assumption"),
+      "none",
+    ),
+    check("open_defects", row.openDefects, plural(row.openDefects.length, "open defect"), "none"),
+  ];
+}
 
 /** The agent that claims a kind of work item (stage-machine.md section 3). */
 export function agentFor(kind: WorkItemKind): AgentId {
@@ -294,6 +344,34 @@ export async function recallContextTool(
     });
   }
 
+  // agent-prompts.md section 10: the four graph checks, and every recorded commit for drift.
+  if (item.kind === "launch") {
+    const [row] = await readQuery<ReadinessRow>(ctx.db, graph, "read/readiness", { projectId });
+    const uncovered = await readQuery<{ id: string }>(ctx.db, graph, "read/coverage", {
+      projectId,
+    });
+    context.readiness = readinessChecks(
+      row!,
+      uncovered.map((r) => r.id),
+    );
+    const changes = await readQuery<NonNullable<Context["codeChanges"]>[number]>(
+      ctx.db,
+      graph,
+      "read/code-change",
+      { projectId, id: null },
+    );
+    context.codeChanges = changes.map((c) => ({
+      id: c.id,
+      sha: c.sha,
+      branch: c.branch,
+      taskKey: c.taskKey,
+      files: c.files,
+      message: c.message,
+      committedAt: c.committedAt,
+      linked: c.linked,
+    }));
+  }
+
   // A merge item reads its card: the runner merges card/<key>.
   if (item.kind === "merge" && item.subjectId) {
     context.tasks = await readQuery<Ctx["tasks"][number]>(ctx.db, graph, "read/task", {
@@ -313,7 +391,8 @@ export async function recallContextTool(
     context.episodes = context.episodes.map((e) => ({ ...e, text: e.text.slice(0, 300) }));
     chars = size();
   }
-  // codeChanges (cut from the oldest) arrive with the build loop; then design and section bodies.
+  // Then design and section bodies. codeChanges are never cut: a launch item's missing commit would
+  // read as drift.
   if (chars > ctx.recallMaxChars && (context.design || context.docSections)) {
     context.design = context.design?.map((n) => ({ ...n, body: n.body.slice(0, 300) }));
     context.docSections = context.docSections?.map((s) => ({ ...s, body: s.body.slice(0, 300) }));

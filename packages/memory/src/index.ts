@@ -19,6 +19,7 @@ export { answerQuestion, writeQuestions, type QuestionWrite } from "./questions"
 export { applySchema, type SchemaName } from "./schema";
 export { seedBoardForTest } from "./test-seed";
 export { recordTestRuns, writeTests, type TestCaseWrite, type TestResult } from "./tests";
+export { approveDeploy } from "./gates";
 export { writeVersioned, type PropValue } from "./versioned";
 export {
   claimItem,

@@ -22,6 +22,7 @@ import {
   ProgressMetricResponse,
   ProgressView,
   QuestionsResponse,
+  ReadinessResponse,
   RetryItemResponse,
   UploadFilesResponse,
   type Doc,
@@ -101,6 +102,7 @@ export function createApi(opts: ApiOptions) {
     answer: (project: string, questionId: string, body: AnswerInput) =>
       call(AnswerResponse, "POST", `/api/questions/${questionId}/answer`, { body, project }),
     gates: (id: string) => call(GatesResponse, "GET", `/api/projects/${id}/gates`),
+    readiness: (id: string) => call(ReadinessResponse, "GET", `/api/projects/${id}/readiness`),
     decide: (project: string, gateId: string, body: DecisionInput) =>
       call(GateDecisionResponse, "POST", `/api/gates/${gateId}/decision`, { body, project }),
     doc: (id: string, doc: Doc) => call(DocResponse, "GET", `/api/projects/${id}/docs/${doc}`),
@@ -145,5 +147,12 @@ export type TaskPatch = {
   unblock?: true;
 };
 export type AnswerInput = { version: number; accept: boolean; text?: string };
-export type DecisionInput = { version: number; decision: "approve" | "reject"; reason?: string };
+export type DecisionInput = {
+  version: number;
+  decision: "approve" | "reject";
+  reason?: string;
+  /** G5 only. */
+  environment?: string;
+  override?: boolean;
+};
 export type Api = ReturnType<typeof createApi>;

@@ -3,6 +3,7 @@ import { loadConfig } from "@agencymem/contracts";
 import { createChat, createModelClient } from "@agencymem/llm";
 import type { Agent, Job } from "./agent";
 import { AGENTS } from "./agents";
+import { launchJob } from "./agents/launch/agent";
 import { e2eJob } from "./agents/test/run-all";
 import { testRunJob } from "./agents/test/run-tests";
 import { writeTestsAgent } from "./agents/test/write-tests";
@@ -34,6 +35,7 @@ try {
     }) as Agent<unknown>,
     testRunJob({ workspacesDir: cfg.WORKSPACES_DIR! }),
     e2eJob({ workspacesDir: cfg.WORKSPACES_DIR! }),
+    launchJob({ workspacesDir: cfg.WORKSPACES_DIR! }),
     // BUILD_WORKERS OpenCode workers (build-1, build-2), and one merge loop, so merges never share
     // the repository's main checkout.
     ...Array.from({ length: cfg.BUILD_WORKERS! }, (_, i) =>

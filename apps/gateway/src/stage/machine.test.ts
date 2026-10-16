@@ -29,6 +29,7 @@ const fresh: StageState = {
   buildCards: { total: 0, merged: 0 },
   buildBlockers: 0,
   lastE2e: null,
+  g5: null,
 };
 const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
 const intakeDone = (over: Partial<StageState> = {}): StageState => ({
@@ -784,6 +785,29 @@ rows.push(
     merged({ stage: "launch", buildCards: oneLeft }),
     { type: "startup" },
     { stage: "build", effects: [cancelRun] },
+  ],
+);
+
+// T23 (task 5.2): G5 approved records the Deployment (the route) and starts maintenance.
+const approveG5 = { type: "gate_decided", key: "G5", decision: "approve", actor: ana } as const;
+rows.push(
+  [
+    "T23 G5 approved: stage maintenance",
+    merged({ stage: "launch", g5: "approved" }),
+    approveG5,
+    { stage: "maintenance", effects: [] },
+  ],
+  [
+    "startup repairs a missed T23: in launch with G5 approved",
+    merged({ stage: "launch", g5: "approved" }),
+    { type: "startup" },
+    { stage: "maintenance", effects: [] },
+  ],
+  [
+    "startup leaves launch alone while G5 waits",
+    merged({ stage: "launch", g5: "waiting" }),
+    { type: "startup" },
+    { effects: [] },
   ],
 );
 

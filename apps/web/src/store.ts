@@ -18,6 +18,7 @@ import type {
   ProgressView,
   ProjectInfo,
   QuestionView,
+  ReadinessResponse,
   Rejection,
   ServerMessage,
 } from "@agencymem/contracts";
@@ -32,7 +33,17 @@ export type Slice<T> = {
   error: Rejection | null;
 };
 export type SliceName =
-  "project" | "documents" | "questions" | "gates" | "docs" | "features" | "board" | "progress";
+  | "project"
+  | "documents"
+  | "questions"
+  | "gates"
+  | "readiness"
+  | "docs"
+  | "features"
+  | "board"
+  | "progress";
+/** Route 27: the newest readiness report, or null. */
+export type Readiness = ReadinessResponse["report"];
 export type Board = Omit<BoardResponse, "seq">;
 export type Progress = Omit<ProgressView, "seq">;
 export type MetricNode = ProgressMetricResponse["nodes"][number];
@@ -66,6 +77,10 @@ export type AppState = {
   documents: Slice<DocumentInfo[]>;
   questions: Slice<QuestionView[]>;
   gates: Slice<GateView[]>;
+  /** Route 27 is not a snapshot: its seq stays 0, so every event that names it reloads it.
+   * ponytail: two overlapping loads can land out of order (no seq to compare); the next
+   * gate.changed or ReadinessReport event fixes it. */
+  readiness: Slice<Readiness>;
   docs: Slice<Docs>;
   features: Slice<FeatureView[]>;
   board: Slice<Board>;
@@ -93,7 +108,12 @@ export type AppState = {
   /** A node of the open project with its links (route 6). */
   node(nodeId: string): ReturnType<Api["node"]>;
   answer(question: QuestionView, accept: boolean, text?: string): Promise<boolean>;
-  decide(gate: GateView, decision: "approve" | "reject", reason?: string): Promise<boolean>;
+  decide(
+    gate: GateView,
+    decision: "approve" | "reject",
+    reason?: string,
+    deploy?: { environment: string; override: boolean },
+  ): Promise<boolean>;
   /** Route 21: the reply line saying where the text went, or null after a rejection (a toast). */
   chat(text: string, docSectionId?: string): Promise<string | null>;
   /** Route 13 with the version the card shows; false after a rejection (a toast). */
@@ -112,6 +132,8 @@ export type AppState = {
 export type AppStore = StoreApi<AppState>;
 
 const empty = <T>(): Slice<T> => ({ data: null, seq: 0, status: "idle", error: null });
+/** The snapshot slices: live.ts subscribes from their oldest seq once all hold data. Readiness is
+ * loaded with them but is not one: it has no seq, and no report is a real answer (null). */
 export const SLICES: SliceName[] = [
   "project",
   "documents",
@@ -143,7 +165,7 @@ const RUN_LOG = 50;
 /** The slices an event makes stale. There is no stage event, so item and gate events re-read the
  * project (its stage). */
 function staleSlices(event: Envelope): SliceName[] {
-  if (event.type === "gate.changed") return ["gates", "project", "progress"];
+  if (event.type === "gate.changed") return ["gates", "readiness", "project", "progress"];
   if (event.type === "doc.stale") return ["docs"];
   if (event.type === "task.moved" || event.type === "task.edited") return ["board", "progress"];
   if (event.type === "lease.changed") return ["board"];
@@ -165,6 +187,8 @@ function staleSlices(event: Envelope): SliceName[] {
       return ["project", "gates", "board"];
     case "Gate":
       return ["project", "gates"];
+    case "ReadinessReport":
+      return ["readiness", "gates"];
     case "Task":
     case "AcceptanceCriterion":
     case "TestCase":
@@ -226,6 +250,7 @@ export function createAppStore(api: Api): AppStore {
       documents: empty(),
       questions: empty(),
       gates: empty(),
+      readiness: empty(),
       docs: empty(),
       features: empty(),
       board: empty(),
@@ -265,6 +290,7 @@ export function createAppStore(api: Api): AppStore {
           documents: empty(),
           questions: empty(),
           gates: empty(),
+          readiness: empty(),
           docs: empty(),
           features: empty(),
           board: empty(),
@@ -273,7 +299,7 @@ export function createAppStore(api: Api): AppStore {
           runLog: {},
           lastSeq: 0,
         });
-        await Promise.all(SLICES.map((name) => fetchSlice(name)));
+        await Promise.all([...SLICES, "readiness" as const].map((name) => fetchSlice(name)));
       },
 
       load: fetchSlice,
@@ -282,7 +308,7 @@ export function createAppStore(api: Api): AppStore {
         if (message.type === "error") return get().toast(message.error.reason);
         if (message.type === "reset") {
           if (message.projectId !== get().projectId) return;
-          for (const name of SLICES) void fetchSlice(name);
+          for (const name of [...SLICES, "readiness" as const]) void fetchSlice(name);
           return;
         }
         const { event } = message;
@@ -357,10 +383,15 @@ export function createAppStore(api: Api): AppStore {
         return result.ok || rejected(result.error, "questions");
       },
 
-      async decide(gate, decision, reason) {
+      async decide(gate, decision, reason, deploy) {
         const id = get().projectId;
         if (!id) return false;
-        const result = await api.decide(id, gate.id, { version: gate.version, decision, reason });
+        const result = await api.decide(id, gate.id, {
+          version: gate.version,
+          decision,
+          reason,
+          ...deploy,
+        });
         return result.ok || rejected(result.error, "gates");
       },
 
@@ -491,6 +522,10 @@ async function snapshot(
     case "gates": {
       const r = await api.gates(id);
       return r.ok ? { ok: true, data: { seq: r.data.seq, data: r.data.gates } } : r;
+    }
+    case "readiness": {
+      const r = await api.readiness(id);
+      return r.ok ? { ok: true, data: { seq: 0, data: r.data.report } } : r;
     }
     case "board": {
       const r = await api.board(id);
