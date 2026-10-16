@@ -91,6 +91,7 @@ describe("writeCardConfig", () => {
       permission: {
         "*": "allow",
         webfetch: "deny",
+        external_directory: "deny",
         bash: {
           "*": "deny",
           "git status*": "allow",
@@ -99,7 +100,8 @@ describe("writeCardConfig", () => {
           "git add *": "allow",
           "git commit *": "allow",
           "git merge *": "allow",
-          "npm *": "allow",
+          "npm ci *": "allow",
+          "npm install *": "allow",
           "npx playwright *": "allow",
           "sleep *": "allow",
         },

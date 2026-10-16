@@ -71,6 +71,7 @@ export function opencodeJson(models: BuildModels) {
     permission: {
       "*": "allow",
       webfetch: "deny",
+      external_directory: "deny",
       bash: {
         "*": "deny",
         "git status*": "allow",
@@ -79,7 +80,8 @@ export function opencodeJson(models: BuildModels) {
         "git add *": "allow",
         "git commit *": "allow",
         "git merge *": "allow",
-        "npm *": "allow",
+        "npm ci *": "allow",
+        "npm install *": "allow",
         "npx playwright *": "allow",
         "sleep *": "allow",
       },
