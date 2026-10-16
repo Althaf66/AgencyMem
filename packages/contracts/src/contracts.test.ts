@@ -1027,6 +1027,11 @@ describe("contract rules", () => {
   });
 
   it("checks actor and worker formats", () => {
+    // (P, task 5.5) the simulator creates projects before it has a project id
+    expect(
+      tools.claim_item.output.safeParse({ item: { ...workItem, createdBy: "persona:sim" } })
+        .success,
+    ).toBe(true);
     expect(
       tools.claim_item.output.safeParse({ item: { ...workItem, createdBy: "persona:abc" } })
         .success,

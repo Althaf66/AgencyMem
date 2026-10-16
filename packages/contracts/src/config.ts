@@ -37,7 +37,7 @@ export const ConfigSchema = z.object({
   HEARTBEAT_MS: int(60000),
   CONTEXT_MAX_CHARS: int(12000),
   CONTEXT_RECALL_MAX_CHARS: int(40000),
-  SIM_SEED: int(42, 0),
+  SIM_SEED: int(100, 0),
   SIM_PROJECTS: int(3),
   WORKSPACES_DIR: withDefault("../agencymem-workspaces"),
   UPLOADS_DIR: withDefault("./data/uploads"),

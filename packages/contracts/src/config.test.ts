@@ -73,7 +73,7 @@ describe("loadConfig", () => {
       HEARTBEAT_MS: 60000,
       CONTEXT_MAX_CHARS: 12000,
       CONTEXT_RECALL_MAX_CHARS: 40000,
-      SIM_SEED: 42,
+      SIM_SEED: 100,
       SIM_PROJECTS: 3,
       WORKSPACES_DIR: "../agencymem-workspaces",
       UPLOADS_DIR: "./data/uploads",

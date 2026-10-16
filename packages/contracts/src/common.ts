@@ -12,10 +12,12 @@ export type EpochMs = z.infer<typeof EpochMs>;
 
 export const Count = z.int().nonnegative();
 
-/** A person writing through REST: `human:<name>` or `persona:<projectId>`. */
+/** A person writing through REST: `human:<name>` or `persona:<projectId>`, plus `persona:sim`
+ * (P, task 5.5) for the simulator creating a project, before it has a project id. */
 export const PersonActor = z.union([
   z.templateLiteral(["human:", z.string().min(1)]),
   z.templateLiteral(["persona:", Id]),
+  z.literal("persona:sim"),
 ]);
 export type PersonActor = z.infer<typeof PersonActor>;
 
