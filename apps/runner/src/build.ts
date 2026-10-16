@@ -73,12 +73,13 @@ export function buildWorker(opts: BuildOptions): Worker {
           workspacesDir: opts.workspacesDir,
           install: opts.install,
         });
-        await writeCardConfig(tree, task.key, { fallbackModel: opts.fallbackModel });
+        await writeCardConfig(tree, task, { fallbackModel: opts.fallbackModel });
         const events = forwardEvents((body) => session.step(body), task.id, tree);
         result = await runOpenCode({
           bin: opts.bin,
           tree,
           cardKey: task.key,
+          taskId: task.id,
           model,
           env: {
             AM_PROJECT_ID: session.projectId,

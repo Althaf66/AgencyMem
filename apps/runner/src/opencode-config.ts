@@ -5,18 +5,23 @@
 // Both names are in the repository's .git/info/exclude (repo.ts), so they are never committed.
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { CardKey } from "@agencymem/contracts";
+import { CardKey, Id } from "@agencymem/contracts";
 import { insideAgencyMem, workspacesPath } from "./repo";
 
 /** `buildModel` (the primary endpoint's) is optional: Build runs on the fallback only for now. */
 export type BuildModels = { buildModel?: string; fallbackModel: string };
 
-/** The card's AGENTS.md (agent-prompts.md section 11). */
-export function agentsMd(cardKey: string): string {
-  const key = CardKey.parse(cardKey);
+/**
+ * The card's AGENTS.md (agent-prompts.md section 11). get_task_context takes the Task id, not the
+ * key, so the first rule names it; without it the model's first call is NOT_FOUND.
+ */
+export function agentsMd(card: { key: string; id: string }): string {
+  const key = CardKey.parse(card.key);
+  const id = Id.parse(card.id); // checked: it lands in the model's instructions
   return `# Card ${key}
 
-- Call the get_task_context tool first. Work only from what it returns.
+- Call the get_task_context tool first, with taskId ${id}. Work only from what
+  it returns.
 - Commit only on branch card/${key}. Do not push.
 - If the card note starts with "Merge conflict", run git merge main first and fix
   the conflicts.
@@ -92,10 +97,10 @@ export function opencodeJson(models: BuildModels) {
 /** Writes AGENTS.md and opencode.json into the worktree, replacing any from an earlier run. */
 export async function writeCardConfig(
   tree: string,
-  cardKey: string,
+  card: { key: string; id: string },
   models: BuildModels,
 ): Promise<void> {
-  await writeFile(join(tree, "AGENTS.md"), agentsMd(cardKey));
+  await writeFile(join(tree, "AGENTS.md"), agentsMd(card));
   await writeFile(
     join(tree, "opencode.json"),
     `${JSON.stringify(opencodeJson(models), null, 2)}\n`,

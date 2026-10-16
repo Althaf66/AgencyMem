@@ -22,6 +22,7 @@ afterAll(() => rmSync(tree, { recursive: true, force: true }));
 const base = {
   tree,
   cardKey: "CARD-01",
+  taskId: "01JA00000000000000000000C1",
   model: "fallback/vendor/model",
   env: {
     AM_PROJECT_ID: "01JA0000000000000000000004",
@@ -70,7 +71,7 @@ describe("runOpenCode", () => {
       "--format",
       "json",
       "--auto",
-      "Build card CARD-01. Follow AGENTS.md. Start with get_task_context.",
+      "Build card CARD-01 (taskId 01JA00000000000000000000C1). Follow AGENTS.md. Start with get_task_context.",
     ]);
     expect(events[0]!.env).toEqual({ ...base.env, OPENCODE_DISABLE_CLAUDE_CODE: "1" });
   });
@@ -243,9 +244,13 @@ describe.runIf(process.env.OPENCODE_LIVE === "1")("Done when (live): a test card
           workspacesDir: workspaces,
           install: false,
         });
-        await writeCardConfig(wt, "CARD-01", {
-          fallbackModel: process.env.OPENROUTER_BUILD_MODEL!,
-        });
+        await writeCardConfig(
+          wt,
+          { key: "CARD-01", id: base.taskId },
+          {
+            fallbackModel: process.env.OPENROUTER_BUILD_MODEL!,
+          },
+        );
         // No gateway here: a card AGENTS.md that needs no MCP tool.
         await writeFile(
           join(wt, "AGENTS.md"),

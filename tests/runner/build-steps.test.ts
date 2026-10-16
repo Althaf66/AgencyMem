@@ -139,6 +139,7 @@ describe("Done when: the board shows the steps under the card as they happen", (
         bin: [process.execPath, FAKE],
         tree: "/ws/wt/CARD-01",
         cardKey: "CARD-01",
+        taskId,
         model,
         env: {
           AM_PROJECT_ID: projectId,

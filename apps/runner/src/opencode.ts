@@ -96,6 +96,7 @@ export async function runOpenCode(opts: {
   bin: string[];
   tree: string;
   cardKey: string;
+  taskId: string;
   model: string;
   env: RunEnv;
   heartbeat: () => Promise<unknown>;
@@ -106,7 +107,7 @@ export async function runOpenCode(opts: {
   const started = Date.now();
   const [cmd, ...pre] = opts.bin as [string, ...string[]];
   const args = ["run", "--dir", opts.tree, "--model", opts.model, "--format", "json", "--auto"];
-  const prompt = `Build card ${opts.cardKey}. Follow AGENTS.md. Start with get_task_context.`;
+  const prompt = `Build card ${opts.cardKey} (taskId ${opts.taskId}). Follow AGENTS.md. Start with get_task_context.`;
   const child = spawn(cmd, [...pre, ...args, prompt], {
     env: runEnv(opts.env),
     stdio: ["ignore", "pipe", "ignore"],
