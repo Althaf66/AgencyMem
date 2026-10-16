@@ -11,6 +11,7 @@ import type {
   Envelope,
   FeatureView,
   GateView,
+  GraphView,
   ItemView,
   Mode,
   ProgressMetricResponse,
@@ -21,6 +22,8 @@ import type {
   ServerMessage,
 } from "@agencymem/contracts";
 import type { Api, Result, TaskPatch } from "./api";
+import { merge } from "./graph/layout";
+import type { GraphViewName } from "./shell/router";
 
 export type Slice<T> = {
   data: T | null;
@@ -35,6 +38,15 @@ export type Progress = Omit<ProgressView, "seq">;
 export type MetricNode = ProgressMetricResponse["nodes"][number];
 /** The three documents of route 20, without their seq. */
 export type Docs = Record<Doc, Omit<DocResponse, "seq">>;
+/** The graph panel: the drawn nodes (route 16, merged with the path) and the path a view lit. */
+export type GraphData = {
+  view: GraphViewName;
+  focus: string | null;
+  graph: GraphView;
+  path: GraphView | null;
+  /** The query time of the last view; null for All. */
+  ms: number | null;
+};
 export type RunStep = { itemId: string; agent: string; step: string; text: string; at: number };
 export type Toast = { id: number; text: string };
 
@@ -49,6 +61,8 @@ export type AppState = {
   features: Slice<FeatureView[]>;
   board: Slice<Board>;
   progress: Slice<Progress>;
+  /** Not a snapshot route: its seq is the last event seq when it loaded. */
+  graph: Slice<GraphData>;
   /** The last 50 run steps per work item. */
   runLog: Record<string, RunStep[]>;
   toasts: Toast[];
@@ -81,6 +95,8 @@ export type AppState = {
   changeRequest(text: string): Promise<string | null>;
   /** Route 15: the nodes behind one number of the progress header. */
   progressList(metric: string): Promise<MetricNode[] | null>;
+  /** Routes 16 to 19: the graph, with the path of a why, impact or backtrace view lit. */
+  loadGraph(view: GraphViewName, focus: string | null): Promise<void>;
   toast(text: string): void;
   dismiss(id: number): void;
 };
@@ -110,6 +126,9 @@ const DESIGN = [
   "Risk",
 ];
 const TOAST_MS = 6000;
+/** The events the graph panel follows (ui.md graph panel, Data and interactions). */
+const GRAPH_EVENTS = ["node.written", "node.ended", "task.moved"];
+const PATHS = { why: "why", impact: "impact", backtrace: "backtrace" } as const;
 const RUN_LOG = 50;
 
 /** The slices an event makes stale. There is no stage event, so item and gate events re-read the
@@ -150,6 +169,10 @@ function staleSlices(event: Envelope): SliceName[] {
 // a burst of events ever makes that slow.
 export function createAppStore(api: Api): AppStore {
   let toastId = 0;
+  // The graph view: only the newest load may land; events during a load ask for one more after it.
+  let graphLoad = 0;
+  let graphPending = 0;
+  let graphDirty = false;
 
   return createStore<AppState>()((set, get) => {
     /** Reads one snapshot; a slower, older answer never replaces a newer one. */
@@ -166,6 +189,14 @@ export function createAppStore(api: Api): AppStore {
           [name]: { data: result.data.data, seq: result.data.seq, status: "ready", error: null },
         };
       });
+    }
+
+    /** Reloads the graph view on screen, or once more after the load in flight. */
+    function reloadGraph(): void {
+      const data = get().graph.data;
+      if (!data) return;
+      if (graphPending > 0) graphDirty = true;
+      else void get().loadGraph(data.view, data.focus);
     }
 
     /** A rejected write: the reason as a toast; an old version reloads what it showed. */
@@ -190,6 +221,7 @@ export function createAppStore(api: Api): AppStore {
       features: empty(),
       board: empty(),
       progress: empty(),
+      graph: empty(),
       runLog: {},
       toasts: [],
       connection: "closed",
@@ -228,6 +260,7 @@ export function createAppStore(api: Api): AppStore {
           features: empty(),
           board: empty(),
           progress: empty(),
+          graph: empty(),
           runLog: {},
           lastSeq: 0,
         });
@@ -252,6 +285,7 @@ export function createAppStore(api: Api): AppStore {
         for (const name of staleSlices(event)) {
           if (event.seq > get()[name].seq) void fetchSlice(name);
         }
+        if (event.seq > get().graph.seq && GRAPH_EVENTS.includes(event.type)) reloadGraph();
         if (!fresh) return;
         if (event.type === "run.step") {
           const { itemId, agent, step, text } = event.data;
@@ -358,6 +392,49 @@ export function createAppStore(api: Api): AppStore {
           return null;
         }
         return result.data.nodes;
+      },
+
+      async loadGraph(view, focus) {
+        const id = get().projectId;
+        if (!id) return;
+        const seq = get().lastSeq;
+        const mine = ++graphLoad;
+        graphPending++;
+        try {
+          set((s) => ({ graph: { ...s.graph, status: s.graph.data ? "ready" : "loading" } }));
+          const pathOf = focus && view !== "all" ? PATHS[view] : null;
+          const [all, path] = await Promise.all([
+            api.graph(id, view === "all" && focus ? { focus } : {}),
+            pathOf ? api[pathOf](id, focus!) : null,
+          ]);
+          // A newer load (another view, or a later event) or another project replaced this one.
+          if (mine !== graphLoad || get().projectId !== id) return;
+          const fail = (error: Rejection) =>
+            set((s) => ({ graph: { ...s.graph, status: "error", error } }));
+          if (!all.ok) return fail(all.error);
+          if (path && !path.ok) return fail(path.error);
+          const lit = path?.data.path ?? null;
+          set({
+            graph: {
+              data: {
+                view,
+                focus,
+                graph: lit ? merge(all.data, lit) : all.data,
+                path: lit,
+                ms: path?.data.ms ?? null,
+              },
+              seq,
+              status: "ready",
+              error: null,
+            },
+          });
+        } finally {
+          graphPending--;
+          if (graphPending === 0 && graphDirty) {
+            graphDirty = false;
+            reloadGraph();
+          }
+        }
       },
 
       toast(text) {

@@ -584,3 +584,39 @@ tr.episodes ul {
     table-layout: auto;
   }
 }
+
+/* Graph panel (ui.md graph panel): the stage is always dark. */
+.graph-toolbar [role="group"] {
+  display: inline-flex;
+  gap: 4px;
+}
+.graph-toolbar button[aria-pressed="true"] {
+  background: var(--accent);
+  color: #fff;
+}
+.graph-path {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  list-style: none;
+  padding: 0;
+}
+.graph-path li + li::before {
+  content: "· ";
+  color: var(--muted);
+}
+.graph-stage {
+  min-height: 600px;
+  background: #07080a;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.props div {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px;
+}
+.props dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

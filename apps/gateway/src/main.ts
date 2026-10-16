@@ -12,6 +12,7 @@ import { docsRouter } from "./api/docs";
 import { featuresRouter } from "./api/features";
 import { filesRouter } from "./api/files";
 import { gatesRouter } from "./api/gates";
+import { graphRouter } from "./api/graph";
 import { nodesRouter } from "./api/nodes";
 import { listProjects, projectsRouter } from "./api/projects";
 import { queryRouter } from "./api/query";
@@ -111,6 +112,7 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
     changeRequestsRouter({ db, events }),
     docsRouter({ db, events }),
     nodesRouter({ db, events }),
+    graphRouter({ db, events }),
     queryRouter({ db, events }),
     tasksRouter({ db, events }),
     notFound,

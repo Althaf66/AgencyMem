@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Board } from "./board/Board";
 import { Docs } from "./docs/Docs";
 import { Gates } from "./gates/Gates";
+import { GraphPanel } from "./graph/GraphPanel";
 import { Files } from "./intake/Files";
 import { Projects } from "./projects/Projects";
 import { Questionnaire } from "./questionnaire/Questionnaire";
@@ -26,6 +27,14 @@ export function App({ store }: { store: AppStore }) {
       {route.screen === "questions" && <Questionnaire store={store} />}
       {route.screen === "gates" && <Gates store={store} />}
       {route.screen === "docs" && <Docs store={store} doc={route.doc} />}
+      {route.screen === "graph" && (
+        <GraphPanel
+          store={store}
+          projectId={route.projectId}
+          view={route.view}
+          focus={route.focus}
+        />
+      )}
     </Shell>
   );
 }

@@ -5,6 +5,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import type {
   CardView,
+  GraphView,
   FeatureView,
   GateView,
   ItemView,
@@ -16,6 +17,7 @@ import { BoardView } from "./board/Board";
 import { CardDrawer } from "./board/CardDrawer";
 import { DocsView } from "./docs/Docs";
 import { GatesView } from "./gates/Gates";
+import { GraphPanelView } from "./graph/GraphPanel";
 import { FilesView } from "./intake/Files";
 import { ProjectsView } from "./projects/Projects";
 import { QuestionnaireView, SourcePair } from "./questionnaire/Questionnaire";
@@ -26,6 +28,7 @@ import {
   type AppState,
   type Board,
   type Docs,
+  type GraphData,
   type Progress,
   type Slice,
 } from "./store";
@@ -468,6 +471,19 @@ describe("routes", () => {
     expect(parseHash("#/p/01JA0000000000000000000001/gates")).toMatchObject({ screen: "gates" });
     expect(parseHash("#/p/01JA0000000000000000000001/docs/tdd")).toMatchObject({ doc: "tdd" });
     expect(parseHash("#/")).toEqual({ screen: "projects" });
+    expect(
+      parseHash("#/p/01JA0000000000000000000001/graph?focus=01JA0000000000000000000T01&view=why"),
+    ).toEqual({
+      screen: "graph",
+      projectId: "01JA0000000000000000000001",
+      focus: "01JA0000000000000000000T01",
+      view: "why",
+    });
+    expect(parseHash("#/p/01JA0000000000000000000001/graph")).toMatchObject({
+      screen: "graph",
+      focus: null,
+      view: "all",
+    });
   });
 
   it("enables the Change request button from G2 approval until the project closes", () => {
@@ -477,5 +493,100 @@ describe("routes", () => {
       );
     expect(at("proposal")).toMatch(/<button[^>]*disabled[^>]*>Change request<\/button>/);
     expect(at("planning")).not.toMatch(/disabled/);
+  });
+});
+
+describe("graph panel", () => {
+  const n = (id: string, label: string, title: string, group: string) => ({
+    id,
+    label,
+    title,
+    group,
+    state: null,
+  });
+  const why: GraphView = {
+    nodes: [
+      n("01JA00000000000000000000T1", "Task", "CARD-01", "Delivery"),
+      n("01JA00000000000000000000R1", "Requirement", "REQ-01", "Product"),
+      n("01JA00000000000000000000F1", "Fact", "A slot is 20 minutes.", "Knowledge"),
+      n("01JA00000000000000000000E1", "Episode", "p1 · l3-4", "Sources"),
+    ],
+    links: [
+      {
+        source: "01JA00000000000000000000T1",
+        target: "01JA00000000000000000000R1",
+        type: "IMPLEMENTS",
+        label: null,
+      },
+      {
+        source: "01JA00000000000000000000R1",
+        target: "01JA00000000000000000000F1",
+        type: "DERIVED_FROM",
+        label: null,
+      },
+      {
+        source: "01JA00000000000000000000F1",
+        target: "01JA00000000000000000000E1",
+        type: "SOURCED_FROM",
+        label: null,
+      },
+    ],
+  };
+  const data: GraphData = {
+    view: "why",
+    focus: "01JA00000000000000000000T1",
+    graph: why,
+    path: why,
+    ms: 3,
+  };
+
+  it("opens a card's path to the client's words from the card drawer", () => {
+    const html = renderToString(<CardDrawer s={state({})} card={cardView()} close={() => {}} />);
+    expect(html).toContain(`href="#/p/P/graph?focus=${cardView().id}&amp;view=why"`);
+    expect(html).toMatch(/<a[^>]*>Why<\/a>/);
+  });
+
+  it("shows the focus, the count, the query time and the path in words", () => {
+    const html = renderToString(
+      <GraphPanelView s={state({ graph: ready(data) })} view="why" focus={data.focus} />,
+    );
+    for (const b of ["Network", "Flow", "Orbit", "All", "Why", "Impact", "Backtrace"]) {
+      expect(html).toMatch(new RegExp(`<button[^>]*>${b}</button>`));
+    }
+    expect(html).toContain("focus: CARD-01");
+    expect(html).toContain("4 nodes · 3 ms query");
+    expect(html).toMatch(/CARD-01.*REQ-01.*A slot is 20 minutes\..*p1 · l3-4/s);
+  });
+
+  it("says what to do with no nodes, and shows loading and errors", () => {
+    const none: GraphData = {
+      view: "all",
+      focus: null,
+      graph: { nodes: [], links: [] },
+      path: null,
+      ms: null,
+    };
+    expect(
+      renderToString(<GraphPanelView s={state({ graph: ready(none) })} view="all" focus={null} />),
+    ).toContain("No nodes yet. Upload notes to start.");
+    expect(renderToString(<GraphPanelView s={state({})} view="all" focus={null} />)).toContain(
+      'aria-busy="true"',
+    );
+    // Another view's data never shows under this view: loading, or this view's error.
+    expect(
+      renderToString(
+        <GraphPanelView s={state({ graph: ready(data) })} view="impact" focus={data.focus} />,
+      ),
+    ).toContain('aria-busy="true"');
+    const failed = {
+      ...ready(data),
+      status: "error" as const,
+      error: { code: "NOT_FOUND" as const, reason: "Unknown Defect." },
+    };
+    const html = renderToString(
+      <GraphPanelView s={state({ graph: failed })} view="backtrace" focus={data.focus} />,
+    );
+    expect(html).toContain("Unknown Defect.");
+    expect(html).not.toContain("REQ-01");
   });
 });

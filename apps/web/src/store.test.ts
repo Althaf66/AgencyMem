@@ -30,10 +30,22 @@ function stubApi(seq = { value: 5 }) {
     progressMetric: vi.fn(),
     answer: vi.fn(),
     chat: vi.fn(),
+    graph: () => (
+      calls.push("graph"),
+      Promise.resolve({ ok: true as const, data: view(["A", "T"]) })
+    ),
+    why: (_id: string, nodeId: string) => (
+      calls.push(`why:${nodeId}`),
+      Promise.resolve({ ok: true as const, data: { path: view(["T", "E"]), ms: 2 } })
+    ),
   } as unknown as Api;
   return { api, calls, seq };
 }
 
+const view = (ids: string[]) => ({
+  nodes: ids.map((id) => ({ id, label: "Task", title: id, group: "Delivery", state: null })),
+  links: [],
+});
 const event = (seq: number, type: string, data: Record<string, unknown>) =>
   ({
     type: "event",
@@ -367,5 +379,61 @@ describe("api", () => {
     const result = await api.gates(P);
     vi.unstubAllGlobals();
     expect(result).toMatchObject({ ok: false, error: { code: "INTERNAL" } });
+  });
+});
+
+describe("graph", () => {
+  it("loads a why view over the whole graph, and reloads it on node events only once loaded", async () => {
+    const { api, calls, seq } = stubApi();
+    const store = createAppStore(api);
+    await store.getState().open(P);
+    calls.length = 0;
+    seq.value = 9;
+    store.getState().receive(event(9, "node.written", { label: "Fact", id: "F" }));
+    await tick();
+    expect(calls).not.toContain("graph"); // nothing loaded yet
+
+    await store.getState().loadGraph("why", "T");
+    expect(calls.sort()).toEqual(["graph", "why:T"]);
+    const { data, seq: at } = store.getState().graph;
+    expect(at).toBe(9);
+    expect(data).toMatchObject({ view: "why", focus: "T", ms: 2 });
+    expect(data!.graph.nodes.map((n) => n.id).sort()).toEqual(["A", "E", "T"]);
+    expect(data!.path!.nodes.map((n) => n.id)).toEqual(["T", "E"]);
+
+    calls.length = 0;
+    store.getState().receive(event(10, "node.ended", { factId: "F" }));
+    await tick();
+    expect(calls.sort()).toEqual(["graph", "why:T"]);
+  });
+});
+
+describe("graph loads", () => {
+  it("lets only the newest load land, and turns an event burst into one more load", async () => {
+    const { api, calls } = stubApi();
+    const store = createAppStore(api);
+    await store.getState().open(P);
+    // why/T answers after why/U: the older answer must not replace the newer view.
+    let release!: () => void;
+    const slow = new Promise<void>((r) => (release = r));
+    const why = api.why;
+    (api as { why: Api["why"] }).why = (id, nodeId) =>
+      nodeId === "T" ? slow.then(() => why(id, nodeId)) : why(id, nodeId);
+    const first = store.getState().loadGraph("why", "T");
+    await store.getState().loadGraph("why", "U");
+    release();
+    await first;
+    expect(store.getState().graph.data).toMatchObject({ focus: "U" });
+
+    // Three events while a load runs: one reload after it, not three.
+    calls.length = 0;
+    const running = store.getState().loadGraph("why", "U");
+    for (const seq of [20, 21, 22]) {
+      store.getState().receive(event(seq, "node.written", { label: "Task", id: "X" }));
+    }
+    await running;
+    await tick();
+    await tick();
+    expect(calls.filter((c) => c === "graph")).toHaveLength(2);
   });
 });

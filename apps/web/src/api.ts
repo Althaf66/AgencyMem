@@ -14,9 +14,11 @@ import {
   GateDecisionResponse,
   GatesResponse,
   GetProjectResponse,
+  GraphView,
   ListProjectsResponse,
   NodeResponse,
   PatchTaskResponse,
+  PathResponse,
   ProgressMetricResponse,
   ProgressView,
   QuestionsResponse,
@@ -113,6 +115,18 @@ export function createApi(opts: ApiOptions) {
       call(PatchTaskResponse, "PATCH", `/api/tasks/${taskId}`, { body, project }),
     retry: (project: string, itemId: string) =>
       call(RetryItemResponse, "POST", `/api/items/${itemId}/retry`, { body: {}, project }),
+    graph: (id: string, query: { focus?: string; depth?: number; limit?: number } = {}) => {
+      const qs = new URLSearchParams(
+        Object.entries(query).map(([k, v]) => [k, String(v)] as [string, string]),
+      ).toString();
+      return call(GraphView, "GET", `/api/projects/${id}/graph${qs ? `?${qs}` : ""}`);
+    },
+    why: (id: string, nodeId: string) =>
+      call(PathResponse, "GET", `/api/projects/${id}/why/${nodeId}`),
+    impact: (id: string, nodeId: string) =>
+      call(PathResponse, "GET", `/api/projects/${id}/impact/${nodeId}`),
+    backtrace: (id: string, nodeId: string) =>
+      call(PathResponse, "GET", `/api/projects/${id}/backtrace/${nodeId}`),
     changeRequest: (id: string, text: string) =>
       call(ChangeRequestResponse, "POST", `/api/projects/${id}/change-requests`, {
         body: { text },

@@ -3,10 +3,17 @@ import { useEffect, useState } from "react";
 import { Doc } from "@agencymem/contracts";
 
 export type Screen = "board" | "files" | "questions" | "gates";
+export type GraphViewName = "all" | "why" | "impact" | "backtrace";
+export const GRAPH_VIEWS: GraphViewName[] = ["all", "why", "impact", "backtrace"];
 export type Route =
   | { screen: "projects" }
   | { screen: Screen; projectId: string }
-  | { screen: "docs"; projectId: string; doc: Doc };
+  | { screen: "docs"; projectId: string; doc: Doc }
+  | { screen: "graph"; projectId: string; focus: string | null; view: GraphViewName };
+
+/** The hash of a graph view (ui.md section 2: `#/p/:id/graph?focus=&view=`). */
+export const graphHash = (projectId: string, view: GraphViewName, focus: string | null) =>
+  `#/p/${projectId}/graph?${new URLSearchParams(focus ? { focus, view } : { view }).toString()}`;
 
 const SCREENS: Screen[] = ["board", "files", "questions", "gates"];
 
@@ -18,6 +25,16 @@ export function parseHash(hash: string): Route {
   if (screen === "docs") {
     const doc = Doc.safeParse(match[3]);
     return { screen, projectId, doc: doc.success ? doc.data : "prd" };
+  }
+  if (screen === "graph") {
+    const query = new URLSearchParams(hash.split("?")[1] ?? "");
+    const view = query.get("view") as GraphViewName;
+    return {
+      screen,
+      projectId,
+      focus: query.get("focus"),
+      view: GRAPH_VIEWS.includes(view) ? view : "all",
+    };
   }
   if (SCREENS.includes(screen as Screen)) return { screen: screen as Screen, projectId };
   return { screen: "projects" };
