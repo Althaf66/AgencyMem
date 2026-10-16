@@ -164,10 +164,19 @@ async function agent(projectId: string, agentId = "planner"): Promise<Client> {
   return client;
 }
 
-type Result = { isError?: boolean; structuredContent?: Record<string, unknown> };
+type Result = {
+  isError?: boolean;
+  structuredContent?: Record<string, unknown>;
+  content?: { text?: string }[];
+};
 async function call(client: Client, args: Record<string, unknown>) {
   const result = (await client.callTool({ name: "write_cards", arguments: args })) as Result;
-  return { isError: result.isError === true, out: result.structuredContent ?? {} };
+  return {
+    isError: result.isError === true,
+    out:
+      result.structuredContent ??
+      (JSON.parse(result.content?.[0]?.text ?? "{}") as Record<string, unknown>),
+  };
 }
 const error = (out: Record<string, unknown>) =>
   out.error as { code: string; guard?: string; reason: string; details?: Record<string, unknown> };
@@ -403,7 +412,12 @@ describe("write_tests (task 3.8)", () => {
   });
   const callTests = async (client: Client, args: Record<string, unknown>) => {
     const result = (await client.callTool({ name: "write_tests", arguments: args })) as Result;
-    return { isError: result.isError === true, out: result.structuredContent ?? {} };
+    return {
+      isError: result.isError === true,
+      out:
+        result.structuredContent ??
+        (JSON.parse(result.content?.[0]?.text ?? "{}") as Record<string, unknown>),
+    };
   };
   const column = async (ctx: Ctx, taskId: string) =>
     (

@@ -12,7 +12,7 @@ import { createModelClient, replayChat } from "@agencymem/llm";
 import { createEvents } from "../../apps/gateway/src/events/bus";
 import { createGateway } from "../../apps/gateway/src/main";
 import { runLoop } from "../../apps/runner/src/loop";
-import { listProjects } from "../../apps/runner/src/mcp-client";
+import { ToolRejected, listProjects, openSession } from "../../apps/runner/src/mcp-client";
 import { echo } from "./echo/agent";
 
 const TOKENS = { AM_AGENT_TOKEN: "agent-t", AM_UI_TOKEN: "ui-t", AM_HOOK_TOKEN: "hook-t" };
@@ -164,5 +164,37 @@ describe("listProjects (how the runner finds work)", () => {
     const ids = await listProjects({ gatewayUrl: base, token: "agent-t" });
     expect(ids).toContain(open);
     expect(ids).not.toContain(closed);
+  });
+});
+
+describe("a gateway rejection reaches the runner", () => {
+  it("surfaces the gateway's Rejection from the text item, not INTERNAL", async () => {
+    const res = await fetch(`${base}/api/projects`, {
+      method: "POST",
+      headers: { ...ui, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientName: `test-client-${randomUUID()}`,
+        projectName: "R",
+        mode: "demo",
+      }),
+    });
+    const { project } = (await res.json()) as { project: ProjectInfo };
+    graphs.add(`client_${project.clientId}`);
+    const session = await openSession(
+      { gatewayUrl: base, token: "agent-t" },
+      { agent: "intake", projectId: project.id, workerId: "intake-1" },
+    );
+    try {
+      const err = await session
+        .call("heartbeat", { itemId: "not-a-ulid" })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ToolRejected);
+      expect((err as ToolRejected).rejection).toMatchObject({
+        code: "VALIDATION_FAILED",
+        details: { issues: [{ path: "itemId" }] },
+      });
+    } finally {
+      await session.close();
+    }
   });
 });

@@ -74,14 +74,14 @@ const TOOL_INFO: Record<ToolName, { description: string; task: string }> = {
   read_query: { description: "Run a read-only Cypher query (UI session only).", task: "1.8" },
 };
 
-/** The contract's failure shape: isError, `{ error: Rejection }`, and the same JSON as text. */
+/**
+ * The contract's failure shape: isError and `{ error: Rejection }` as the text item. No
+ * structuredContent: the SDK client checks it against the tool's success outputSchema even on an
+ * error, so OpenCode (which lists the tools) would see only a schema error.
+ */
 export function failure(error: Rejection): CallToolResult {
   const body: ErrorBody = { error };
-  return {
-    isError: true,
-    structuredContent: body,
-    content: [{ type: "text", text: JSON.stringify(body) }],
-  };
+  return { isError: true, content: [{ type: "text", text: JSON.stringify(body) }] };
 }
 
 /** The contract's success shape: `structuredContent` = the output, and the same JSON as text. */

@@ -65,7 +65,15 @@ export async function openSession(
     async call(name, input) {
       const result = await client.callTool({ name, arguments: input as Record<string, unknown> });
       if (result.isError) {
-        const body = ErrorBody.safeParse(result.structuredContent);
+        // The rejection is the text item; a failure carries no structuredContent (contracts §7).
+        const text = (result.content as { text?: string }[])[0]?.text;
+        let parsed: unknown = null;
+        try {
+          parsed = JSON.parse(text ?? "null");
+        } catch {
+          // not JSON: falls through to the INTERNAL rejection below
+        }
+        const body = ErrorBody.safeParse(parsed);
         const rejection: Rejection = body.success
           ? body.data.error
           : { code: "INTERNAL", reason: `${name} failed with no rejection body.` };

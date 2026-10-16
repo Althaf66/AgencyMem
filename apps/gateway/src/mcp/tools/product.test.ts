@@ -129,10 +129,19 @@ async function agent(projectId: string, agentId = "proposal"): Promise<Client> {
   return client;
 }
 
-type Result = { isError?: boolean; structuredContent?: Record<string, unknown> };
+type Result = {
+  isError?: boolean;
+  structuredContent?: Record<string, unknown>;
+  content?: { text?: string }[];
+};
 async function call(client: Client, name: string, args: Record<string, unknown>) {
   const result = (await client.callTool({ name, arguments: args })) as Result;
-  return { isError: result.isError === true, out: result.structuredContent ?? {} };
+  return {
+    isError: result.isError === true,
+    out:
+      result.structuredContent ??
+      (JSON.parse(result.content?.[0]?.text ?? "{}") as Record<string, unknown>),
+  };
 }
 const reasonCode = (out: Record<string, unknown>) =>
   (out.error as { details?: { reasonCode?: string } }).details?.reasonCode;

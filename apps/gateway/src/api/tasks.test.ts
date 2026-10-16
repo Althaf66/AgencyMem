@@ -270,10 +270,10 @@ describe("Done when: a human edit during a lease makes the agent's next write fa
 
     const next = (await worker.callTool({ name: "heartbeat", arguments: { itemId: ids[0] } })) as {
       isError?: boolean;
-      structuredContent?: { error?: { guard?: string; details?: { reasonCode?: string } } };
+      content: { text: string }[];
     };
     expect(next.isError).toBe(true);
-    expect(next.structuredContent?.error).toMatchObject({
+    expect((JSON.parse(next.content[0]!.text) as { error: unknown }).error).toMatchObject({
       guard: "lease",
       details: { reasonCode: "LEASE_ENDED" },
     });

@@ -48,6 +48,10 @@ afterAll(async () => {
   await close();
 });
 
+/** The Rejection of a failed call: the text item holds `{ error }`. */
+const errorOf = (result: Awaited<ReturnType<Client["callTool"]>>) =>
+  (JSON.parse((result.content as { text: string }[])[0]!.text) as { error: unknown }).error;
+
 const agentHeaders = () => ({
   "X-AM-Token": "agent-t",
   "X-AM-Agent": "intake",
@@ -220,25 +224,27 @@ describe("a call that throws still answers in the contract shape", () => {
     const client = await downClient(false);
     const result = await client.callTool({ name: "claim_item", arguments: {} });
     expect(result.isError).toBe(true);
-    expect(result.structuredContent).toMatchObject({ error: { code: "GRAPH_UNAVAILABLE" } });
+    expect(errorOf(result)).toMatchObject({ code: "GRAPH_UNAVAILABLE" });
   });
 
   it("answers INTERNAL for any other error", async () => {
     const client = await downClient(true);
     const result = await client.callTool({ name: "claim_item", arguments: {} });
     expect(result.isError).toBe(true);
-    expect(result.structuredContent).toMatchObject({ error: { code: "INTERNAL" } });
+    expect(errorOf(result)).toMatchObject({ code: "INTERNAL" });
   });
 });
 
 describe("tools/call errors use the contract shape", () => {
-  it("returns VALIDATION_FAILED as structuredContent for bad input", async () => {
+  it("sends VALIDATION_FAILED as text only, so a client that checks output schemas reads it", async () => {
     const client = await mcpClient(agentHeaders());
+    await client.listTools(); // turns on the SDK's output-schema check, as OpenCode does
     const result = await client.callTool({
       name: "heartbeat",
       arguments: { itemId: "not-a-ulid" },
     });
     expect(result.isError).toBe(true);
-    expect(result.structuredContent).toMatchObject({ error: { code: "VALIDATION_FAILED" } });
+    expect(result.structuredContent).toBeUndefined();
+    expect(errorOf(result)).toMatchObject({ code: "VALIDATION_FAILED" });
   });
 });
