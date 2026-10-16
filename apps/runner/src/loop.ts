@@ -1,7 +1,7 @@
 // The runner loop (agent-prompts.md section 1): claim, recall, think, act, hand off, complete, with
 // one run step after each, a heartbeat while the item is in hand, and the act-step failure rules.
 import { setTimeout as sleep } from "node:timers/promises";
-import type { RunInput } from "@agencymem/contracts";
+import type { AgentId, RunInput } from "@agencymem/contracts";
 import {
   ModelCheckError,
   ModelOutputError,
@@ -187,6 +187,16 @@ export async function runItem(
   }
 }
 
+/**
+ * A loop step with its own claim (a build worker: claim_task, not claim_item): one pass on one
+ * project, with that project's session.
+ */
+export type Worker = {
+  id: AgentId;
+  worker: string;
+  once(session: Session): Promise<ItemResult>;
+};
+
 export type LoopDeps = Gateway & {
   llm: ModelClient;
   heartbeatMs: number;
@@ -208,7 +218,7 @@ const wait = (ms: number, signal?: AbortSignal) =>
  * One agent's loop: each pass tries every project once, keeping one MCP session per project. A
  * pass with no work waits idleMs; a gateway error backs off from 1 s, doubling, up to 30 s.
  */
-export async function runLoop(agent: Agent<unknown> | Job, deps: LoopDeps): Promise<void> {
+export async function runLoop(agent: Agent<unknown> | Job | Worker, deps: LoopDeps): Promise<void> {
   const sessions = new Map<string, Session>();
   const projects = deps.projects ?? (() => listProjects(deps));
   const workerId = agent.worker ?? `${agent.id}-1`;
@@ -231,9 +241,10 @@ export async function runLoop(agent: Agent<unknown> | Job, deps: LoopDeps): Prom
             sessions.set(projectId, session);
           }
           try {
-            const result = await runItem(agent, session, deps.llm, {
-              heartbeatMs: deps.heartbeatMs,
-            });
+            const result =
+              "once" in agent
+                ? await agent.once(session)
+                : await runItem(agent, session, deps.llm, { heartbeatMs: deps.heartbeatMs });
             if (result !== "idle") worked = true;
           } catch (e) {
             sessions.delete(projectId); // a broken session: open a new one next pass

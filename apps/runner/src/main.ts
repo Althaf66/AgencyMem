@@ -5,14 +5,17 @@ import type { Agent, Job } from "./agent";
 import { AGENTS } from "./agents";
 import { testRunJob } from "./agents/test/run-tests";
 import { writeTestsAgent } from "./agents/test/write-tests";
-import { runLoop } from "./loop";
+import { buildWorker } from "./build";
+import { runLoop, type Worker } from "./loop";
+import { mergeJob } from "./merge";
 import { checkOpenCodeVersion, opencodeBin } from "./opencode";
 import { assertWorkspacesOutside } from "./opencode-config";
 
 try {
   const cfg = loadConfig(process.env, "runner");
   assertWorkspacesOutside(cfg.WORKSPACES_DIR!);
-  await checkOpenCodeVersion(await opencodeBin(), cfg.OPENCODE_VERSION!);
+  const bin = await opencodeBin();
+  await checkOpenCodeVersion(bin, cfg.OPENCODE_VERSION!);
   const llm = createModelClient({ chat: createChat(cfg) });
   const deps = {
     gatewayUrl: cfg.GATEWAY_URL!,
@@ -21,7 +24,7 @@ try {
     heartbeatMs: cfg.HEARTBEAT_MS!,
   };
   // The Test agent works in the project repositories under WORKSPACES_DIR.
-  const agents: (Agent<unknown> | Job)[] = [
+  const agents: (Agent<unknown> | Job | Worker)[] = [
     ...AGENTS,
     writeTestsAgent({
       workspacesDir: cfg.WORKSPACES_DIR!,
@@ -29,6 +32,20 @@ try {
       hookToken: cfg.AM_HOOK_TOKEN!,
     }) as Agent<unknown>,
     testRunJob({ workspacesDir: cfg.WORKSPACES_DIR! }),
+    // BUILD_WORKERS OpenCode workers (build-1, build-2), and one merge loop, so merges never share
+    // the repository's main checkout.
+    ...Array.from({ length: cfg.BUILD_WORKERS! }, (_, i) =>
+      buildWorker({
+        n: i + 1,
+        bin,
+        workspacesDir: cfg.WORKSPACES_DIR!,
+        gatewayUrl: cfg.GATEWAY_URL!,
+        hookToken: cfg.AM_HOOK_TOKEN!,
+        fallbackModel: cfg.OPENROUTER_BUILD_MODEL!,
+        heartbeatMs: cfg.HEARTBEAT_MS!,
+      }),
+    ),
+    mergeJob({ workspacesDir: cfg.WORKSPACES_DIR! }),
   ];
   for (const agent of agents) {
     runLoop(agent, deps).catch((e: unknown) => {
@@ -38,7 +55,7 @@ try {
     });
   }
   console.log(
-    `runner started (gateway ${cfg.GATEWAY_URL}, ${agents.length} agents, ${cfg.BUILD_WORKERS} build worker)`,
+    `runner started (gateway ${cfg.GATEWAY_URL}, ${agents.length} loops, ${cfg.BUILD_WORKERS} build workers)`,
   );
 } catch (e) {
   console.error(e instanceof Error ? e.message : e);

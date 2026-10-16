@@ -41,6 +41,42 @@ if (mode === "ok") {
   step("stop", 5, 2);
   process.exit(0);
 }
+if (mode === "selfclose") {
+  // OpenCode called complete_task itself and the gateway took it (TD build step 8).
+  say({
+    type: "tool_use",
+    part: { tool: "agencymem_complete_task", state: { status: "completed" } },
+  });
+  if (process.env.FAKE_OC_LOG) {
+    const { appendFileSync } = await import("node:fs");
+    const line = JSON.stringify({ worker: process.env.AM_WORKER_ID });
+    appendFileSync(process.env.FAKE_OC_LOG, `${line}\n`);
+  }
+  process.exit(0);
+}
+if (mode === "commit" || mode === "nocommit") {
+  // A build run: commit one file in the worktree (the real post-commit hook posts it), overlapping
+  // with another worker's run, and log when it ran to FAKE_OC_LOG.
+  const { execFileSync } = await import("node:child_process");
+  const { appendFileSync, writeFileSync } = await import("node:fs");
+  const dir = process.argv[process.argv.indexOf("--dir") + 1];
+  const start = Date.now();
+  if (mode === "commit") {
+    writeFileSync(`${dir}/built-by-${process.env.AM_WORKER_ID}.txt`, "built\n");
+    execFileSync("git", ["add", "-A"], { cwd: dir });
+    execFileSync("git", ["-c", "commit.gpgsign=false", "commit", "-m", "feat: build"], {
+      cwd: dir,
+      stdio: "ignore",
+    });
+  }
+  await new Promise((r) => setTimeout(r, 1500));
+  step("stop", 7, 3);
+  if (process.env.FAKE_OC_LOG) {
+    const line = { worker: process.env.AM_WORKER_ID, start, end: Date.now() };
+    appendFileSync(process.env.FAKE_OC_LOG, `${JSON.stringify(line)}\n`);
+  }
+  process.exit(0);
+}
 if (mode === "429") {
   // What OpenCode 1.18.32 prints after its own retries on HTTP 429 (seen in the 4.12 probe).
   say({

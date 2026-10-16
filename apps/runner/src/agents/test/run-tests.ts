@@ -15,7 +15,7 @@ const git = (cwd: string, ...args: string[]) => run("git", args, { cwd });
 const ERROR_MAX = 500; // TestRun.error
 
 /** A port nobody listens on now: each run's dev server gets its own (sample-app.md section 4). */
-function freePort(): Promise<number> {
+export function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = createServer();
     server.once("error", reject);
