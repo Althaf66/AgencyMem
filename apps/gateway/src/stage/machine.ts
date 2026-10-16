@@ -2,7 +2,7 @@
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
 // T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2), C1 and C2
 // (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5), T15 (task 3.6), T16 (task 3.8), H3
-// and C3 (task 3.9).
+// and C3 (task 3.9), T20, T21 and T30 (task 5.1).
 import type {
   Actor,
   ChangeRequestStatus,
@@ -13,6 +13,7 @@ import type {
   Id,
   Stage,
   WorkItemKind,
+  WorkItemStatus,
 } from "@agencymem/contracts";
 
 /** Gates that exist from project creation; each G6 is created by propose_fix. */
@@ -69,6 +70,12 @@ export type StageState = {
   untestedCards: { taskId: Id }[];
   /** Build Tasks past Backlog and Rework (T16 and its repair). */
   readyCards: number;
+  /** Build Tasks, and those Done with a mergedSha (T20, T30). */
+  buildCards: { total: number; merged: number };
+  /** change_request, replan and write_tests items open or claimed: T20 waits for them. */
+  buildBlockers: number;
+  /** The newest e2e item's status (startup repair of T21). */
+  lastE2e: WorkItemStatus | null;
 };
 
 type GateState = {
@@ -92,6 +99,8 @@ export type StageEvent =
   | { type: "change_request_created"; crId: Id; actor: Actor }
   /** T16: write_tests moved a card to Ready. */
   | { type: "card_ready" }
+  /** H4: a person moved a Done card to Rework (route 13), which T30 follows. */
+  | { type: "card_reopened" }
   /** H3: a person edited a card's criteria (route 13). */
   | { type: "criteria_edited"; taskId: Id; actor: Actor }
   /** T12: route 21 before G3 wrote the human_edit Episode; `note` names the section, if any. */
@@ -116,7 +125,9 @@ export type Effect =
       /** The item's input, for example a G2 rejection reason (T9). */
       note?: string;
     }
-  | { type: "reopen_gate"; key: GateKey };
+  | { type: "reopen_gate"; key: GateKey }
+  /** T30: open and claimed items of these kinds are cancelled. */
+  | { type: "cancel_items"; kinds: WorkItemKind[] };
 
 /** `stage` is set only when the stage changes. */
 export type StageResult = { stage?: Stage; effects: Effect[] };
@@ -220,6 +231,45 @@ const revisionDone = (s: StageState) =>
 
 type ChangeRequestState = StageState["changeRequests"][number];
 
+/** T20's condition: in build, every build card Done and merged, no CR, replan or write_tests left. */
+const buildMerged = (s: StageState) =>
+  s.stage === "build" &&
+  s.buildCards.total > 0 &&
+  s.buildCards.merged === s.buildCards.total &&
+  s.buildBlockers === 0;
+
+// T20: the full run of every spec on main.
+const startE2e = (createdBy: Actor): StageResult => ({
+  stage: "e2e",
+  effects: [{ type: "open_item", kind: "e2e", subjectId: null, createdBy }],
+});
+
+// T21: the Launch checks. The e2e run's agent opens them.
+const startLaunch: StageResult = {
+  stage: "launch",
+  effects: [{ type: "open_item", kind: "launch", subjectId: null, createdBy: "test" }],
+};
+
+/** T30's condition: in e2e or launch, a build card is no longer Done and merged (C2, H4). */
+const leftDone = (s: StageState) =>
+  (s.stage === "e2e" || s.stage === "launch") && s.buildCards.merged < s.buildCards.total;
+
+// T30: the run and the checks are out of date; the build goes on.
+const backToBuild = (effects: Effect[]): StageResult => ({
+  stage: "build",
+  effects: [...effects, { type: "cancel_items", kinds: ["e2e", "launch"] }],
+});
+
+/** T20 and T30 after any other effects of an item_completed event. */
+function afterItem(s: StageState, effects: Effect[], actor: Actor): StageResult {
+  if (leftDone(s)) return backToBuild(effects);
+  if (buildMerged(s)) {
+    const e2e = startE2e(actor);
+    return { stage: e2e.stage, effects: [...effects, ...e2e.effects] };
+  }
+  return { effects };
+}
+
 const revise = (episodeId: Id, note: string, createdBy: Actor): Effect => ({
   type: "open_item",
   kind: "architect_revise",
@@ -239,7 +289,7 @@ const applyChangeRequest = (crId: Id, createdBy: Actor): Effect => ({
 /**
  * C2: an applied CR that flagged sections opens architect_revise (the CR text as its note); one
  * that flagged cards opens replan. C4: a no_change or needs_scope CR opens nothing. T30 (a flagged
- * card that was Done during e2e or launch) arrives with those stages (tasks 5.1 and 5.2).
+ * card that was Done during e2e or launch) follows in `afterItem`.
  */
 function followUps(cr: ChangeRequestState): Effect[] {
   if (cr.status !== "applied") return [];
@@ -282,14 +332,21 @@ export function next(state: StageState, event: StageEvent): StageResult {
       if (event.outcome !== "done") return { effects: [] };
       if (event.kind === "intake" && intakeFinished(state)) return startDiscovery;
       if (event.kind === "intake_answer" && answersFinished(state)) return startProposal("intake");
+      // C2 and C3, then T20 (a CR, replan or write_tests item was the last thing it waited for)
+      // or T30 (the CR sent a Done card to Rework during e2e or launch).
       if (event.kind === "change_request") {
         const cr = state.changeRequests.find((c) => c.id === event.subjectId);
-        return { effects: cr ? followUps(cr) : [] };
+        return afterItem(state, cr ? followUps(cr) : [], event.actor);
       }
       if (event.kind === "replan") {
         const cr = state.changeRequests.find((c) => c.id === event.subjectId);
-        return { effects: cr ? retest(cr) : [] };
+        return afterItem(state, cr ? retest(cr) : [], event.actor);
       }
+      if (event.kind === "merge" || event.kind === "write_tests") {
+        return afterItem(state, [], event.actor);
+      }
+      // T21: the full run is done, pass or fail; Launch reads the result.
+      if (event.kind === "e2e" && state.stage === "e2e") return startLaunch;
       // T8: the revision is done; G2 waits for a decision again.
       if (event.kind === "proposal" && state.g2?.status === "rejected") {
         return { effects: [{ type: "reopen_gate", key: "G2" }] };
@@ -305,6 +362,10 @@ export function next(state: StageState, event: StageEvent): StageResult {
     // T12: the Architect revises with the chat text (and its section) as the item's note.
     case "chat":
       return { effects: [revise(event.episodeId, event.note, event.actor)] };
+
+    // T30 after H4.
+    case "card_reopened":
+      return leftDone(state) ? backToBuild([]) : { effects: [] };
 
     // T16: the first Ready card starts the build.
     // T15 is repaired with it: a card that never got its write_tests item gets it now.
@@ -376,6 +437,8 @@ export function next(state: StageState, event: StageEvent): StageResult {
         else if (cr.itemDone) effects.push(...followUps(cr));
         if (cr.replanDone) effects.push(...retest(cr));
       }
+      // T30 first: in e2e or launch no repair below applies (each needs an earlier stage).
+      if (leftDone(state)) return backToBuild(effects);
       if (state.unopened.length && state.stage === "intake") {
         for (const d of state.unopened) effects.push(openIntake(d.documentId, d.createdBy));
       } else if (intakeFinished(state)) {
@@ -427,6 +490,12 @@ export function next(state: StageState, event: StageEvent): StageResult {
         // T15 repair (also after the build started), then T16 repair.
         effects.push(...writeTests(state));
         if (state.stage === "planning" && state.readyCards > 0) return { stage: "build", effects };
+        if (buildMerged(state)) {
+          const e2e = startE2e("build");
+          return { stage: e2e.stage, effects: [...effects, ...e2e.effects] };
+        }
+      } else if (state.stage === "e2e" && state.lastE2e === "done") {
+        return { stage: startLaunch.stage, effects: [...effects, ...startLaunch.effects] };
       }
       return { effects };
     }

@@ -8,6 +8,7 @@ import {
   GateStatus,
   Id,
   Project,
+  WorkItemStatus,
 } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, readQuery, type FalkorDB } from "@agencymem/graph";
 import type { StageState } from "./machine";
@@ -26,6 +27,10 @@ type Row = {
   plannerDone: boolean;
   untestedCards: { taskId: unknown }[];
   readyCards: number;
+  buildTotal: number;
+  buildMerged: number;
+  buildBlockers: number;
+  lastE2e: unknown;
   unopenedEdits: { episodeId: unknown; text: unknown; createdBy: unknown }[];
   changeRequests: (Omit<StageState["changeRequests"][number], "id" | "status" | "createdBy"> & {
     id: unknown;
@@ -99,6 +104,9 @@ export async function readStageState(
     plannerDone: state?.plannerDone ?? false,
     untestedCards: (state?.untestedCards ?? []).map((c) => ({ taskId: Id.parse(c.taskId) })),
     readyCards: state?.readyCards ?? 0,
+    buildCards: { total: state?.buildTotal ?? 0, merged: state?.buildMerged ?? 0 },
+    buildBlockers: state?.buildBlockers ?? 0,
+    lastE2e: WorkItemStatus.nullable().parse(state?.lastE2e ?? null),
     unopenedAnswers: (state?.unopenedAnswers ?? []).map((a) => ({
       episodeId: Id.parse(a.episodeId),
       createdBy: Actor.parse(a.createdBy),

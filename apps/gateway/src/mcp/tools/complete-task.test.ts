@@ -323,6 +323,28 @@ describe("complete_task", () => {
     });
   });
 
+  it("T20: merging the last build card opens the full e2e run and moves the project to e2e", async () => {
+    const { ctx, taskId, testCaseIds, build, version } = await claimed();
+    const sha = await commit(ctx);
+    await runTests(ctx, taskId, testCaseIds, sha, [true, true]);
+    await call(build, "complete_task", { taskId, version });
+    const merger = await session(ctx.projectId, "build", "merge-1");
+    const { out: claim } = await call(merger, "claim_item", { kinds: ["merge"] });
+    const itemId = (claim as { item: { id: string } }).item.id;
+    const { out, error } = await call(merger, "complete_item", {
+      itemId,
+      outcome: "done",
+      summary: "Merged CARD-01",
+      runs: [],
+      result: { mergedSha: nextSha() },
+    });
+    expect(error).toBeUndefined();
+    expect((out as { opened: { kind: string }[] }).opened).toEqual([
+      expect.objectContaining({ kind: "e2e" }),
+    ]);
+    expect((await counters(ctx.projectId)).stage).toBe("e2e");
+  });
+
   it("orders commits of the same second by when they arrived: the newer one's run is pending", async () => {
     const { ctx, taskId, testCaseIds, build, version } = await claimed();
     const second = Math.floor(Date.now() / 1000) * 1000; // the hook sends whole seconds

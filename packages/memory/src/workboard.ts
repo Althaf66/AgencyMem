@@ -222,6 +222,20 @@ export async function expireLeases(ctx: Ctx, input: { now: number }): Promise<Wo
   return rows.map((row) => WorkItem.parse(row.w.properties));
 }
 
+/** Cancels the open and claimed items of `kinds` (T30). `claimed`: the item had a lease. */
+export async function cancelItems(
+  ctx: Ctx,
+  input: { kinds: WorkItemKind[] },
+): Promise<{ item: WorkItem; claimed: boolean }[]> {
+  const rows = await writeQuery<NodeRow & { claimed: boolean }>(
+    ctx.db,
+    ctx.graph,
+    "write/cancel-items",
+    { projectId: ctx.projectId, kinds: input.kinds },
+  );
+  return rows.map((row) => ({ item: WorkItem.parse(row.w.properties), claimed: row.claimed }));
+}
+
 /**
  * Sets the handoff summary and output ids on a WorkItem. With `report` (launch only, C8), also
  * writes a ReadinessReport: `checks` as a JSON string (C10), `passed` when every check passed.

@@ -2,7 +2,14 @@
 // state, asks machine.next, runs each effect through one memory function and sends its events.
 import type { Id, WorkItemKind } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, graphFor, readQuery, type FalkorDB } from "@agencymem/graph";
-import { createGates, openItem, reopenGate, setStage, type Ctx } from "@agencymem/memory";
+import {
+  cancelItems,
+  createGates,
+  openItem,
+  reopenGate,
+  setStage,
+  type Ctx,
+} from "@agencymem/memory";
 import type { Events } from "../events/bus";
 import { next, type Effect, type StageEvent } from "./machine";
 import { readStageState } from "./state";
@@ -48,6 +55,25 @@ async function apply(ctx: Ctx, effect: Effect, events: Events, now: number): Pro
         decidedBy: gate.decidedBy,
         reason: gate.reason,
       });
+      return [];
+    }
+    case "cancel_items": {
+      for (const { item, claimed } of await cancelItems(ctx, { kinds: effect.kinds })) {
+        if (claimed) {
+          events.emit(ctx.projectId, "lease.changed", {
+            itemId: item.id,
+            owner: null,
+            until: null,
+            reason: "cancel",
+          });
+        }
+        events.emit(ctx.projectId, "node.written", {
+          label: "WorkItem",
+          id: item.id,
+          version: item.version,
+          summary: `${item.kind} item cancelled`,
+        });
+      }
       return [];
     }
   }

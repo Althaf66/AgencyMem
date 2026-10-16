@@ -286,6 +286,14 @@ export async function recallContextTool(
     }
   }
 
+  // agent-prompts.md section 7, e2e: every card with the TestCases to run on main.
+  if (item.kind === "e2e") {
+    context.tasks = await readQuery<Ctx["tasks"][number]>(ctx.db, graph, "read/task", {
+      projectId,
+      taskId: null,
+    });
+  }
+
   // A merge item reads its card: the runner merges card/<key>.
   if (item.kind === "merge" && item.subjectId) {
     context.tasks = await readQuery<Ctx["tasks"][number]>(ctx.db, graph, "read/task", {

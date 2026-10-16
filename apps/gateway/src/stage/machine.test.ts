@@ -1,7 +1,7 @@
 // stage-machine.md section 1, rule 4: one row per transition.
 import { describe, expect, it } from "vitest";
 import type { Actor } from "@agencymem/contracts";
-import { next, type StageEvent, type StageResult, type StageState } from "./machine";
+import { next, type Effect, type StageEvent, type StageResult, type StageState } from "./machine";
 
 const ana = "human:ana" as const;
 const D1 = "01JA0000000000000000000001";
@@ -26,6 +26,9 @@ const fresh: StageState = {
   plannerDone: false,
   untestedCards: [],
   readyCards: 0,
+  buildCards: { total: 0, merged: 0 },
+  buildBlockers: 0,
+  lastE2e: null,
 };
 const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
 const intakeDone = (over: Partial<StageState> = {}): StageState => ({
@@ -650,6 +653,137 @@ rows.push(
     building({ revise: true, replan: true, reworkTasks: [T2] }),
     { type: "startup" },
     { effects: [] },
+  ],
+);
+
+// T20, T21 and T30 (task 5.1): the full e2e run after the last merge, launch after it, and back to
+// build when a card leaves Done.
+const merged = (over: Partial<StageState> = {}): StageState =>
+  planning({
+    stage: "build",
+    untestedCards: [],
+    readyCards: 2,
+    buildCards: { total: 2, merged: 2 },
+    ...over,
+  });
+const mergeDone = {
+  type: "item_completed",
+  kind: "merge",
+  outcome: "done",
+  actor: "build",
+  subjectId: CARD2,
+} as const;
+const e2eDone = { type: "item_completed", kind: "e2e", outcome: "done", actor: "test" } as const;
+const openE2e = (createdBy: Actor) =>
+  ({ type: "open_item", kind: "e2e", subjectId: null, createdBy }) as const;
+const openLaunch = {
+  type: "open_item",
+  kind: "launch",
+  subjectId: null,
+  createdBy: "test",
+} as const;
+const cancelRun: Effect = { type: "cancel_items", kinds: ["e2e", "launch"] };
+const oneLeft = { total: 2, merged: 1 };
+rows.push(
+  [
+    "T20 the last build card is merged: opens e2e, stage e2e",
+    merged(),
+    mergeDone,
+    { stage: "e2e", effects: [openE2e("build")] },
+  ],
+  [
+    "T20 does not fire while a build card is not merged",
+    merged({ buildCards: oneLeft }),
+    mergeDone,
+    { effects: [] },
+  ],
+  [
+    "T20 does not fire while a change_request, replan or write_tests item is open or claimed",
+    merged({ buildBlockers: 1 }),
+    mergeDone,
+    { effects: [] },
+  ],
+  [
+    "T20 does not fire on a failed merge item",
+    merged(),
+    { ...mergeDone, outcome: "failed" },
+    { effects: [] },
+  ],
+  [
+    "T20 does not apply to a fix card merged in maintenance",
+    merged({ stage: "maintenance" }),
+    mergeDone,
+    { effects: [] },
+  ],
+  [
+    "T20 a change request that flagged nothing finishes after the last merge: opens e2e",
+    merged(),
+    { ...crDone, subjectId: "01JA00000000000000000000C9" },
+    { stage: "e2e", effects: [openE2e("proposal")] },
+  ],
+  [
+    "startup repairs a missed T20: in build with every build card merged",
+    merged(),
+    { type: "startup" },
+    { stage: "e2e", effects: [openE2e("build")] },
+  ],
+  [
+    "T21 the e2e run is done: opens launch, stage launch",
+    merged({ stage: "e2e" }),
+    e2eDone,
+    { stage: "launch", effects: [openLaunch] },
+  ],
+  [
+    "T21 does not fire on a failed e2e item",
+    merged({ stage: "e2e" }),
+    { ...e2eDone, outcome: "failed" },
+    { effects: [] },
+  ],
+  [
+    "startup repairs a missed T21: in e2e with the newest e2e item done",
+    merged({ stage: "e2e", lastE2e: "done" }),
+    { type: "startup" },
+    { stage: "launch", effects: [openLaunch] },
+  ],
+  [
+    "startup leaves e2e alone while its item is still claimed",
+    merged({ stage: "e2e", lastE2e: "claimed" }),
+    { type: "startup" },
+    { effects: [] },
+  ],
+  [
+    "T30 a change request sent a Done card to Rework during e2e: replan, cancel the run, stage build",
+    merged({
+      stage: "e2e",
+      buildCards: oneLeft,
+      changeRequests: building({ sections: 0 }).changeRequests,
+    }),
+    crDone,
+    {
+      stage: "build",
+      effects: [
+        { type: "open_item", kind: "replan", subjectId: CR, createdBy: "proposal" },
+        cancelRun,
+      ],
+    },
+  ],
+  [
+    "T30 a person reopened a card during launch: cancel the run, stage build",
+    merged({ stage: "launch", buildCards: oneLeft }),
+    { type: "card_reopened" },
+    { stage: "build", effects: [cancelRun] },
+  ],
+  [
+    "a card reopened in build changes nothing",
+    merged({ buildCards: oneLeft }),
+    { type: "card_reopened" },
+    { effects: [] },
+  ],
+  [
+    "startup repairs a missed T30: in launch with a build card no longer Done",
+    merged({ stage: "launch", buildCards: oneLeft }),
+    { type: "startup" },
+    { stage: "build", effects: [cancelRun] },
   ],
 );
 

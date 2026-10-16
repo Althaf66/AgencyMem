@@ -4,7 +4,7 @@ import { FalkorDB } from "falkordb";
 import { ulid } from "ulid";
 import type { RunInput } from "@agencymem/contracts";
 import { readQuery } from "@agencymem/graph";
-import { claimItem, complete, expireLeases, openItem, renew, type Ctx } from "./index";
+import { cancelItems, claimItem, complete, expireLeases, openItem, renew, type Ctx } from "./index";
 
 const URL_ = process.env.FALKORDB_URL ?? "redis://localhost:6380";
 const GRAPH = `client_test_workboard_${process.pid}_${Date.now()}`;
@@ -303,5 +303,40 @@ describe("expireLeases", () => {
       leaseMs: LEASE,
     });
     expect(again?.leaseOwner).toBe("intake-2");
+  });
+});
+
+describe("cancelItems (T30)", () => {
+  it("cancels the open and claimed items of the kinds, clears the lease, and leaves the rest", async () => {
+    const project = { ...ctx, projectId: ulid() };
+    const item = (kind: "e2e" | "launch" | "merge") =>
+      openItem(project, { kind, subjectId: null, createdBy: "human:test", now: T0 });
+    const e2e = await item("e2e");
+    const launch = await item("launch");
+    const merge = await item("merge");
+    await claimItem(project, { kinds: ["e2e"], workerId: "test-e2e-1", now: T0, leaseMs: LEASE });
+
+    const cancelled = await cancelItems(project, { kinds: ["e2e", "launch"] });
+    expect(cancelled.map((c) => [c.item.id, c.claimed]).sort()).toEqual(
+      [
+        [e2e!.id, true],
+        [launch!.id, false],
+      ].sort(),
+    );
+    const claimedOne = cancelled.find((c) => c.claimed)!.item;
+    expect(claimedOne).toMatchObject({
+      status: "cancelled",
+      leaseOwner: null,
+      leaseUntil: null,
+      version: 3,
+    });
+    expect(await cancelItems(project, { kinds: ["e2e", "launch"] })).toEqual([]); // idempotent
+    const [left] = await readQuery<{ n: { properties: Record<string, unknown> } }>(
+      ctx.db,
+      GRAPH,
+      "read/node",
+      { id: merge!.id },
+    );
+    expect(left!.n.properties).toMatchObject({ status: "open" });
   });
 });

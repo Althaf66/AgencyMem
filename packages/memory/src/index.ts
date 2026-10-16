@@ -22,6 +22,7 @@ export { recordTestRuns, writeTests, type TestCaseWrite, type TestResult } from 
 export { writeVersioned, type PropValue } from "./versioned";
 export {
   claimItem,
+  cancelItems,
   claimTask,
   completeTask,
   setTaskNote,

@@ -8,10 +8,12 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadConfig, type Envelope } from "@agencymem/contracts";
-import { close, connect, readQuery, type FalkorDB } from "@agencymem/graph";
+import { REGISTRY_GRAPH, close, connect, readQuery, type FalkorDB } from "@agencymem/graph";
 import {
+  cancelItems,
   createProject,
   deleteTestClient,
+  openItem,
   setStage,
   writeCards,
   writeDocument,
@@ -304,7 +306,7 @@ describe("submit_test_run", () => {
     expect(await column(ctx, taskIds[0]!)).toMatchObject({ column: "Testing" });
   });
 
-  it("refuses another card's TestCase (source), another commit, an e2e run, and a non-test agent", async () => {
+  it("refuses another card's TestCase (source), another commit, a run without its card, and a non-test agent", async () => {
     const { ctx, taskIds, cases, sha, workItemId } = await setup();
     const tester = await session(ctx.projectId);
     await call(tester, "claim_item", { kinds: ["test_run"] });
@@ -351,5 +353,241 @@ describe("submit_test_run", () => {
       ).error,
     ).toMatchObject({ guard: "ownership" });
     expect(await column(ctx, taskIds[0]!)).toMatchObject({ column: "Testing" });
+  });
+});
+
+/**
+ * A project in e2e with four requirements: REQ-01 (CARD-01), REQ-02 (CARD-02), REQ-03 (no card) and
+ * REQ-04 (CARD-03, whose second criterion has no TestCase), and an open e2e item.
+ */
+async function e2eSetup() {
+  const now = Date.now();
+  const { project, client } = await createProject(db, {
+    clientName: `test-client-${randomUUID()}`,
+    projectName: "Full run",
+    mode: "demo",
+    createdBy: "human:test",
+    now,
+  });
+  const ctx: Ctx = { db, graph: `client_${client.id}`, projectId: project.id };
+  graphs.add(ctx.graph);
+  await setStage(db, project.id, "intake", "e2e");
+  const { episodeIds } = await writeDocument(ctx, {
+    name: "notes.pdf",
+    mime: "application/pdf",
+    sha256: "c".repeat(64),
+    status: "processed",
+    wordCount: 3,
+    error: null,
+    episodes: [{ page: 1, lineStart: 1, lineEnd: 1, text: "Four rules." }],
+    createdBy: "human:test",
+    now,
+  });
+  const { factIds } = await writeFacts(ctx, {
+    entities: [{ key: "clinic", name: "Clinic", aliases: [] }],
+    facts: [
+      {
+        statement: "Rule 1 is A.",
+        subject: "clinic",
+        attribute: "rule_1",
+        value: "A",
+        episodeIds,
+        replacesFactId: null,
+      },
+    ],
+    createdBy: "intake",
+    now,
+  });
+  const reqs = ["REQ-01", "REQ-02", "REQ-03", "REQ-04"];
+  await writeProduct(ctx, {
+    baseVersion: 0,
+    requirements: reqs.map((key) => ({ key, text: `${key} works.`, priority: "must", factIds })),
+    features: [
+      {
+        key: "FEAT-01",
+        name: "Booking",
+        featureKind: "form",
+        requirementKeys: reqs,
+        estimate: { rawHours: 4, hours: 4, basis: "raw 4 h, no lesson = 4 h", lessonIds: [] },
+      },
+    ],
+    createdBy: "proposal",
+    now,
+  });
+  const cards = [
+    { ...card(1), requirementKey: "REQ-01" },
+    { ...card(2), requirementKey: "REQ-02" },
+    { ...card(3), requirementKey: "REQ-04" },
+  ];
+  const { taskIds } = (await writeCards(ctx, {
+    cards: cards as never,
+    createdBy: "planner",
+    now,
+  }))!;
+  const cases: string[] = [];
+  for (const [i, taskId] of taskIds.entries()) {
+    const n = i + 1;
+    const written = await writeTests(ctx, {
+      taskId,
+      cases: (n === 3 ? [1] : [1, 2]).map((k) => ({
+        criterionKey: `AC-0${n}-${k}`,
+        file: `tests/e2e/CARD-0${n}/AC-0${n}-${k}.spec.ts`,
+        title: `AC-0${n}-${k}: t`,
+      })),
+      createdBy: "test",
+      now,
+    });
+    cases.push(...written!.testCaseIds);
+  }
+  const item = await openItem(ctx, { kind: "e2e", createdBy: "build", now });
+  return { ctx, taskIds, cases, itemId: item!.id };
+}
+
+const uncovered = async (ctx: Ctx) =>
+  (
+    await readQuery<{ key: string }>(db, ctx.graph, "read/coverage", { projectId: ctx.projectId })
+  ).map((r) => r.key);
+
+describe("the full e2e run (task 5.1)", () => {
+  it("gives every card with its TestCases to recall_context", async () => {
+    const { ctx, itemId } = await e2eSetup();
+    const tester = await session(ctx.projectId, "test", "test-e2e-1");
+    await call(tester, "claim_item", { kinds: ["e2e"] });
+    const { out } = await call(tester, "recall_context", { itemId });
+    const tasks = (out as { context: { tasks: { key: string; testCases: unknown[] }[] } }).context
+      .tasks;
+    expect(tasks.map((t) => [t.key, t.testCases.length]).sort()).toEqual([
+      ["CARD-01", 2],
+      ["CARD-02", 2],
+      ["CARD-03", 1],
+    ]);
+  });
+
+  it("lists the requirements with no passing test: a failing case, no card, a criterion with no TestCase", async () => {
+    const { ctx, taskIds, cases, itemId } = await e2eSetup();
+    expect(await uncovered(ctx)).toEqual(["REQ-01", "REQ-02", "REQ-03", "REQ-04"]); // no run yet
+    const tester = await session(ctx.projectId, "test", "test-e2e-1");
+    await call(tester, "claim_item", { kinds: ["e2e"] });
+    const before = (await column(ctx, taskIds[1]!)).column;
+    const failing = cases[3]!; // CARD-02's second case
+    const { out } = await call(tester, "submit_test_run", {
+      itemId,
+      sha: nextSha(),
+      results: cases.map((testCaseId) => ({
+        testCaseId,
+        passed: testCaseId !== failing,
+        durationMs: 5,
+      })),
+    });
+    expect(out).toMatchObject({ allPassed: false, taskColumn: null });
+    expect(await uncovered(ctx)).toEqual(["REQ-02", "REQ-03", "REQ-04"]);
+    const runs = await readQuery<{ n: { properties: Record<string, unknown> } }>(
+      db,
+      ctx.graph,
+      "read/node",
+      { id: (out as { testRunIds: string[] }).testRunIds[0]! },
+    );
+    expect(runs[0]!.n.properties).toMatchObject({ scope: "e2e" });
+    expect((await column(ctx, taskIds[1]!)).column).toBe(before); // an e2e run moves no card
+  });
+
+  it("counts only the latest e2e run", async () => {
+    const { ctx, cases, itemId } = await e2eSetup();
+    const tester = await session(ctx.projectId, "test", "test-e2e-1");
+    await call(tester, "claim_item", { kinds: ["e2e"] });
+    const all = (passed: boolean) => ({
+      itemId,
+      sha: nextSha(),
+      results: cases.map((testCaseId) => ({ testCaseId, passed, durationMs: 5 })),
+    });
+    await call(tester, "submit_test_run", all(true));
+    expect(await uncovered(ctx)).toEqual(["REQ-03", "REQ-04"]);
+    await new Promise((r) => setTimeout(r, 5)); // a later ranAt
+    await call(tester, "submit_test_run", all(false));
+    expect(await uncovered(ctx)).toEqual(["REQ-01", "REQ-02", "REQ-03", "REQ-04"]);
+  });
+
+  it("refuses a taskId on an e2e item, and another project's TestCase (source)", async () => {
+    const { ctx, taskIds, cases, itemId } = await e2eSetup();
+    const other = await e2eSetup();
+    const tester = await session(ctx.projectId, "test", "test-e2e-1");
+    await call(tester, "claim_item", { kinds: ["e2e"] });
+    const results = (testCaseId: string) => [{ testCaseId, passed: true, durationMs: 1 }];
+    expect(
+      (
+        await call(tester, "submit_test_run", {
+          itemId,
+          sha: nextSha(),
+          taskId: taskIds[0],
+          results: results(cases[0]!),
+        })
+      ).error,
+    ).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(
+      (
+        await call(tester, "submit_test_run", {
+          itemId,
+          sha: nextSha(),
+          results: results(other.cases[0]!),
+        })
+      ).error,
+    ).toMatchObject({ guard: "source", details: { reasonCode: "SOURCE_UNKNOWN" } });
+  });
+
+  it("refuses a run whose item T30 cancelled (lease), so it never becomes the latest e2e run", async () => {
+    const { ctx, cases, itemId } = await e2eSetup();
+    const tester = await session(ctx.projectId, "test", "test-e2e-1");
+    await call(tester, "claim_item", { kinds: ["e2e"] });
+    await cancelItems(ctx, { kinds: ["e2e", "launch"] });
+    const { error } = await call(tester, "submit_test_run", {
+      itemId,
+      sha: nextSha(),
+      results: cases.map((testCaseId) => ({ testCaseId, passed: true, durationMs: 1 })),
+    });
+    expect(error).toMatchObject({ guard: "lease" });
+    expect(await uncovered(ctx)).toEqual(["REQ-01", "REQ-02", "REQ-03", "REQ-04"]);
+  });
+
+  it("T30: a person reopens a Done card during e2e: stage build, the claimed e2e item cancelled", async () => {
+    const { ctx, taskIds, itemId } = await e2eSetup();
+    for (const id of taskIds) {
+      const { version } = await column(ctx, id);
+      await writeVersioned(ctx, {
+        id,
+        version: Number(version),
+        props: { column: "Done", mergedSha: nextSha() },
+      });
+    }
+    const tester = await session(ctx.projectId, "test", "test-e2e-1");
+    await call(tester, "claim_item", { kinds: ["e2e"] });
+
+    const sent: Envelope[] = [];
+    const off = events.on((e) => e.projectId === ctx.projectId && sent.push(e));
+    const res = await fetch(`${base}/api/tasks/${taskIds[0]}`, {
+      method: "PATCH",
+      headers: {
+        "X-AM-Token": "ui-t",
+        "X-AM-Actor": "human:test",
+        "X-AM-Project": ctx.projectId,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        version: (await column(ctx, taskIds[0]!)).version,
+        column: "Rework",
+      }),
+    });
+    off();
+    expect(res.status).toBe(200);
+    const [row] = await readQuery<{ p: { properties: Record<string, unknown> } }>(
+      db,
+      REGISTRY_GRAPH,
+      "read/project",
+      { projectId: ctx.projectId },
+    );
+    expect(row!.p.properties.stage).toBe("build");
+    expect(await column(ctx, itemId)).toMatchObject({ status: "cancelled" });
+    expect(sent.map((e) => e.data)).toContainEqual(
+      expect.objectContaining({ itemId, reason: "cancel" }),
+    );
   });
 });

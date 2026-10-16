@@ -26,12 +26,12 @@ export function freePort(): Promise<number> {
   });
 }
 
-type Spec = {
+export type Spec = {
   file: string;
   ok: boolean;
   tests: { results: { duration: number; error?: { message?: string } }[] }[];
 };
-type Suite = { specs?: Spec[]; suites?: Suite[] };
+export type Suite = { specs?: Spec[]; suites?: Suite[] };
 
 /** Every spec in Playwright's JSON report. */
 function specsOf(suite: Suite): Spec[] {
@@ -73,9 +73,9 @@ const win = process.platform === "win32";
  * Runs Playwright and waits for it, stopping it (and the dev server it started) on a timeout or
  * when `stop()` turns true. Resolves either way; the report tells what happened.
  */
-function playwright(cli: string, cardKey: string, tree: string, port: string, stop: () => boolean) {
+function playwright(cli: string, specs: string, tree: string, port: string, stop: () => boolean) {
   return new Promise<void>((resolve) => {
-    const child = spawn(process.execPath, [cli, "test", `tests/e2e/${cardKey}`], {
+    const child = spawn(process.execPath, [cli, "test", specs], {
       cwd: tree,
       env: { ...process.env, PORT: port },
       stdio: "ignore",
@@ -107,7 +107,7 @@ function playwright(cli: string, cardKey: string, tree: string, port: string, st
 }
 
 /** A setup step's failure is the item's failure (with a note), not a gateway outage. */
-async function step<T>(what: string, work: () => Promise<T>): Promise<T> {
+export async function step<T>(what: string, work: () => Promise<T>): Promise<T> {
   try {
     return await work();
   } catch (e) {
@@ -117,88 +117,104 @@ async function step<T>(what: string, work: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * Runs the Playwright specs under `specs` at `sha` in a temporary worktree next to the repository
+ * and returns Playwright's JSON report. Used by test_run (one card) and e2e (every spec on main).
+ */
+export async function runSpecs(opts: {
+  repo: string;
+  sha: string;
+  specs: string;
+  lost: () => boolean;
+}): Promise<{ suites?: Suite[] }> {
+  const { repo, sha } = opts;
+  const tree = join(dirname(repo), "run", sha);
+  const link = join(tree, "node_modules");
+  try {
+    await step("The worktree", async () => {
+      // A run that crashed left its worktree: start again from the commit.
+      await rm(tree, { recursive: true, force: true });
+      await git(repo, "worktree", "prune");
+      await git(repo, "worktree", "add", "--detach", tree, sha);
+    });
+    await step("The install", async () => {
+      // The repository's install when the commit kept main's packages; else its own (npm ci).
+      const samePackages = await git(
+        repo,
+        "diff",
+        "--quiet",
+        "main",
+        sha,
+        "--",
+        "package.json",
+        "package-lock.json",
+      ).then(
+        () => true,
+        () => false,
+      );
+      if (samePackages && existsSync(join(repo, "node_modules"))) {
+        await symlink(join(repo, "node_modules"), link, "junction"); // no admin rights needed
+      } else {
+        await run("npm", ["ci", "--prefer-offline", "--no-audit", "--no-fund"], {
+          cwd: tree,
+          shell: win,
+        });
+      }
+    });
+
+    const port = String(await freePort());
+    const cli = join(tree, "node_modules", "@playwright", "test", "cli.js");
+    // A failing test exits non-zero; the report says which. Only a missing report is a crash.
+    await playwright(cli, opts.specs, tree, port, opts.lost);
+    // The lease went to another worker: it runs the tests again, so this run writes nothing.
+    if (opts.lost()) throw new JobFailed("The lease ended during the run.");
+    const reportFile = join(tree, "test-results", "report.json");
+    if (!existsSync(reportFile))
+      throw new JobFailed("Playwright crashed or timed out: it wrote no report.");
+    return JSON.parse(await readFile(reportFile, "utf8")) as { suites?: Suite[] };
+  } finally {
+    // The link goes first, so removing the worktree never reaches into the repository's install.
+    // A cleanup error must not hide the run's own result.
+    if ((await lstat(link).catch(() => null))?.isSymbolicLink())
+      await unlink(link).catch(() => undefined);
+    await git(repo, "worktree", "remove", "--force", tree).catch(() => undefined);
+    await git(repo, "worktree", "prune").catch(() => undefined);
+  }
+}
+
 export function testRunJob(opts: { workspacesDir: string }): Job {
   return {
     id: "test",
-    worker: "test-run-1", // the write_tests loop is test-1
+    worker: "test-run-1", // the write_tests loop is test-1, the e2e loop test-e2e-1
     kinds: ["test_run"],
     handoff: [],
     async run(recall, act): Promise<ActResult> {
       const change = recall.context.codeChanges?.[0];
       const card = recall.context.tasks?.[0];
       if (!change || !card) throw new JobFailed("The commit is not linked to a card.");
-      const lost = () => act.lost?.() ?? false;
       const repo = await step("The repository", () =>
         ensureRepo(recall.project.id, { workspacesDir: opts.workspacesDir }),
       );
-      const tree = join(dirname(repo), "run", change.sha);
-      const link = join(tree, "node_modules");
-
-      try {
-        await step("The worktree", async () => {
-          // A run that crashed left its worktree: start again from the commit.
-          await rm(tree, { recursive: true, force: true });
-          await git(repo, "worktree", "prune");
-          await git(repo, "worktree", "add", "--detach", tree, change.sha);
-        });
-        await step("The install", async () => {
-          // The repository's install when the commit kept main's packages; else its own (npm ci).
-          const samePackages = await git(
-            repo,
-            "diff",
-            "--quiet",
-            "main",
-            change.sha,
-            "--",
-            "package.json",
-            "package-lock.json",
-          ).then(
-            () => true,
-            () => false,
-          );
-          if (samePackages && existsSync(join(repo, "node_modules"))) {
-            await symlink(join(repo, "node_modules"), link, "junction"); // no admin rights needed
-          } else {
-            await run("npm", ["ci", "--prefer-offline", "--no-audit", "--no-fund"], {
-              cwd: tree,
-              shell: win,
-            });
-          }
-        });
-
-        const port = String(await freePort());
-        await act.say(
-          `Running ${card.testCases.length} specs of ${card.key} at ${change.sha.slice(0, 7)}`,
-        );
-        const cli = join(tree, "node_modules", "@playwright", "test", "cli.js");
-        // A failing test exits non-zero; the report says which. Only a missing report is a crash.
-        await playwright(cli, card.key, tree, port, lost);
-        // The lease went to another worker: it runs the tests again, so this run writes nothing.
-        if (lost()) throw new JobFailed("The lease ended during the run.");
-        const reportFile = join(tree, "test-results", "report.json");
-        if (!existsSync(reportFile))
-          throw new JobFailed("Playwright crashed or timed out: it wrote no report.");
-        const report = JSON.parse(await readFile(reportFile, "utf8")) as { suites?: Suite[] };
-
-        const results = resultsFor(card.testCases, report);
-        const { testRunIds, taskColumn } = await act.call("submit_test_run", {
-          itemId: recall.item.id,
-          sha: change.sha,
-          taskId: card.id,
-          results,
-        });
-        const passed = results.filter((r) => r.passed).length;
-        const summary = `${passed} of ${results.length} tests passed for ${card.key} at ${change.sha.slice(0, 7)}; ${card.key} is ${taskColumn}`;
-        await act.say(summary);
-        return { outputIds: testRunIds, summary };
-      } finally {
-        // The link goes first, so removing the worktree never reaches into the repository's install.
-        // A cleanup error must not hide the run's own result.
-        if ((await lstat(link).catch(() => null))?.isSymbolicLink())
-          await unlink(link).catch(() => undefined);
-        await git(repo, "worktree", "remove", "--force", tree).catch(() => undefined);
-        await git(repo, "worktree", "prune").catch(() => undefined);
-      }
+      await act.say(
+        `Running ${card.testCases.length} specs of ${card.key} at ${change.sha.slice(0, 7)}`,
+      );
+      const report = await runSpecs({
+        repo,
+        sha: change.sha,
+        specs: `tests/e2e/${card.key}`,
+        lost: () => act.lost?.() ?? false,
+      });
+      const results = resultsFor(card.testCases, report);
+      const { testRunIds, taskColumn } = await act.call("submit_test_run", {
+        itemId: recall.item.id,
+        sha: change.sha,
+        taskId: card.id,
+        results,
+      });
+      const passed = results.filter((r) => r.passed).length;
+      const summary = `${passed} of ${results.length} tests passed for ${card.key} at ${change.sha.slice(0, 7)}; ${card.key} is ${taskColumn}`;
+      await act.say(summary);
+      return { outputIds: testRunIds, summary };
     },
   };
 }

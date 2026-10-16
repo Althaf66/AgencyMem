@@ -1,14 +1,16 @@
 import type { Context, ToolInput, ToolOutput, WorkItemKind } from "@agencymem/contracts";
 import { readQuery } from "@agencymem/graph";
 import { recordTestRuns } from "@agencymem/memory";
-import { ownership, reject, source } from "../guards";
+import { lease, ownership, reject, source } from "../guards";
 import {
   agentOf,
   findOwn,
   guardFail,
   invalid,
   memoryCtx,
+  num,
   ok,
+  str,
   type Outcome,
   type ToolCtx,
 } from "./common";
@@ -20,7 +22,8 @@ type CodeChangeRow = { id: string; sha: string; taskId: string | null };
  * submit_test_run (contracts.md section 7). Guards: ownership (a test_run or e2e item), source
  * (each result names a TestCase of the card). The card's run is checked against the item's
  * subject: its sha and its card. One TestRun per result; a failure sends a card in Testing back to
- * In progress with the failing criterion keys as its note.
+ * In progress with the failing criterion keys as its note. An e2e item (task 5.1) has no card: its
+ * results name TestCases of any card, are recorded with scope e2e, and move no card.
  */
 export async function submitTestRunTool(
   ctx: ToolCtx,
@@ -32,12 +35,11 @@ export async function submitTestRunTool(
   const kind = found.output.kind as WorkItemKind;
   const refused = ownership({ kind: "agent", agent }, "submit_test_run", { itemKind: kind });
   if (refused) return guardFail(ctx, refused);
-  // ponytail: the run of every spec on main (an e2e item, without taskId) arrives with task 5.1.
-  if (kind === "e2e") return invalid("The e2e run is not built yet (task 5.1).");
-  if (!input.taskId) return invalid("A test_run item's results need the card's taskId.");
-
   const { db } = ctx;
   const { graph, projectId } = ctx.binding;
+  if (kind === "e2e") return submitE2e(ctx, input, found.output);
+  if (!input.taskId) return invalid("A test_run item's results need the card's taskId.");
+
   const [change] = await readQuery<CodeChangeRow>(db, graph, "read/code-change", {
     projectId,
     id: String(found.output.subjectId),
@@ -93,4 +95,52 @@ export async function submitTestRunTool(
     });
   }
   return ok({ testRunIds, allPassed: failing.length === 0, taskColumn: to });
+}
+
+/** The full run on main (agent-prompts.md section 7, e2e): every card's TestCases, no card moves. */
+async function submitE2e(
+  ctx: ToolCtx,
+  input: ToolInput<"submit_test_run">,
+  item: Record<string, unknown>,
+): Promise<Outcome<ToolOutput<"submit_test_run">>> {
+  if (input.taskId) return invalid("An e2e item's results name no card: leave out taskId.");
+  const { agent, workerId } = agentOf(ctx);
+  const { graph, projectId } = ctx.binding;
+  const tasks = await readQuery<TaskRow>(ctx.db, graph, "read/task", { projectId, taskId: null });
+  const missing = source(
+    input.results.map((r) => ({ ids: [r.testCaseId] })),
+    new Set(tasks.flatMap((t) => t.testCases.map((c) => c.id))),
+  );
+  if (missing) return guardFail(ctx, missing);
+  // Its runs become the latest e2e run that coverage.cypher reads, so a run whose item T30 cancelled
+  // (lease cleared) or another worker took must not land.
+  const held = lease(
+    { owner: str(item.leaseOwner), until: num(item.leaseUntil) },
+    workerId,
+    ctx.now(),
+  );
+  if (held) return guardFail(ctx, held);
+  // ponytail: the lease and the write are two queries, like the test_run path; a cancel in between
+  // still lands one run. Move the lease check into submit-test-run.cypher if that ever bites.
+  const { testRunIds } = await recordTestRuns(memoryCtx(ctx), {
+    sha: input.sha,
+    taskId: null,
+    results: input.results,
+    note: null,
+    createdBy: agent,
+    now: ctx.now(),
+  });
+  if (testRunIds.length !== input.results.length) {
+    return guardFail(ctx, reject("source", "SOURCE_UNKNOWN", "A TestCase is gone."));
+  }
+  if (testRunIds.length) {
+    ctx.events.emit(projectId, "node.written", {
+      label: "TestRun",
+      id: testRunIds[0]!,
+      version: 1,
+      summary: `${testRunIds.length} e2e test runs on main at ${input.sha.slice(0, 7)}`,
+      ids: testRunIds,
+    });
+  }
+  return ok({ testRunIds, allPassed: input.results.every((r) => r.passed), taskColumn: null });
 }

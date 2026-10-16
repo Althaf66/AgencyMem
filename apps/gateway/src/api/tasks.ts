@@ -267,6 +267,9 @@ export function tasksRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
     if (to === "Ready" && to !== from) {
       await runStage(db, deps.events, projectId, { type: "card_ready" }); // T16 from H2
     }
+    if (from === "Done" && to === "Rework") {
+      await runStage(db, deps.events, projectId, { type: "card_reopened" }); // T30 from H4
+    }
     const [task] = await readCards(db, graph, projectId, taskId);
     res.json({ task });
   });

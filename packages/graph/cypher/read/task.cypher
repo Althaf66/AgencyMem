@@ -1,6 +1,8 @@
-// One Task with what recall_context's `tasks` group holds: its requirement, the design nodes it
-// uses, the cards it depends on, its criteria and the TestCases that verify them.
-MATCH (t:Task {projectId: $projectId, id: $taskId})
+// One Task (or, with $taskId null, every Task: the e2e run) with what recall_context's `tasks` group
+// holds: its requirement, the design nodes it uses, the cards it depends on, its criteria and the
+// TestCases that verify them.
+MATCH (t:Task {projectId: $projectId})
+WHERE $taskId IS NULL OR t.id = $taskId
 OPTIONAL MATCH (t)-[:IMPLEMENTS]->(r:Requirement)
 WITH t, collect(r.key)[0] AS requirementKey
 OPTIONAL MATCH (t)-[:USES]->(d)
