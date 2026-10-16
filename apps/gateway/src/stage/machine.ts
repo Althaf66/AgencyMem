@@ -2,7 +2,8 @@
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
 // T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2), C1 and C2
 // (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5), T15 (task 3.6), T16 (task 3.8), H3
-// and C3 (task 3.9), T20, T21 and T30 (task 5.1), T23 (task 5.2), T24 and T26 (task 5.3).
+// and C3 (task 3.9), T20, T21 and T30 (task 5.1), T23 (task 5.2), T24 and T26 (task 5.3), T28 and
+// T29 (task 5.4).
 import type {
   Actor,
   ChangeRequestStatus,
@@ -82,6 +83,10 @@ export type StageState = {
   unopenedBugs: { episodeId: Id; createdBy: Actor }[];
   /** Fix cards whose G6 is approved but that got no write_tests item since (repair of T26). */
   approvedFixes: { taskId: Id; createdBy: Actor }[];
+  /** Route 29 wrote the actual hours and this (repair of T28). */
+  closedAt: EpochMs | null;
+  /** A curator item is done (repair of T29). */
+  curatorDone: boolean;
 };
 
 type GateState = {
@@ -114,6 +119,8 @@ export type StageEvent =
   | { type: "question_answered"; episodeId: Id; actor: Actor }
   /** T24: route 28 wrote the bug_report Episode. */
   | { type: "bug_reported"; episodeId: Id; actor: Actor }
+  /** T28: route 29 wrote the actual hours and closedAt. */
+  | { type: "project_closed"; actor: Actor }
   | {
       type: "gate_decided";
       key: GateKey;
@@ -275,6 +282,12 @@ const fixTests = (taskId: Id, createdBy: Actor): Effect => ({
   createdBy,
 });
 
+// T28: the Curator writes the case study.
+const startCaseStudy = (createdBy: Actor): StageResult => ({
+  stage: "case_study",
+  effects: [{ type: "open_item", kind: "curator", subjectId: null, createdBy }],
+});
+
 // T23: deployed; bug reports are allowed from now (T24).
 const deployed: StageResult = { stage: "maintenance", effects: [] };
 
@@ -373,6 +386,10 @@ export function next(state: StageState, event: StageEvent): StageResult {
       if (event.kind === "merge" || event.kind === "write_tests") {
         return afterItem(state, [], event.actor);
       }
+      // T29: the case study is written.
+      if (event.kind === "curator" && state.stage === "case_study") {
+        return { stage: "closed", effects: [] };
+      }
       // T21: the full run is done, pass or fail; Launch reads the result.
       if (event.kind === "e2e" && state.stage === "e2e") return startLaunch;
       // T8: the revision is done; G2 waits for a decision again.
@@ -424,6 +441,10 @@ export function next(state: StageState, event: StageEvent): StageResult {
     // T24: Maintenance links the report to the commit that caused it.
     case "bug_reported":
       return { effects: [openMaintenance(event.episodeId, event.actor)] };
+
+    // T28: the route checked the stage and the fix cards, and wrote the actuals.
+    case "project_closed":
+      return state.stage === "maintenance" ? startCaseStudy(event.actor) : { effects: [] };
 
     // T5: the answer route has written the answer; Intake turns it into facts.
     case "question_answered":
@@ -538,6 +559,11 @@ export function next(state: StageState, event: StageEvent): StageResult {
         return { stage: startLaunch.stage, effects: [...effects, ...startLaunch.effects] };
       } else if (state.stage === "launch" && state.g5 === "approved") {
         return { stage: deployed.stage, effects };
+      } else if (state.stage === "maintenance" && state.closedAt !== null) {
+        const caseStudy = startCaseStudy(state.createdBy);
+        return { stage: caseStudy.stage, effects: [...effects, ...caseStudy.effects] };
+      } else if (state.stage === "case_study" && state.curatorDone) {
+        return { stage: "closed", effects };
       }
       return { effects };
     }

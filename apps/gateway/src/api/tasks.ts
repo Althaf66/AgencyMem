@@ -211,6 +211,7 @@ export function tasksRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
       return sendError(res, invalid("H5: only a Ready card is parked in Backlog."));
     }
     if (edit.column) to = edit.column;
+    if (from === "Done" && to === "Rework") props.reopened = Number(t.reopened ?? 0) + 1; // H4
     if (edit.unblock) {
       if (Number(t.attempts) < BLOCKED_AT) {
         return sendError(res, invalid("H6: the card is not blocked."));

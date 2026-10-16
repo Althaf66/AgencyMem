@@ -253,6 +253,8 @@ export const Task = BaseNode.extend({
   leaseOwner: maybe(WorkerId),
   leaseUntil: maybe(EpochMs),
   attempts: Count,
+  /** Times the card was reopened: H4, or a change request sent it to Rework (approved decision 4). */
+  reopened: maybe(Count),
 });
 export type Task = z.infer<typeof Task>;
 

@@ -6,6 +6,7 @@ export {
   type CardWrite,
   type CriterionWrite,
 } from "./board";
+export { deleteTestAgency, writeCaseStudy } from "./agency";
 export { createChangeRequest } from "./change-requests";
 export { writeHumanEdit } from "./chat";
 export type { Ctx } from "./ctx";
@@ -15,6 +16,7 @@ export { supersedeFacts, writeFacts, type EntityWrite, type FactWrite } from "./
 export { flagImpact, type Flagged } from "./impact";
 export { writeProduct, type FeatureWrite, type RequirementWrite } from "./product";
 export {
+  closeProject,
   countRejection,
   createProject,
   deleteTestClient,

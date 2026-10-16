@@ -32,6 +32,8 @@ const fresh: StageState = {
   g5: null,
   unopenedBugs: [],
   approvedFixes: [],
+  closedAt: null,
+  curatorDone: false,
 };
 const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
 const intakeDone = (over: Partial<StageState> = {}): StageState => ({
@@ -856,6 +858,54 @@ rows.push(
       taskId: FIX,
       actor: ana,
     },
+    { effects: [] },
+  ],
+);
+
+// T28 and T29 (task 5.4): the close route starts the Curator; its item done closes the project.
+const openCurator = (createdBy: Actor) =>
+  ({ type: "open_item", kind: "curator", subjectId: null, createdBy }) as const;
+rows.push(
+  [
+    "T28 the project closed: case_study, and the Curator starts",
+    maintaining(),
+    { type: "project_closed", actor: ana },
+    { stage: "case_study", effects: [openCurator(ana)] },
+  ],
+  [
+    "startup repairs a missed T28: closedAt is written, the stage is still maintenance",
+    maintaining({ closedAt: 1 }),
+    { type: "startup" },
+    { stage: "case_study", effects: [openCurator(ana)] },
+  ],
+  [
+    "T29 the curator item done: closed",
+    maintaining({ stage: "case_study", closedAt: 1 }),
+    { type: "item_completed", kind: "curator", outcome: "done", actor: "curator" },
+    { stage: "closed", effects: [] },
+  ],
+  [
+    "startup repairs a missed T29: a curator item is done, the stage is still case_study",
+    maintaining({ stage: "case_study", closedAt: 1, curatorDone: true }),
+    { type: "startup" },
+    { stage: "closed", effects: [] },
+  ],
+  [
+    "a late project_closed changes nothing once the project left maintenance",
+    maintaining({ stage: "closed", closedAt: 1, curatorDone: true }),
+    { type: "project_closed", actor: ana },
+    { effects: [] },
+  ],
+  [
+    "a curator item done outside case_study changes nothing",
+    maintaining({ stage: "closed", closedAt: 1, curatorDone: true }),
+    { type: "item_completed", kind: "curator", outcome: "done", actor: "curator" },
+    { effects: [] },
+  ],
+  [
+    "a failed curator item leaves the project in case_study",
+    maintaining({ stage: "case_study", closedAt: 1 }),
+    { type: "item_completed", kind: "curator", outcome: "failed", actor: "curator" },
     { effects: [] },
   ],
 );

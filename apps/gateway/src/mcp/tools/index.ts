@@ -14,6 +14,7 @@ import { recallContextTool } from "./recall-context";
 import { reportDefectTool } from "./report-defect";
 import { submitTestRunTool } from "./submit-test-run";
 import { writeCardsTool } from "./write-cards";
+import { writeCaseStudyTool } from "./write-case-study";
 import { writeDesignTool } from "./write-design";
 import { writeFactTool } from "./write-fact";
 import { writeQuestionTool } from "./write-question";
@@ -45,6 +46,7 @@ export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   submit_test_run: submitTestRunTool,
   report_defect: reportDefectTool,
   propose_fix: proposeFixTool,
+  write_case_study: writeCaseStudyTool,
   find_impact: findImpactTool,
   read_query: readQueryTool,
 };

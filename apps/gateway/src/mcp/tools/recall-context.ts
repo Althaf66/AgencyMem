@@ -10,6 +10,7 @@ import {
   type WorkItemKind,
 } from "@agencymem/contracts";
 import { AGENCY_GRAPH, readQuery } from "@agencymem/graph";
+import { caseMetrics } from "../../metrics";
 import { projectInfo } from "../../project-info";
 import { CLAIMS } from "../guards";
 import { fail, findOwn, ok, type Outcome, type ToolCtx } from "./common";
@@ -403,6 +404,17 @@ export async function recallContextTool(
         linked: c.linked,
       }));
     context.design = await readDesign(ctx.db, graph, projectId);
+  }
+
+  // agent-prompts.md section 9: the case metrics, the features with their actual hours, and the
+  // entities (names to avoid). The handoffs are always there.
+  if (item.kind === "curator") {
+    // ponytail: a project closes long after Discovery, so clarity is set; "high" is clarityBand(0).
+    context.metrics = await caseMetrics(ctx.db, graph, projectId, project.clarity?.band ?? "high");
+    context.features = (await currentProduct()).features;
+    context.entities = await readQuery<Ctx["entities"][number]>(ctx.db, graph, "read/entities", {
+      projectId,
+    });
   }
 
   // A merge item reads its card: the runner merges card/<key>.

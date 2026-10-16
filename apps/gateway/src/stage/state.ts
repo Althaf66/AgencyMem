@@ -61,6 +61,9 @@ export async function readStageState(
   if (!row) return null;
   const project = Project.parse(row.p.properties);
   const [state] = await readQuery<Row>(db, graph, "read/stage-state", { projectId });
+  const [curator] = await readQuery<{ done: number }>(db, graph, "read/curator-done", {
+    projectId,
+  });
   const gates = (state?.gates ?? []).map((g) => ({
     key: GateKey.parse(g.key),
     status: GateStatus.parse(g.status),
@@ -90,6 +93,8 @@ export async function readStageState(
     g2: gate("G2"),
     g3: gate("G3"),
     g5: gates.find((g) => g.key === "G5")?.status ?? null,
+    closedAt: project.closedAt ?? null,
+    curatorDone: (curator?.done ?? 0) > 0,
     openProposal: state?.openProposal ?? 0,
     unopenedEdits: (state?.unopenedEdits ?? []).map((e) => ({
       episodeId: Id.parse(e.episodeId),

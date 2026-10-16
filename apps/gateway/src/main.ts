@@ -8,6 +8,7 @@ import { loadConfig, type Config, type ErrorBody, type HealthResponse } from "@a
 import { connect, isReachable } from "@agencymem/graph";
 import pkg from "../package.json" with { type: "json" };
 import { bugReportsRouter } from "./api/bug-reports";
+import { closeRouter } from "./api/close";
 import { changeRequestsRouter } from "./api/change-requests";
 import { docsRouter } from "./api/docs";
 import { featuresRouter } from "./api/features";
@@ -113,6 +114,7 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
     featuresRouter({ db, events }),
     changeRequestsRouter({ db, events }),
     bugReportsRouter({ db, events }),
+    closeRouter({ db, events }),
     docsRouter({ db, events }),
     nodesRouter({ db, events }),
     graphRouter({ db, events }),

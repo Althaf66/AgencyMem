@@ -2,6 +2,7 @@
 // agents/<agent>/{agent.ts, prompt.md, output.ts} (agent-prompts.md section 1).
 import type { Agent } from "../agent";
 import { architect } from "./architect/agent";
+import { curator } from "./curator/agent";
 import { discovery } from "./discovery/agent";
 import { intake } from "./intake/agent";
 import { maintenance } from "./maintenance/agent";
@@ -17,4 +18,5 @@ export const AGENTS: Agent<unknown>[] = [
   architect,
   planner,
   maintenance,
+  curator,
 ];

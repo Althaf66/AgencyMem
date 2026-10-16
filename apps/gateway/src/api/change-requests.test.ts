@@ -305,7 +305,7 @@ describe("Done when: with 24 cards and a fact linked to 3, exactly those 3 move 
         "OPTIONAL MATCH",
         "(t)-[:FLAGGED_BY]->(cr:ChangeRequest)",
         "RETURN",
-        "t.key AS key, t.column AS column, t.version AS version, t.leaseOwner AS lease, cr.id AS cr",
+        "t.key AS key, t.column AS column, t.version AS version, t.leaseOwner AS lease, t.reopened AS reopened, cr.id AS cr",
       ),
     );
     const was = new Map(before.map((t) => [t.key, t]));
@@ -313,9 +313,14 @@ describe("Done when: with 24 cards and a fact linked to 3, exactly those 3 move 
       const old = was.get(t.key)!;
       if (["CARD-01", "CARD-02", "CARD-03"].includes(t.key as string)) {
         expect(t).toMatchObject({ column: "Rework", version: (old.version as number) + 1 });
-        expect(t).toMatchObject({ lease: null, cr: crId });
+        expect(t).toMatchObject({ lease: null, cr: crId, reopened: 1 }); // approved decision 4
       } else {
-        expect(t).toMatchObject({ column: old.column, version: old.version, cr: null });
+        expect(t).toMatchObject({
+          column: old.column,
+          version: old.version,
+          cr: null,
+          reopened: null,
+        });
       }
     }
     expect(
