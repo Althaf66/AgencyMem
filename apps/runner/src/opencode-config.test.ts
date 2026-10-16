@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
-import { assertWorkspacesOutside, writeCardConfig } from "./opencode-config";
+import { assertWorkspacesOutside, opencodeJson, writeCardConfig } from "./opencode-config";
 import { workspacesPath } from "./repo";
 
 const tree = mkdtempSync(join(tmpdir(), "am-wt-"));
@@ -15,6 +15,11 @@ afterAll(() => rmSync(tree, { recursive: true, force: true }));
 const models = { buildModel: "build-model-x", fallbackModel: "vendor/fallback-model-y" };
 
 describe("writeCardConfig", () => {
+  it("leaves out the primary provider when BUILD_MODEL is not set (Build on OpenRouter only)", () => {
+    const json = opencodeJson({ fallbackModel: "vendor/fallback-model-y" });
+    expect(Object.keys(json.provider)).toEqual(["fallback"]);
+  });
+
   it("Done when: writes AGENTS.md and opencode.json as the docs give them, with no secret", async () => {
     // Real-looking values for every key and token the files refer to.
     const secrets = {

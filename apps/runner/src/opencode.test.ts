@@ -244,7 +244,6 @@ describe.runIf(process.env.OPENCODE_LIVE === "1")("Done when (live): a test card
           install: false,
         });
         await writeCardConfig(wt, "CARD-01", {
-          buildModel: process.env.BUILD_MODEL || "unused",
           fallbackModel: process.env.OPENROUTER_BUILD_MODEL!,
         });
         // No gateway here: a card AGENTS.md that needs no MCP tool.

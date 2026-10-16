@@ -8,7 +8,8 @@ import { join } from "node:path";
 import { CardKey } from "@agencymem/contracts";
 import { insideAgencyMem, workspacesPath } from "./repo";
 
-export type BuildModels = { buildModel: string; fallbackModel: string };
+/** `buildModel` (the primary endpoint's) is optional: Build runs on the fallback only for now. */
+export type BuildModels = { buildModel?: string; fallbackModel: string };
 
 /** The card's AGENTS.md (agent-prompts.md section 11). */
 export function agentsMd(cardKey: string): string {
@@ -40,12 +41,14 @@ export function opencodeJson(models: BuildModels) {
   return {
     $schema: "https://opencode.ai/config.json",
     provider: {
-      agencymem: {
-        npm: "@ai-sdk/openai-compatible",
-        name: "AgencyMem primary endpoint",
-        options: { baseURL: "{env:LLM_BASE_URL}", apiKey: "{env:LLM_API_KEY}" },
-        models: { [models.buildModel]: { name: "Build model" } },
-      },
+      ...(models.buildModel && {
+        agencymem: {
+          npm: "@ai-sdk/openai-compatible",
+          name: "AgencyMem primary endpoint",
+          options: { baseURL: "{env:LLM_BASE_URL}", apiKey: "{env:LLM_API_KEY}" },
+          models: { [models.buildModel]: { name: "Build model" } },
+        },
+      }),
       fallback: {
         npm: "@ai-sdk/openai-compatible",
         name: "OpenRouter fallback",

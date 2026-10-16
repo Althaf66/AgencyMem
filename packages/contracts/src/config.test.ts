@@ -12,7 +12,7 @@ const llm = {
   OPENROUTER_MODEL_THIN: "or-thin",
   OPENROUTER_MODEL_DEEP: "or-deep",
 };
-const build = { BUILD_MODEL: "b", OPENROUTER_BUILD_MODEL: "or-b" };
+const build = { OPENROUTER_BUILD_MODEL: "or-b" };
 
 function message(fn: () => unknown): string {
   try {
@@ -42,6 +42,7 @@ describe("loadConfig", () => {
       expect(msg).toContain(name);
     }
     expect(msg).not.toContain("AM_UI_TOKEN");
+    expect(msg).not.toMatch(/- BUILD_MODEL:/); // optional: Build runs on OpenRouter only
   });
 
   it("treats an empty string as missing", () => {
@@ -100,7 +101,8 @@ describe("loadConfig", () => {
 
   it("parses a full valid environment for the runner", () => {
     const cfg = loadConfig({ ...tokens, ...llm, ...build }, "runner");
-    expect(cfg.BUILD_MODEL).toBe("b");
+    expect(cfg.OPENROUTER_BUILD_MODEL).toBe("or-b");
+    expect(cfg.BUILD_MODEL).toBeUndefined();
     expect(cfg.LLM_API_KEY).toBe("k");
   });
 });

@@ -58,7 +58,8 @@ const LLM = [
 /** The variables with no default that each app needs in order to start. */
 const REQUIRED_BY_APP = {
   gateway: ["AM_AGENT_TOKEN", "AM_UI_TOKEN", "AM_HOOK_TOKEN"],
-  runner: ["AM_AGENT_TOKEN", "AM_HOOK_TOKEN", ...LLM, "BUILD_MODEL", "OPENROUTER_BUILD_MODEL"],
+  // Build runs on OpenRouter only (developer decision, 2026-10-16): BUILD_MODEL is optional.
+  runner: ["AM_AGENT_TOKEN", "AM_HOOK_TOKEN", ...LLM, "OPENROUTER_BUILD_MODEL"],
   simulator: ["AM_UI_TOKEN", ...LLM],
   web: [],
 } as const satisfies Record<App, readonly (keyof z.input<typeof ConfigSchema>)[]>;
