@@ -13,6 +13,8 @@ export type ToolCtx = {
   events: Events;
   leaseMs: number;
   recallMaxChars: number;
+  /** CONTEXT_MAX_CHARS: the most get_task_context returns. */
+  contextMaxChars: number;
   now: () => number;
 };
 

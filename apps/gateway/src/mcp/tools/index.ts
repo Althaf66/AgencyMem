@@ -4,6 +4,7 @@ import { claimTaskTool } from "./claim-task";
 import { completeItemTool } from "./complete-item";
 import type { Outcome, ToolCtx } from "./common";
 import { findImpactTool } from "./find-impact";
+import { getTaskContextTool } from "./get-task-context";
 import { heartbeatTool } from "./heartbeat";
 import { readQueryTool } from "./read-query";
 import { recordChangeRequestTool } from "./record-change-request";
@@ -24,6 +25,7 @@ type Handler<K extends ToolName> = (ctx: ToolCtx, input: ToolInput<K>) => Promis
 export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   claim_item: claimItemTool,
   claim_task: claimTaskTool,
+  get_task_context: getTaskContextTool,
   heartbeat: heartbeatTool,
   complete_item: completeItemTool,
   recall_context: recallContextTool,

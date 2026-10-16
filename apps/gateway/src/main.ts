@@ -125,6 +125,7 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
     events,
     leaseMs: required(cfg.LEASE_MS, "LEASE_MS"),
     recallMaxChars: required(cfg.CONTEXT_RECALL_MAX_CHARS, "CONTEXT_RECALL_MAX_CHARS"),
+    contextMaxChars: required(cfg.CONTEXT_MAX_CHARS, "CONTEXT_MAX_CHARS"),
   });
   app.use("/mcp", requireToken(agent, ui), mcp, notFound);
   app.use(notFound); // any other path, with the contract's error body

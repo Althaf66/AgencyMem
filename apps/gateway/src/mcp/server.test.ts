@@ -211,6 +211,7 @@ describe("a call that throws still answers in the contract shape", () => {
       events: createEvents(),
       leaseMs: 1000,
       recallMaxChars: 40000,
+      contextMaxChars: 12000,
     });
     const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
     await server.connect(serverSide);

@@ -100,6 +100,7 @@ export type ToolDeps = {
   events: Events;
   leaseMs: number;
   recallMaxChars: number;
+  contextMaxChars: number;
 };
 
 /**
@@ -159,6 +160,7 @@ export function createMcpServer(binding: Binding, deps: ToolDeps): McpServer {
         events: deps.events,
         leaseMs: deps.leaseMs,
         recallMaxChars: deps.recallMaxChars,
+        contextMaxChars: deps.contextMaxChars,
         now: Date.now,
       };
       // contracts.md section 7: a UI session may call only read_query; ownership rejects the rest.
