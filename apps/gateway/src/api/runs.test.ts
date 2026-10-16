@@ -114,6 +114,55 @@ describe("POST /api/runs/steps (route 30)", () => {
     ]);
   });
 
+  it("writes one Run node for a final step, and still sends the run.step event", async () => {
+    const project = await create();
+    const itemId = await intakeItem(project.id);
+    const sent: Envelope[] = [];
+    const off = events.on((e) => e.projectId === project.id && sent.push(e));
+    const final = {
+      itemId,
+      step: "exit",
+      text: "Run finished (exit 0, 29 s)",
+      model: "vendor/model-y",
+      endpoint: "openrouter",
+      tokensIn: 13000,
+      tokensOut: 400,
+      ms: 29400,
+      cost: 0,
+      final: true,
+    };
+    expect(await step(agentHeaders(project.id), final)).toEqual({ status: 202, body: {} });
+    off();
+    expect(sent.map((e) => e.type)).toEqual(["run.step"]);
+
+    const res = await fetch(`${base}/api/query`, {
+      method: "POST",
+      headers: { ...ui, "Content-Type": "application/json", "X-AM-Project": project.id },
+      body: JSON.stringify({
+        graph: "client",
+        cypher: q(
+          "MATCH",
+          "(r:Run)",
+          "RETURN",
+          "r.itemId, r.agent, r.step, r.model, r.endpoint,",
+          "r.tokensIn, r.tokensOut, r.ms, r.cost, r.projectId",
+        ),
+      }),
+    });
+    expect(((await res.json()) as { rows: unknown[][] }).rows).toEqual([
+      [itemId, "intake", "exit", "vendor/model-y", "openrouter", 13000, 400, 29400, 0, project.id],
+    ]);
+
+    // A Run needs its model and endpoint.
+    const bare = await step(agentHeaders(project.id), {
+      itemId,
+      step: "exit",
+      text: "x",
+      final: true,
+    });
+    expect(bare.status).toBe(400);
+  });
+
   it("refuses a bad request: 400 for a missing header or a long text, 401 for the UI token", async () => {
     const project = await create();
     const itemId = await intakeItem(project.id);

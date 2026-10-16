@@ -156,7 +156,16 @@ describe("store", () => {
       }),
     );
     expect(store.getState().runLog.I1).toEqual([
-      { itemId: "I1", agent: "discovery", step: "think", text: "Thinking", at: 1 },
+      {
+        itemId: "I1",
+        agent: "discovery",
+        step: "think",
+        text: "Thinking",
+        model: null,
+        tokens: 0,
+        ms: 0,
+        at: 1,
+      },
     ]);
     expect(store.getState().toasts.map((t) => t.text)).toEqual(["write_fact · source: No source."]);
 

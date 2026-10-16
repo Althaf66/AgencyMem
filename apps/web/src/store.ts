@@ -47,7 +47,16 @@ export type GraphData = {
   /** The query time of the last view; null for All. */
   ms: number | null;
 };
-export type RunStep = { itemId: string; agent: string; step: string; text: string; at: number };
+export type RunStep = {
+  itemId: string;
+  agent: string;
+  step: string;
+  text: string;
+  model: string | null;
+  tokens: number;
+  ms: number;
+  at: number;
+};
 export type Toast = { id: number; text: string };
 
 export type AppState = {
@@ -288,13 +297,23 @@ export function createAppStore(api: Api): AppStore {
         if (event.seq > get().graph.seq && GRAPH_EVENTS.includes(event.type)) reloadGraph();
         if (!fresh) return;
         if (event.type === "run.step") {
-          const { itemId, agent, step, text } = event.data;
+          const { itemId, agent, step, text, model, tokens, ms } = event.data;
           set((s) => ({
             runLog: {
               ...s.runLog,
               [itemId]: [
                 ...(s.runLog[itemId] ?? []),
-                { itemId, agent, step, text, at: event.at },
+                // Older events may lack the numbers; they show as none.
+                {
+                  itemId,
+                  agent,
+                  step,
+                  text,
+                  model: model ?? null,
+                  tokens: tokens ?? 0,
+                  ms: ms ?? 0,
+                  at: event.at,
+                },
               ].slice(-RUN_LOG),
             },
           }));

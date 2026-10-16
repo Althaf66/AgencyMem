@@ -26,7 +26,17 @@ say({
 
 if (mode === "ok") {
   process.stdout.write("not json\n");
-  say({ type: "tool_use", part: { tool: "bash", state: { status: "completed" } } });
+  say({
+    type: "tool_use",
+    part: { tool: "agencymem_get_task_context", state: { status: "completed" } },
+  });
+  say({
+    type: "tool_use",
+    part: {
+      tool: "bash",
+      state: { status: "completed", input: { command: "npm test" }, metadata: { exit: 0 } },
+    },
+  });
   step("tool-calls", 10, 2);
   step("stop", 5, 2);
   process.exit(0);

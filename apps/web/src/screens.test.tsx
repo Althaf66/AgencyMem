@@ -113,6 +113,9 @@ describe("screen states", () => {
                 agent: "discovery",
                 step: "think",
                 text: "Reading 3 documents",
+                model: null,
+                tokens: 0,
+                ms: 0,
                 at: 1,
               },
             ],
@@ -539,6 +542,44 @@ describe("graph panel", () => {
     path: why,
     ms: 3,
   };
+
+  it("shows the build run's steps under the card, each with agent, text, model, tokens and ms", () => {
+    const card = cardView();
+    const step = (text: string, extra = {}) => ({
+      itemId: card.id,
+      agent: "build",
+      step: "tool",
+      text,
+      model: null,
+      tokens: 0,
+      ms: 0,
+      at: 1,
+      ...extra,
+    });
+    const html = renderToString(
+      <CardDrawer
+        s={state({
+          runLog: {
+            [card.id]: [
+              step("Called get_task_context"),
+              step("Run finished (exit 0, 29 s)", {
+                model: "vendor/model-y",
+                tokens: 13400,
+                ms: 29400,
+              }),
+            ],
+          },
+        })}
+        card={card}
+        close={() => {}}
+      />,
+    );
+    expect(html).toContain("build: Called get_task_context");
+    expect(html).toContain(
+      "build: Run finished (exit 0, 29 s) · vendor/model-y · 13400 tokens · 29400 ms",
+    );
+    expect(html.indexOf("Called get_task_context")).toBeLessThan(html.indexOf("Run finished"));
+  });
 
   it("opens a card's path to the client's words from the card drawer", () => {
     const html = renderToString(<CardDrawer s={state({})} card={cardView()} close={() => {}} />);

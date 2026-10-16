@@ -4,6 +4,7 @@
 import express, { type Router } from "express";
 import { RunStepBody } from "@agencymem/contracts";
 import { readQuery, type FalkorDB } from "@agencymem/graph";
+import { writeRun } from "@agencymem/memory";
 import type { Events } from "../events/bus";
 import { rejectAndCount, tenancy } from "../mcp/guards";
 import { bindSession } from "../mcp/session";
@@ -23,14 +24,6 @@ export function runsRouter(deps: { db: () => Promise<FalkorDB>; events: Events }
     // bindSession("agent") always binds an agent; anything else is a bug, answered 500 by onError.
     if (bound.binding.kind !== "agent") throw new Error("route 30 bound a non-agent session");
     const { agent, projectId, graph } = bound.binding;
-    if (body.data.final) {
-      // A final step also writes a Run node; the build workers that send it arrive in task 4.6.
-      return sendError(res, {
-        code: "INTERNAL",
-        reason: "final steps are not built yet (task 4.6).",
-      });
-    }
-
     // Tenancy: the item (a WorkItem or a Task) belongs to the header's project.
     const db = await deps.db();
     const [row] = await readQuery<{ n: { properties: { projectId?: string } }; label: string }>(
@@ -52,7 +45,26 @@ export function runsRouter(deps: { db: () => Promise<FalkorDB>; events: Events }
       return sendError(res, await rejectAndCount(db, projectId, foreign, at));
     }
 
-    const { itemId, step, text, model, tokensIn, tokensOut, ms } = body.data;
+    const { itemId, step, text, model, endpoint, tokensIn, tokensOut, ms, cost } = body.data;
+    if (body.data.final) {
+      // A build worker's last step also writes the run's one Run node (agent-prompts.md section 11).
+      if (!model || !endpoint) {
+        return sendError(res, {
+          code: "VALIDATION_FAILED",
+          reason: "A final step needs its model and endpoint.",
+        });
+      }
+      const run = {
+        step,
+        model,
+        endpoint,
+        tokensIn: tokensIn ?? 0,
+        tokensOut: tokensOut ?? 0,
+        ms: ms ?? 0,
+        cost: cost ?? 0,
+      };
+      await writeRun({ db, graph, projectId }, { itemId, agent, run, now: Date.now() });
+    }
     deps.events.emit(projectId, "run.step", {
       itemId,
       agent,

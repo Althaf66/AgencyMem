@@ -212,7 +212,16 @@ export function CardDrawer(props: { s: AppState; card: CardView; close: () => vo
           <h3>Run log</h3>
           <ol className="run-log">
             {log.map((step, i) => (
-              <li key={i}>{`${step.agent}: ${step.text}`}</li>
+              <li key={i}>
+                {[
+                  `${step.agent}: ${step.text}`,
+                  step.model,
+                  step.tokens ? `${step.tokens} tokens` : null,
+                  step.ms ? `${step.ms} ms` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </li>
             ))}
           </ol>
         </section>

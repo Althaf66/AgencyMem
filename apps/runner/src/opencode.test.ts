@@ -49,7 +49,13 @@ describe("runOpenCode", () => {
     });
 
     expect(result).toMatchObject({ reason: "exit", exitCode: 0, tokens: { input: 15, output: 4 } });
-    expect(events.map((e) => e.type)).toEqual(["args", "tool_use", "step_finish", "step_finish"]);
+    expect(events.map((e) => e.type)).toEqual([
+      "args",
+      "tool_use",
+      "tool_use",
+      "step_finish",
+      "step_finish",
+    ]);
     expect(events[0]!.argv).toEqual([
       "run",
       "--dir",
