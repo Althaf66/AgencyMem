@@ -202,3 +202,70 @@ export async function writeHandoff(
   const item = toItem(rows[0]);
   return item ? { item, reportId: report?.id ?? null } : null;
 }
+
+/**
+ * Ends a build run on a card: `done` to Done with a merge item (T19), `failed` to Ready with
+ * attempts + 1 and `note`. Null when the caller's lease is gone, or (done) a build commit newer
+ * than `latest` arrived after the evidence check.
+ */
+export async function completeTask(
+  ctx: Ctx,
+  input: {
+    taskId: string;
+    workerId: string;
+    outcome: "done" | "failed";
+    note: string | null;
+    /** The build commit the evidence guard checked (done only). */
+    latest: { id: string; committedAt: number; createdAt: number } | null;
+    now: number;
+  },
+): Promise<{
+  key: string;
+  from: Column;
+  to: Column;
+  version: number;
+  mergeItemId: string | null;
+} | null> {
+  const rows = await writeQuery<{
+    key: string;
+    fromColumn: Column;
+    toColumn: Column;
+    version: number;
+    mergeItemId: string | null;
+  }>(ctx.db, ctx.graph, "write/complete-task", {
+    projectId: ctx.projectId,
+    taskId: input.taskId,
+    workerId: input.workerId,
+    outcome: input.outcome,
+    now: input.now,
+    latestId: input.latest?.id ?? null,
+    latestAt: input.latest?.committedAt ?? null,
+    latestCreatedAt: input.latest?.createdAt ?? null,
+    note: input.note === null ? null : input.note.slice(0, 500), // Task.note is at most 500
+    itemId: ulid(),
+    createdBy: "build",
+  });
+  const row = rows[0];
+  return row
+    ? {
+        key: row.key,
+        from: row.fromColumn,
+        to: row.toColumn,
+        version: row.version,
+        mergeItemId: row.mergeItemId,
+      }
+    : null;
+}
+
+/** Writes a reason onto the card (an evidence rejection). Returns the new version, or null. */
+export async function setTaskNote(
+  ctx: Ctx,
+  input: { taskId: string; note: string },
+): Promise<number | null> {
+  const rows = await writeQuery<{ version: number }>(ctx.db, ctx.graph, "write/task-note", {
+    projectId: ctx.projectId,
+    taskId: input.taskId,
+    note: input.note.slice(0, 500),
+  });
+  return rows[0]?.version ?? null;
+}

@@ -2,6 +2,7 @@ import type { ToolInput, ToolName } from "@agencymem/contracts";
 import { claimItemTool } from "./claim-item";
 import { claimTaskTool } from "./claim-task";
 import { completeItemTool } from "./complete-item";
+import { completeTaskTool } from "./complete-task";
 import type { Outcome, ToolCtx } from "./common";
 import { findImpactTool } from "./find-impact";
 import { getTaskContextTool } from "./get-task-context";
@@ -29,6 +30,7 @@ export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   get_task_context: getTaskContextTool,
   heartbeat: heartbeatTool,
   complete_item: completeItemTool,
+  complete_task: completeTaskTool,
   recall_context: recallContextTool,
   write_handoff: writeHandoffTool,
   write_fact: writeFactTool,

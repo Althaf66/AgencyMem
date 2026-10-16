@@ -23,6 +23,8 @@ export { writeVersioned, type PropValue } from "./versioned";
 export {
   claimItem,
   claimTask,
+  completeTask,
+  setTaskNote,
   complete,
   expireLeases,
   openItem,
