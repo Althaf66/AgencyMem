@@ -471,3 +471,116 @@ tr.episodes ul {
     grid-template-columns: 1fr;
   }
 }
+
+.chip.info {
+  color: var(--info);
+  border-color: var(--info);
+}
+.progress {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.progress .row,
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.metric-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+.agent-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+}
+.board-grid {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.board-grid td {
+  vertical-align: top;
+  border: 1px solid var(--border);
+  padding: 4px;
+}
+.board-grid th[scope="row"] {
+  width: 96px;
+}
+.card {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  margin-bottom: 4px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.card .chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.card-title {
+  font-size: 14px;
+}
+.lane-Frontend {
+  border-left-color: var(--accent);
+}
+.lane-Backend {
+  border-left-color: #0e7490;
+}
+.lane-UI {
+  border-left-color: #c026d3;
+}
+.lane-Tests {
+  border-left-color: #ca8a04;
+}
+.lane-Deployment {
+  border-left-color: #475569;
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, 100vw);
+  overflow-y: auto;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+.drawer-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.card-edit,
+.criteria li {
+  display: grid;
+  gap: 8px;
+}
+.cr-dialog {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+}
+@media (max-width: 800px) {
+  .board-grid {
+    table-layout: auto;
+  }
+}

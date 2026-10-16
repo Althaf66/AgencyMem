@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { Board } from "./board/Board";
 import { Docs } from "./docs/Docs";
 import { Gates } from "./gates/Gates";
 import { Files } from "./intake/Files";
@@ -20,6 +21,7 @@ export function App({ store }: { store: AppStore }) {
   return (
     <Shell store={store} route={route}>
       {route.screen === "projects" && <Projects store={store} />}
+      {route.screen === "board" && <Board store={store} />}
       {route.screen === "files" && <Files store={store} />}
       {route.screen === "questions" && <Questionnaire store={store} />}
       {route.screen === "gates" && <Gates store={store} />}

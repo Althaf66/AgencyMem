@@ -109,6 +109,17 @@ export async function recordChangeRequestTool(
       reason: "cancel",
     });
   }
+  // One line for the person who asked (ui.md: the toast "CR-1 flagged 3 cards and 2 sections").
+  const key = typeof cr.output.key === "string" ? cr.output.key : "The change request";
+  ctx.events.emit(projectId, "node.written", {
+    label: "ChangeRequest",
+    id: input.crId,
+    version: Number(cr.output.version) + 1,
+    summary:
+      crStatus === "applied"
+        ? `${key} flagged ${tasks.length} cards and ${sections.length} sections`
+        : `${key}: ${crStatus.replace("_", " ")}`,
+  });
   return ok({
     newFactIds: written.newFactIds,
     flagged: { taskIds: tasks.map((t) => t.id), docSectionIds: sections.map((s) => s.id) },

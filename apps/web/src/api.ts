@@ -3,6 +3,8 @@
 // tests pass the gateway URL and the token in `headers`.
 import {
   AnswerResponse,
+  BoardResponse,
+  ChangeRequestResponse,
   ChatResponse,
   CreateProjectResponse,
   DocResponse,
@@ -14,9 +16,14 @@ import {
   GetProjectResponse,
   ListProjectsResponse,
   NodeResponse,
+  PatchTaskResponse,
+  ProgressMetricResponse,
+  ProgressView,
   QuestionsResponse,
+  RetryItemResponse,
   UploadFilesResponse,
   type Doc,
+  type Lane,
   type Mode,
   type Rejection,
 } from "@agencymem/contracts";
@@ -98,9 +105,31 @@ export function createApi(opts: ApiOptions) {
     features: (id: string) => call(FeaturesResponse, "GET", `/api/projects/${id}/features`),
     chat: (project: string, body: { text: string; docSectionId?: string }) =>
       call(ChatResponse, "POST", "/api/chat", { body, project }),
+    board: (id: string) => call(BoardResponse, "GET", `/api/projects/${id}/board`),
+    progress: (id: string) => call(ProgressView, "GET", `/api/projects/${id}/progress`),
+    progressMetric: (id: string, metric: string) =>
+      call(ProgressMetricResponse, "GET", `/api/projects/${id}/progress/${metric}`),
+    patchTask: (project: string, taskId: string, body: TaskPatch & { version: number }) =>
+      call(PatchTaskResponse, "PATCH", `/api/tasks/${taskId}`, { body, project }),
+    retry: (project: string, itemId: string) =>
+      call(RetryItemResponse, "POST", `/api/items/${itemId}/retry`, { body: {}, project }),
+    changeRequest: (id: string, text: string) =>
+      call(ChangeRequestResponse, "POST", `/api/projects/${id}/change-requests`, {
+        body: { text },
+      }),
   };
 }
 
+/** What a person may change on a card (route 13, stage-machine.md section 6). */
+export type TaskPatch = {
+  title?: string;
+  description?: string;
+  lane?: Lane;
+  order?: number;
+  column?: "Backlog" | "Ready" | "Rework";
+  criteria?: { key: string; text: string; testIds: string[] }[];
+  unblock?: true;
+};
 export type AnswerInput = { version: number; accept: boolean; text?: string };
 export type DecisionInput = { version: number; decision: "approve" | "reject"; reason?: string };
 export type Api = ReturnType<typeof createApi>;

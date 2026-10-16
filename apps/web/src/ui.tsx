@@ -38,6 +38,7 @@ export function SliceView<T>(props: {
 
 const TONE: Record<string, string> = {
   approved: "ok",
+  passing: "ok",
   confirmed: "ok",
   processed: "ok",
   answered: "ok",
@@ -47,6 +48,7 @@ const TONE: Record<string, string> = {
   pending: "warn",
   stale: "warn",
   rejected: "danger",
+  failing: "danger",
   failed: "danger",
   no_text: "danger",
 };

@@ -3,19 +3,24 @@
 // a label it shows; nothing on screen changes without a gateway event or a snapshot.
 import { createStore, type StoreApi } from "zustand/vanilla";
 import type {
+  BoardResponse,
+  CardView,
   Doc,
   DocResponse,
   DocumentInfo,
   Envelope,
   FeatureView,
   GateView,
+  ItemView,
   Mode,
+  ProgressMetricResponse,
+  ProgressView,
   ProjectInfo,
   QuestionView,
   Rejection,
   ServerMessage,
 } from "@agencymem/contracts";
-import type { Api, Result } from "./api";
+import type { Api, Result, TaskPatch } from "./api";
 
 export type Slice<T> = {
   data: T | null;
@@ -23,7 +28,11 @@ export type Slice<T> = {
   status: "idle" | "loading" | "ready" | "error";
   error: Rejection | null;
 };
-export type SliceName = "project" | "documents" | "questions" | "gates" | "docs" | "features";
+export type SliceName =
+  "project" | "documents" | "questions" | "gates" | "docs" | "features" | "board" | "progress";
+export type Board = Omit<BoardResponse, "seq">;
+export type Progress = Omit<ProgressView, "seq">;
+export type MetricNode = ProgressMetricResponse["nodes"][number];
 /** The three documents of route 20, without their seq. */
 export type Docs = Record<Doc, Omit<DocResponse, "seq">>;
 export type RunStep = { itemId: string; agent: string; step: string; text: string; at: number };
@@ -38,6 +47,8 @@ export type AppState = {
   gates: Slice<GateView[]>;
   docs: Slice<Docs>;
   features: Slice<FeatureView[]>;
+  board: Slice<Board>;
+  progress: Slice<Progress>;
   /** The last 50 run steps per work item. */
   runLog: Record<string, RunStep[]>;
   toasts: Toast[];
@@ -62,6 +73,14 @@ export type AppState = {
   decide(gate: GateView, decision: "approve" | "reject", reason?: string): Promise<boolean>;
   /** Route 21: the reply line saying where the text went, or null after a rejection (a toast). */
   chat(text: string, docSectionId?: string): Promise<string | null>;
+  /** Route 13 with the version the card shows; false after a rejection (a toast). */
+  patchTask(card: CardView, patch: TaskPatch): Promise<boolean>;
+  /** Route 31: a blocked item back to open. */
+  retry(item: ItemView): Promise<boolean>;
+  /** Route 22: the new CR's key, or null after a rejection (a toast). */
+  changeRequest(text: string): Promise<string | null>;
+  /** Route 15: the nodes behind one number of the progress header. */
+  progressList(metric: string): Promise<MetricNode[] | null>;
   toast(text: string): void;
   dismiss(id: number): void;
 };
@@ -75,6 +94,8 @@ export const SLICES: SliceName[] = [
   "gates",
   "docs",
   "features",
+  "board",
+  "progress",
 ];
 const DOCS: Doc[] = ["prd", "tdd", "plan"];
 // The labels a document section renders: a write to one changes the documents.
@@ -94,8 +115,10 @@ const RUN_LOG = 50;
 /** The slices an event makes stale. There is no stage event, so item and gate events re-read the
  * project (its stage). */
 function staleSlices(event: Envelope): SliceName[] {
-  if (event.type === "gate.changed") return ["gates", "project"];
+  if (event.type === "gate.changed") return ["gates", "project", "progress"];
   if (event.type === "doc.stale") return ["docs"];
+  if (event.type === "task.moved" || event.type === "task.edited") return ["board", "progress"];
+  if (event.type === "lease.changed") return ["board"];
   if (event.type !== "node.written") return [];
   if (DESIGN.includes(event.data.label)) return ["docs"];
   switch (event.data.label) {
@@ -104,14 +127,20 @@ function staleSlices(event: Envelope): SliceName[] {
       return ["features", "docs"];
     case "Document":
       return ["documents"];
-    case "Question":
     case "Assumption":
+      return ["questions", "gates", "progress"];
+    case "Question":
     case "Episode":
     case "Contradiction":
       return ["questions", "gates"];
     case "WorkItem":
+      return ["project", "gates", "board"];
     case "Gate":
       return ["project", "gates"];
+    case "Task":
+    case "AcceptanceCriterion":
+    case "TestCase":
+      return ["board", "progress"];
     default:
       return [];
   }
@@ -159,6 +188,8 @@ export function createAppStore(api: Api): AppStore {
       gates: empty(),
       docs: empty(),
       features: empty(),
+      board: empty(),
+      progress: empty(),
       runLog: {},
       toasts: [],
       connection: "closed",
@@ -195,6 +226,8 @@ export function createAppStore(api: Api): AppStore {
           gates: empty(),
           docs: empty(),
           features: empty(),
+          board: empty(),
+          progress: empty(),
           runLog: {},
           lastSeq: 0,
         });
@@ -231,6 +264,14 @@ export function createAppStore(api: Api): AppStore {
               ].slice(-RUN_LOG),
             },
           }));
+        }
+        // record_change_request sums up what a CR flagged (ui.md: "CR-1 flagged 3 cards and ...").
+        if (
+          event.type === "node.written" &&
+          event.data.label === "ChangeRequest" &&
+          !event.data.summary.endsWith(" open")
+        ) {
+          get().toast(event.data.summary);
         }
         if (event.type === "write.rejected") {
           // ui.md asks for the item key; the event names only the tool (see the 2.8 doc notes).
@@ -280,7 +321,43 @@ export function createAppStore(api: Api): AppStore {
         }
         return result.data.route === "doc_revision"
           ? "Sent to the Architect as a revision"
-          : "Recorded as a change request";
+          : `Recorded as change request ${result.data.crKey ?? ""}`.trim();
+      },
+
+      async patchTask(card, patch) {
+        const id = get().projectId;
+        if (!id) return false;
+        const result = await api.patchTask(id, card.id, { version: card.version, ...patch });
+        return result.ok || rejected(result.error, "board");
+      },
+
+      async retry(item) {
+        const id = get().projectId;
+        if (!id) return false;
+        const result = await api.retry(id, item.id);
+        return result.ok || rejected(result.error, "board");
+      },
+
+      async changeRequest(text) {
+        const id = get().projectId;
+        if (!id) return null;
+        const result = await api.changeRequest(id, text);
+        if (!result.ok) {
+          get().toast(result.error.reason);
+          return null;
+        }
+        return result.data.crKey;
+      },
+
+      async progressList(metric) {
+        const id = get().projectId;
+        if (!id) return null;
+        const result = await api.progressMetric(id, metric);
+        if (!result.ok) {
+          get().toast(result.error.reason);
+          return null;
+        }
+        return result.data.nodes;
       },
 
       toast(text) {
@@ -318,6 +395,18 @@ async function snapshot(
     case "gates": {
       const r = await api.gates(id);
       return r.ok ? { ok: true, data: { seq: r.data.seq, data: r.data.gates } } : r;
+    }
+    case "board": {
+      const r = await api.board(id);
+      if (!r.ok) return r;
+      const { seq, ...board } = r.data;
+      return { ok: true, data: { seq, data: board } };
+    }
+    case "progress": {
+      const r = await api.progress(id);
+      if (!r.ok) return r;
+      const { seq, ...progress } = r.data;
+      return { ok: true, data: { seq, data: progress } };
     }
     case "features": {
       const r = await api.features(id);

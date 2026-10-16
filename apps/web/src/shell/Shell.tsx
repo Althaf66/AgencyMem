@@ -59,6 +59,67 @@ function ActorField() {
   );
 }
 
+/** stage-machine.md section 7: change requests from G2 approval until the project closes. */
+const CR_STAGES: readonly Stage[] = ["design", "planning", "build", "e2e", "launch", "maintenance"];
+
+/** The top bar's "Change request" button and its dialog (route 22). */
+export function ChangeRequestButton({ s }: { s: AppState }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const stage = s.project.data?.stage;
+  const allowed = stage !== undefined && CR_STAGES.includes(stage);
+  if (!open) {
+    return (
+      <button
+        type="button"
+        disabled={!allowed}
+        title={
+          allowed
+            ? undefined
+            : stage === "case_study" || stage === "closed"
+              ? "The project is closed; it takes no change requests."
+              : "Change requests start once the proposal is approved (G2)."
+        }
+        onClick={() => setOpen(true)}
+      >
+        Change request
+      </button>
+    );
+  }
+  return (
+    <form
+      className="cr-dialog"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setBusy(true);
+        void s.changeRequest(text.trim()).then((key) => {
+          setBusy(false);
+          if (!key) return;
+          s.toast(`Recorded as change request ${key}`);
+          setText("");
+          setOpen(false);
+        });
+      }}
+    >
+      <textarea
+        required
+        maxLength={2000}
+        value={text}
+        placeholder="What should change?"
+        aria-label="Change request text"
+        onChange={(e) => setText(e.target.value)}
+      />
+      <button type="submit" className="primary" disabled={!text.trim() || busy}>
+        Send
+      </button>
+      <button type="button" onClick={() => setOpen(false)}>
+        Cancel
+      </button>
+    </form>
+  );
+}
+
 function Toasts({ s }: { s: AppState }) {
   return (
     <div className="toasts" role="status">
@@ -88,10 +149,12 @@ export function Shell(props: { store: AppStore; route: Route; children: ReactNod
         </a>
         {projectId && <span className="project">{s.project.data?.name ?? "…"}</span>}
         {projectId && <StageStepper s={s} />}
+        {projectId && <ChangeRequestButton s={s} />}
         <ActorField />
       </header>
       {projectId && (
         <nav className="sidenav">
+          {nav("board", "Board")}
           {nav("files", "Files")}
           {nav("questions", "Questions")}
           {nav("docs", "Docs", "docs/prd")}

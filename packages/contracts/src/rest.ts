@@ -308,6 +308,7 @@ export const BoardResponse = z.object({
   items: z.array(ItemView),
   seq: Seq,
 });
+export type BoardResponse = z.infer<typeof BoardResponse>;
 // 13 PATCH /api/tasks/:id
 export const PatchTaskBody = z.object({
   version: Version,
@@ -333,6 +334,7 @@ export const ProgressMetricResponse = z.object({
     z.object({ label: NodeLabel, id: Id, key: z.string().optional(), title: z.string() }),
   ),
 });
+export type ProgressMetricResponse = z.infer<typeof ProgressMetricResponse>;
 // 16 GET /api/projects/:id/graph: query string values arrive as text
 export const GraphQuery = z.object({
   focus: Id.optional(),

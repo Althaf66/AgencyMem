@@ -73,7 +73,7 @@ export function ProjectsView({ s }: { s: AppState }) {
               {projects.map((p) => (
                 <tr key={p.id}>
                   <td>
-                    <a href={`#/p/${p.id}/files`}>{p.name}</a>
+                    <a href={`#/p/${p.id}`}>{p.name}</a>
                   </td>
                   <td>{p.clientName}</td>
                   <td>{p.mode}</td>

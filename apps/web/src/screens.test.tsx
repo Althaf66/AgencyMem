@@ -3,15 +3,32 @@
 // closed drop zone after intake.
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import type { FeatureView, GateView, ProjectInfo, QuestionView } from "@agencymem/contracts";
+import type {
+  CardView,
+  FeatureView,
+  GateView,
+  ItemView,
+  ProjectInfo,
+  QuestionView,
+} from "@agencymem/contracts";
 import type { Api } from "./api";
+import { BoardView } from "./board/Board";
+import { CardDrawer } from "./board/CardDrawer";
 import { DocsView } from "./docs/Docs";
 import { GatesView } from "./gates/Gates";
 import { FilesView } from "./intake/Files";
 import { ProjectsView } from "./projects/Projects";
 import { QuestionnaireView, SourcePair } from "./questionnaire/Questionnaire";
-import { StageStepper } from "./shell/Shell";
-import { createAppStore, type AppState, type Docs, type Slice } from "./store";
+import { ChangeRequestButton, StageStepper } from "./shell/Shell";
+import { parseHash } from "./shell/router";
+import {
+  createAppStore,
+  type AppState,
+  type Board,
+  type Docs,
+  type Progress,
+  type Slice,
+} from "./store";
 
 const base = createAppStore({} as Api).getState();
 const ready = <T,>(data: T): Slice<T> => ({ data, seq: 1, status: "ready", error: null });
@@ -278,5 +295,187 @@ describe("documents", () => {
     // No DOM here, so no DOMPurify: the Markdown shows as text, never as unchecked HTML.
     expect(html).toContain("**Lotus** clinic books online.");
     expect(html).not.toContain("<strong>Lotus");
+  });
+});
+
+const cardView = (over: Partial<CardView> = {}): CardView => ({
+  id: "01JA00000000000000000000T1",
+  key: "CARD-01",
+  title: "Seed the clinic",
+  description: "Writes the seed.",
+  lane: "Backend",
+  column: "Backlog",
+  order: 10,
+  kind: "build",
+  version: 2,
+  attempts: 0,
+  blocked: false,
+  note: null,
+  leaseHolder: null,
+  leaseUntil: null,
+  testStatus: "none",
+  commits: [],
+  rework: false,
+  crIds: [],
+  crKeys: [],
+  requirementKey: "REQ-01",
+  dependsOn: [],
+  criteria: [
+    {
+      id: "K1",
+      key: "AC-01-1",
+      text: "Given, when, then.",
+      testIds: ["home-page"],
+      testCaseCount: 0,
+    },
+  ],
+  gate: null,
+  mergedSha: null,
+  ...over,
+});
+const boardOf = (cards: CardView[], items: ItemView[] = []): Board => ({
+  columns: ["Backlog", "Ready", "In progress", "Testing", "Done", "Rework"],
+  lanes: ["Frontend", "Backend", "UI", "Tests", "Deployment"],
+  cards,
+  items,
+});
+const progress: Progress = {
+  stage: "build",
+  gates: [{ key: "G3", status: "approved" }],
+  lanes: [
+    { lane: "Frontend", done: 0, total: 1 },
+    { lane: "Backend", done: 1, total: 3 },
+    { lane: "UI", done: 0, total: 0 },
+    { lane: "Tests", done: 0, total: 0 },
+    { lane: "Deployment", done: 0, total: 0 },
+  ],
+  coverage: { covered: 0, total: 2 },
+  openAssumptions: 1,
+  openDefects: 0,
+};
+
+describe("board", () => {
+  it("says the cards come after G3 while there are none", () => {
+    const html = renderToString(
+      <BoardView s={state({ board: ready(boardOf([])), progress: ready(progress) })} />,
+    );
+    expect(html).toContain("Cards appear after the documents are approved (G3).");
+  });
+
+  it("draws six columns by five lanes, and a card face with its chips", () => {
+    const leased = cardView({
+      column: "In progress",
+      leaseHolder: "build-1",
+      leaseUntil: Date.now() + 7 * 60_000 + 30_000,
+      testStatus: "pending",
+      commits: [
+        { sha: "a".repeat(40), message: "m", committedAt: 1, linked: true },
+        { sha: "b".repeat(40), message: "m", committedAt: 2, linked: true },
+      ],
+    });
+    const reworked = cardView({
+      id: "01JA00000000000000000000T2",
+      key: "CARD-02",
+      lane: "Frontend",
+      column: "Rework",
+      rework: true,
+      crIds: ["C1"],
+      crKeys: ["CR-1"],
+      blocked: true,
+    });
+    const html = renderToString(
+      <BoardView
+        s={state({ board: ready(boardOf([leased, reworked])), progress: ready(progress) })}
+      />,
+    );
+    for (const name of ["Backlog", "Ready", "In progress", "Testing", "Done", "Rework"]) {
+      expect(html).toContain(`<th>${name}</th>`);
+    }
+    for (const lane of ["Frontend", "Backend", "UI", "Tests", "Deployment"]) {
+      expect(html).toContain(`<th scope="row">${lane}</th>`);
+    }
+    expect(html).toContain("lane-Backend");
+    expect(html).toContain("build-1 · 7 min left");
+    expect(html).toContain('<span class="chip warn">pending</span>');
+    expect(html).toContain("2 commits");
+    expect(html).toContain("Rework · CR-1");
+    expect(html).toContain('<span class="chip danger">Blocked</span>');
+  });
+
+  it("makes every progress number a button, and puts Retry on a blocked item", () => {
+    const blocked = {
+      id: "01JA00000000000000000000W1",
+      kind: "replan",
+      agent: "planner",
+      status: "blocked",
+      leaseOwner: null,
+      leaseUntil: null,
+      attempts: 3,
+      lastStep: "model unavailable",
+      doneAt: null,
+    } as ItemView;
+    const html = renderToString(
+      <BoardView
+        s={state({ board: ready(boardOf([cardView()], [blocked])), progress: ready(progress) })}
+      />,
+    );
+    expect(html).toMatch(/<button[^>]*>Backend 1\/3<\/button>/);
+    expect(html).toMatch(/<button[^>]*>Coverage 0\/2<\/button>/);
+    expect(html).toMatch(/<button[^>]*>Open assumptions 1<\/button>/);
+    expect(html).toContain("planner: replan blocked");
+    expect(html).toMatch(/<button[^>]*>Retry<\/button>/);
+  });
+
+  it("offers only the moves the rules allow, and names the rule of a refused one", () => {
+    const backlog = renderToString(<CardDrawer s={state({})} card={cardView()} close={() => {}} />);
+    expect(backlog).toMatch(/<button[^>]*disabled[^>]*>Move to Ready<\/button>/);
+    expect(backlog).toContain("H2: every criterion needs a TestCase first (AC-01-1).");
+    expect(backlog).not.toContain("Reopen");
+    const done = renderToString(
+      <CardDrawer s={state({})} card={cardView({ column: "Done" })} close={() => {}} />,
+    );
+    expect(done).toMatch(/<button[^>]*>Reopen<\/button>/);
+    const ready = renderToString(
+      <CardDrawer s={state({})} card={cardView({ column: "Ready" })} close={() => {}} />,
+    );
+    expect(ready).toMatch(/<button[^>]*>Park in Backlog<\/button>/);
+    const blocked = renderToString(
+      <CardDrawer s={state({})} card={cardView({ blocked: true, attempts: 2 })} close={() => {}} />,
+    );
+    expect(blocked).toMatch(/<button[^>]*>Unblock<\/button>/);
+    const covered = [{ ...cardView().criteria[0]!, testCaseCount: 1 }];
+    const fix = renderToString(
+      <CardDrawer
+        s={state({})}
+        card={cardView({
+          kind: "fix",
+          criteria: covered,
+          gate: { id: "01JA00000000000000000000G6", key: "G6", status: "waiting" },
+        })}
+        close={() => {}}
+      />,
+    );
+    expect(fix).toContain("H2: a fix card needs its G6 approved first.");
+  });
+});
+
+describe("routes", () => {
+  it("opens a project on its board, and keeps the other screens", () => {
+    expect(parseHash("#/p/01JA0000000000000000000001")).toEqual({
+      screen: "board",
+      projectId: "01JA0000000000000000000001",
+    });
+    expect(parseHash("#/p/01JA0000000000000000000001/gates")).toMatchObject({ screen: "gates" });
+    expect(parseHash("#/p/01JA0000000000000000000001/docs/tdd")).toMatchObject({ doc: "tdd" });
+    expect(parseHash("#/")).toEqual({ screen: "projects" });
+  });
+
+  it("enables the Change request button from G2 approval until the project closes", () => {
+    const at = (stage: string) =>
+      renderToString(
+        <ChangeRequestButton s={state({ project: ready({ id: "P", stage } as ProjectInfo) })} />,
+      );
+    expect(at("proposal")).toMatch(/<button[^>]*disabled[^>]*>Change request<\/button>/);
+    expect(at("planning")).not.toMatch(/disabled/);
   });
 });

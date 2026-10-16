@@ -1,7 +1,7 @@
 // The store's event rules (ui.md section 4) against a stub api: which snapshot an event reloads,
 // that an event no newer than a slice is ignored, reset, toasts, and an old version.
 import { describe, expect, it, vi } from "vitest";
-import type { Envelope, QuestionView } from "@agencymem/contracts";
+import type { CardView, Envelope, ItemView, QuestionView } from "@agencymem/contracts";
 import { createApi, type Api } from "./api";
 import { connectLive } from "./live";
 import { createAppStore } from "./store";
@@ -22,6 +22,12 @@ function stubApi(seq = { value: 5 }) {
     gates: () => ok("gates", { gates: [] }),
     doc: (_id: string, doc: string) => ok("doc", { doc, sections: [], designVersion: 0 }),
     features: () => ok("features", { features: [] }),
+    board: () => ok("board", { columns: [], lanes: [], cards: [], items: [] }),
+    progress: () => ok("progress", { stage: "build", gates: [], lanes: [] }),
+    patchTask: vi.fn(),
+    retry: vi.fn(),
+    changeRequest: vi.fn(),
+    progressMetric: vi.fn(),
     answer: vi.fn(),
     chat: vi.fn(),
   } as unknown as Api;
@@ -42,12 +48,14 @@ describe("store", () => {
     await store.getState().open(P);
     await store.getState().open(P); // opening it again loads nothing more
     expect(calls.sort()).toEqual([
+      "board",
       "doc",
       "doc",
       "doc",
       "documents",
       "features",
       "gates",
+      "progress",
       "project",
       "questions",
     ]);
@@ -76,7 +84,7 @@ describe("store", () => {
     store.getState().receive(event(8, "gate.changed", { gateKey: "G1" }));
     store.getState().receive(event(9, "node.written", { label: "Document" }));
     await tick();
-    expect(calls.sort()).toEqual(["documents", "gates", "project"]);
+    expect(calls.sort()).toEqual(["documents", "gates", "progress", "project"]);
   });
 
   it("ignores another project's events, and reloads everything on reset", async () => {
@@ -98,12 +106,14 @@ describe("store", () => {
     store.getState().receive({ type: "reset", projectId: P, seq: 20 });
     await tick();
     expect(calls.sort()).toEqual([
+      "board",
       "doc",
       "doc",
       "doc",
       "documents",
       "features",
       "gates",
+      "progress",
       "project",
       "questions",
     ]);
@@ -180,6 +190,76 @@ describe("store", () => {
   });
 });
 
+describe("board", () => {
+  it("reloads the board and progress on card events, and the board on leases and items", async () => {
+    const { api, calls, seq } = stubApi();
+    const store = createAppStore(api);
+    await store.getState().open(P);
+    expect(store.getState().board.data).toMatchObject({ cards: [], items: [] });
+    calls.length = 0;
+    seq.value = 7;
+    store.getState().receive(event(6, "task.moved", { taskId: "T1", key: "CARD-01" }));
+    await tick();
+    expect(calls.sort()).toEqual(["board", "progress"]);
+    calls.length = 0;
+    seq.value = 8;
+    store.getState().receive(event(8, "lease.changed", { itemId: "T1", reason: "cancel" }));
+    await tick();
+    expect(calls).toEqual(["board"]);
+  });
+
+  it("edits a card with the version it shows; an old version says so and reloads the board", async () => {
+    const { api, calls } = stubApi();
+    const store = createAppStore(api);
+    await store.getState().open(P);
+    calls.length = 0;
+    vi.mocked(api.patchTask).mockResolvedValue({
+      ok: false,
+      error: {
+        code: "GUARD_REJECTED",
+        guard: "version",
+        reason: "old",
+        details: { reasonCode: "VERSION_OLD" },
+      },
+    });
+    const card = { id: "T1", version: 4 } as CardView;
+    expect(await store.getState().patchTask(card, { title: "Book" })).toBe(false);
+    expect(api.patchTask).toHaveBeenCalledWith(P, "T1", { version: 4, title: "Book" });
+    await tick();
+    expect(store.getState().toasts.map((t) => t.text)).toEqual(["Changed on another screen"]);
+    expect(calls).toEqual(["board"]);
+  });
+
+  it("retries a blocked item, records a change request, and toasts what a CR flagged", async () => {
+    const { api } = stubApi();
+    const store = createAppStore(api);
+    await store.getState().open(P);
+    vi.mocked(api.retry).mockResolvedValue({ ok: true, data: { item: {} } } as never);
+    expect(await store.getState().retry({ id: "W1" } as ItemView)).toBe(true);
+    expect(api.retry).toHaveBeenCalledWith(P, "W1");
+    vi.mocked(api.changeRequest).mockResolvedValue({
+      ok: true,
+      data: { crId: "C1", crKey: "CR-1", episodeId: "E1", workItemId: "W2" },
+    });
+    expect(await store.getState().changeRequest("Slots are 30 minutes.")).toBe("CR-1");
+    expect(api.changeRequest).toHaveBeenCalledWith(P, "Slots are 30 minutes.");
+    store.getState().receive(
+      event(40, "node.written", {
+        label: "ChangeRequest",
+        summary: "CR-1 flagged 3 cards and 2 sections",
+      }),
+    );
+    expect(store.getState().toasts.map((t) => t.text)).toContain(
+      "CR-1 flagged 3 cards and 2 sections",
+    );
+    // The CR's own creation ("CR-2 open") is not a result to announce.
+    store
+      .getState()
+      .receive(event(41, "node.written", { label: "ChangeRequest", summary: "CR-2 open" }));
+    expect(store.getState().toasts.map((t) => t.text)).not.toContain("CR-2 open");
+  });
+});
+
 describe("documents", () => {
   it("holds the three documents in one slice; doc.stale and design writes reload it", async () => {
     const { api, calls, seq } = stubApi();
@@ -225,9 +305,17 @@ describe("documents", () => {
 
     vi.mocked(api.chat).mockResolvedValue({
       ok: true,
-      data: { episodeId: "E2", route: "change_request", workItemId: "W2", crId: "C1" },
+      data: {
+        episodeId: "E2",
+        route: "change_request",
+        workItemId: "W2",
+        crId: "C1",
+        crKey: "CR-2",
+      },
     });
-    expect(await store.getState().chat("Add a waiting list.")).toBe("Recorded as a change request");
+    expect(await store.getState().chat("Add a waiting list.")).toBe(
+      "Recorded as change request CR-2",
+    );
     expect(api.chat).toHaveBeenLastCalledWith(P, { text: "Add a waiting list." });
 
     vi.mocked(api.chat).mockResolvedValue({

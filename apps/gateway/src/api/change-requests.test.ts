@@ -380,6 +380,12 @@ describe("Done when: with 24 cards and a fact linked to 3, exactly those 3 move 
       owner: null,
       reason: "cancel",
     });
+    // The last event sums it up for the person who asked (ui.md, the toast).
+    expect(sent.at(-1)!.data).toMatchObject({
+      label: "ChangeRequest",
+      id: crId,
+      summary: "CR-1 flagged 3 cards and 2 sections",
+    });
 
     // C2: the done item opens architect_revise (with the CR text) and replan for this CR.
     const done = await call(agent, "complete_item", { itemId, outcome: "done", runs: [] });
