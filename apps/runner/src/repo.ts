@@ -2,7 +2,7 @@
 // <WORKSPACES_DIR>/<projectId>/repo, one "chore: starter" commit, then the post-commit hook. Every
 // step is safe to run again, so a crash half-way is finished by the next call.
 import { execFile } from "node:child_process";
-import { chmod, copyFile, cp, mkdir, readFile, appendFile } from "node:fs/promises";
+import { appendFile, chmod, copyFile, cp, mkdir, readFile, rename, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -88,4 +88,47 @@ export async function ensureRepo(
   const missing = EXCLUDED.filter((name) => !listed.includes(name));
   if (missing.length) await appendFile(exclude, `\n${missing.join("\n")}\n`);
   return repo;
+}
+
+/**
+ * Posts the commits the hook logged while the gateway was down (contracts.md section 9). The log is
+ * first renamed, so a hook that appends meanwhile (this worker's or another's in the same project)
+ * starts a fresh one; lines to try again are appended back. Only a line the gateway can never take
+ * (400 bad body, 404 unknown project) is dropped; anything else, a wrong token (401) included, is
+ * kept, so a config mistake loses no commit.
+ */
+export async function replayPending(
+  repo: string,
+  gw: { gatewayUrl: string; hookToken: string },
+): Promise<{ sent: number; kept: number }> {
+  const log = join(repo, ".git", "am-pending.log");
+  const replaying = `${log}.replaying`; // also what a crashed replay left behind
+  if (existsSync(log)) {
+    // rename is atomic: a hook appending now starts a fresh log instead of losing its line.
+    const taken = `${log}.${process.pid}`;
+    await rename(log, taken);
+    await appendFile(replaying, await readFile(taken, "utf8"));
+    await rm(taken, { force: true });
+  }
+  if (!existsSync(replaying)) return { sent: 0, kept: 0 };
+  const lines = (await readFile(replaying, "utf8")).split(/\r?\n/).filter((l) => l.trim());
+  const kept: string[] = [];
+  let sent = 0;
+  for (const line of lines) {
+    const status = await fetch(`${gw.gatewayUrl}/hooks/commit`, {
+      method: "POST",
+      headers: { "X-AM-Token": gw.hookToken, "Content-Type": "application/json" },
+      body: line,
+    }).then(
+      (r) => r.status,
+      () => 0, // unreachable
+    );
+    if (status >= 200 && status < 300) sent += 1;
+    else if (status === 400 || status === 404) {
+      console.warn(`runner: the gateway refused a logged commit for good (${status}); dropped`);
+    } else kept.push(line);
+  }
+  if (kept.length > 0) await appendFile(log, `${kept.join("\n")}\n`);
+  await rm(replaying, { force: true });
+  return { sent, kept: kept.length };
 }

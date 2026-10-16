@@ -31,3 +31,4 @@ export {
   type RenewResult,
 } from "./workboard";
 export { writeRun } from "./runs";
+export { recordCommit, type RecordedCommit } from "./code-changes";

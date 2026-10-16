@@ -18,6 +18,7 @@ import { listProjects, projectsRouter } from "./api/projects";
 import { queryRouter } from "./api/query";
 import { tasksRouter } from "./api/tasks";
 import { questionsRouter } from "./api/questions";
+import { hooksRouter } from "./api/hooks";
 import { runsRouter } from "./api/runs";
 import { requireToken, tokenMatches } from "./auth";
 import { createEvents, type Events } from "./events/bus";
@@ -117,7 +118,7 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
     tasksRouter({ db, events }),
     notFound,
   );
-  app.use("/hooks", requireToken(hook), notFound);
+  app.use("/hooks", requireToken(hook), express.json(), hooksRouter({ db, events }), notFound);
   const mcp = mcpRouter({
     agentToken: agent,
     db,
