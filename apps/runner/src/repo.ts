@@ -17,8 +17,15 @@ const EXCLUDED = ["AGENTS.md", "opencode.json"];
 
 const git = (cwd: string, ...args: string[]) => run("git", args, { cwd });
 
+/**
+ * WORKSPACES_DIR as a full path. A relative value is read from the AgencyMem root, where .env
+ * lives, not from the folder an app runs in (pnpm dev starts the runner in apps/runner), so the
+ * default ../agencymem-workspaces is a sibling of the repository.
+ */
+export const workspacesPath = (dir: string): string => resolve(AGENCYMEM_ROOT, dir);
+
 /** True when `path` is the AgencyMem repository or inside it. */
-function insideAgencyMem(path: string): boolean {
+export function insideAgencyMem(path: string): boolean {
   const rel = relative(AGENCYMEM_ROOT, path);
   return !rel.startsWith("..") && !isAbsolute(rel);
 }
@@ -39,7 +46,7 @@ export async function ensureRepo(
   projectId: string,
   opts: { workspacesDir: string; install?: boolean },
 ): Promise<string> {
-  const repo = resolve(opts.workspacesDir, Id.parse(projectId), "repo"); // no "../" in the path
+  const repo = resolve(workspacesPath(opts.workspacesDir), Id.parse(projectId), "repo"); // no "../" in the path
   if (insideAgencyMem(repo)) {
     throw new Error(`WORKSPACES_DIR ${opts.workspacesDir} is inside the AgencyMem repository`);
   }

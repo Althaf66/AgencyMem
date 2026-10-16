@@ -9,6 +9,7 @@ import { lstat, rm, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { CardKey, Id } from "@agencymem/contracts";
+import { workspacesPath } from "./repo";
 
 const run = promisify(execFile);
 const git = (cwd: string, ...args: string[]) => run("git", args, { cwd });
@@ -20,7 +21,7 @@ type Options = { workspacesDir: string; install?: boolean };
 /** The paths of one card. Both ids are checked first, so no "../" reaches the disk. */
 function paths(projectId: string, cardKey: string, opts: Options) {
   const key = CardKey.parse(cardKey);
-  const project = resolve(opts.workspacesDir, Id.parse(projectId));
+  const project = resolve(workspacesPath(opts.workspacesDir), Id.parse(projectId));
   const repo = join(project, "repo");
   if (!existsSync(join(repo, ".git")))
     throw new Error(`No repository at ${repo}; ensureRepo makes it.`);
