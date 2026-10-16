@@ -72,6 +72,8 @@ export const Project = Stamped.extend({
   rejectedClaims: Count,
   rejectedCompletions: Count,
   rejectedQueries: Count,
+  /** The last backtrace query time (route 19), for the health panel (task 5.6). */
+  backtraceMs: maybe(z.number().nonnegative()),
 });
 export type Project = z.infer<typeof Project>;
 

@@ -30,6 +30,8 @@ const fresh: StageState = {
   buildBlockers: 0,
   lastE2e: null,
   g5: null,
+  unopenedBugs: [],
+  approvedFixes: [],
 };
 const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
 const intakeDone = (over: Partial<StageState> = {}): StageState => ({
@@ -807,6 +809,53 @@ rows.push(
     "startup leaves launch alone while G5 waits",
     merged({ stage: "launch", g5: "waiting" }),
     { type: "startup" },
+    { effects: [] },
+  ],
+);
+
+// T24 and T26 (task 5.3): a bug report opens maintenance; G6 approved opens the fix card's tests.
+const BUG = "01JA00000000000000000000B1";
+const FIX = "01JA00000000000000000000X1";
+const maintaining = (over: Partial<StageState> = {}) =>
+  merged({ stage: "maintenance", g5: "approved", ...over });
+const openMaintenance = (createdBy: Actor) =>
+  ({ type: "open_item", kind: "maintenance", subjectId: BUG, createdBy }) as const;
+rows.push(
+  [
+    "T24 a bug report: opens maintenance for its Episode",
+    maintaining(),
+    { type: "bug_reported", episodeId: BUG, actor: ana },
+    { effects: [openMaintenance(ana)] },
+  ],
+  [
+    "startup repairs a missed T24: a bug_report Episode with no maintenance item",
+    maintaining({ unopenedBugs: [{ episodeId: BUG, createdBy: ana }] }),
+    { type: "startup" },
+    { effects: [openMaintenance(ana)] },
+  ],
+  [
+    "T26 G6 approved: opens write_tests for the fix card",
+    maintaining(),
+    { type: "gate_decided", key: "G6", decision: "approve", taskId: FIX, actor: ana },
+    { effects: [{ type: "open_item", kind: "write_tests", subjectId: FIX, createdBy: ana }] },
+  ],
+  [
+    "startup repairs a missed T26: an approved G6 whose fix card got no write_tests item",
+    maintaining({ approvedFixes: [{ taskId: FIX, createdBy: ana }] }),
+    { type: "startup" },
+    { effects: [{ type: "open_item", kind: "write_tests", subjectId: FIX, createdBy: ana }] },
+  ],
+  [
+    "T27 G6 rejected: nothing more (the route wrote the Defect and the card note)",
+    maintaining(),
+    {
+      type: "gate_decided",
+      key: "G6",
+      decision: "reject",
+      reason: "Not a bug.",
+      taskId: FIX,
+      actor: ana,
+    },
     { effects: [] },
   ],
 );

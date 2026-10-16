@@ -2,7 +2,7 @@
 // new stage and the effects to run. No I/O. Transitions arrive with the tasks that need them:
 // T1 and T2 (task 2.2), T3 (task 2.5), T5 to T7 (task 2.7), T8 to T10 (task 3.2), C1 and C2
 // (task 3.3), T12 (task 3.4), T11, T13 and T14 (task 3.5), T15 (task 3.6), T16 (task 3.8), H3
-// and C3 (task 3.9), T20, T21 and T30 (task 5.1), T23 (task 5.2).
+// and C3 (task 3.9), T20, T21 and T30 (task 5.1), T23 (task 5.2), T24 and T26 (task 5.3).
 import type {
   Actor,
   ChangeRequestStatus,
@@ -78,6 +78,10 @@ export type StageState = {
   lastE2e: WorkItemStatus | null;
   /** T23's repair. T22 needs no effect: the gate route reads whether G5 is decidable. */
   g5: GateStatus | null;
+  /** bug_report Episodes with no maintenance item (startup repair of T24). */
+  unopenedBugs: { episodeId: Id; createdBy: Actor }[];
+  /** Fix cards whose G6 is approved but that got no write_tests item since (repair of T26). */
+  approvedFixes: { taskId: Id; createdBy: Actor }[];
 };
 
 type GateState = {
@@ -108,11 +112,15 @@ export type StageEvent =
   /** T12: route 21 before G3 wrote the human_edit Episode; `note` names the section, if any. */
   | { type: "chat"; episodeId: Id; note: string; actor: Actor }
   | { type: "question_answered"; episodeId: Id; actor: Actor }
+  /** T24: route 28 wrote the bug_report Episode. */
+  | { type: "bug_reported"; episodeId: Id; actor: Actor }
   | {
       type: "gate_decided";
       key: GateKey;
       decision: "approve" | "reject";
       reason?: string;
+      /** G6 only: the fix card it guards (T26). */
+      taskId?: Id;
       actor: Actor;
     }
   | { type: "startup" };
@@ -251,6 +259,21 @@ const startLaunch: StageResult = {
   stage: "launch",
   effects: [{ type: "open_item", kind: "launch", subjectId: null, createdBy: "test" }],
 };
+
+const openMaintenance = (episodeId: Id, createdBy: Actor): Effect => ({
+  type: "open_item",
+  kind: "maintenance",
+  subjectId: episodeId,
+  createdBy,
+});
+
+// T26: the Test agent writes the specs of the fix card G6 approved.
+const fixTests = (taskId: Id, createdBy: Actor): Effect => ({
+  type: "open_item",
+  kind: "write_tests",
+  subjectId: taskId,
+  createdBy,
+});
 
 // T23: deployed; bug reports are allowed from now (T24).
 const deployed: StageResult = { stage: "maintenance", effects: [] };
@@ -398,6 +421,10 @@ export function next(state: StageState, event: StageEvent): StageResult {
     case "change_request_created":
       return { effects: [applyChangeRequest(event.crId, event.actor)] };
 
+    // T24: Maintenance links the report to the commit that caused it.
+    case "bug_reported":
+      return { effects: [openMaintenance(event.episodeId, event.actor)] };
+
     // T5: the answer route has written the answer; Intake turns it into facts.
     case "question_answered":
       return {
@@ -429,6 +456,10 @@ export function next(state: StageState, event: StageEvent): StageResult {
       if (event.key === "G3" && event.decision === "approve") return startPlanning(event.actor);
       // T23: the route wrote the approval and the Deployment in one query.
       if (event.key === "G5" && event.decision === "approve") return deployed;
+      // T26: the Test agent writes the fix card's specs. T27 (reject): the route wrote it all.
+      if (event.key === "G6" && event.decision === "approve" && event.taskId) {
+        return { effects: [fixTests(event.taskId, event.actor)] };
+      }
       return { effects: [] };
 
     // Rule 3: repair what a crash between a write and its effects left half done.
@@ -439,6 +470,8 @@ export function next(state: StageState, event: StageEvent): StageResult {
         effects.push({ type: "create_gates", keys: missing, createdBy: state.createdBy });
       // ponytail: the repaired note is the episode's text; the section name the route added is lost.
       for (const e of state.unopenedEdits) effects.push(revise(e.episodeId, e.text, e.createdBy));
+      for (const b of state.unopenedBugs) effects.push(openMaintenance(b.episodeId, b.createdBy));
+      for (const f of state.approvedFixes) effects.push(fixTests(f.taskId, f.createdBy));
       for (const cr of state.changeRequests) {
         if (!cr.hasItem) effects.push(applyChangeRequest(cr.id, cr.createdBy));
         else if (cr.itemDone) effects.push(...followUps(cr));

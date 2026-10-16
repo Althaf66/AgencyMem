@@ -78,6 +78,11 @@ export async function setStage(
   return rows.length > 0;
 }
 
+/** Route 19: the last backtrace query time on the Project (approved decision 5, task 5.6). */
+export async function setBacktraceMs(db: FalkorDB, projectId: string, ms: number): Promise<void> {
+  await writeQuery(db, REGISTRY_GRAPH, "write/backtrace-ms", { projectId, ms });
+}
+
 /**
  * Test cleanup only: deletes a test client's graph (`client_<clientId>`) and removes the client and
  * its Projects from the registry. Only clients named `test-client-*` are removed.

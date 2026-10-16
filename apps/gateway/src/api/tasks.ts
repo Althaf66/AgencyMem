@@ -37,6 +37,8 @@ type BoardRow = {
   crs: [string, string, number][];
   commits: { sha: string; message: string; committedAt: number; linked: boolean }[];
   criteria: CardView["criteria"];
+  /** A fix card's G6 (task 5.3). */
+  gate: CardView["gate"];
   runs: { passed: boolean; ranAt: number }[];
 };
 
@@ -75,7 +77,7 @@ function toCard(row: BoardRow): CardView {
     requirementKey: row.requirementKey,
     dependsOn: row.dependsOn,
     criteria: [...row.criteria].sort((a, b) => a.key.localeCompare(b.key)),
-    gate: null, // a fix card's G6 (task 5.3)
+    gate: row.gate ?? null,
     mergedSha: t.mergedSha ?? null,
   });
 }
@@ -138,8 +140,9 @@ export function tasksRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
     });
   });
 
-  // 13. PATCH /api/tasks/:id with X-AM-Project. Guards: tenancy, evidence (H2), version. A move the
-  // rules do not allow from the card's column is VALIDATION_FAILED, like H7.
+  // 13. PATCH /api/tasks/:id with X-AM-Project. Guards: tenancy, gate (H2 of a fix card), version,
+  // evidence (H2). A move the rules do not allow from the card's column is VALIDATION_FAILED, like
+  // H7.
   router.patch("/tasks/:id", async (req, res) => {
     const actor = personActor(req);
     if (!actor) return sendError(res, MISSING_ACTOR);
@@ -162,6 +165,20 @@ export function tasksRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
     const foreign = edit.criteria?.find((k) => !k.key.startsWith(own));
     if (foreign) {
       return sendError(res, invalid(`H3: ${foreign.key} is not a criterion of ${String(t.key)}.`));
+    }
+    // H2 for a fix card: its G6 must be approved first (stage-machine.md section 6). The gate
+    // guard runs before the version guard (AGENTS.md rule 8).
+    if (edit.column === "Ready" && t.kind === "fix") {
+      const [card] = await readCards(db, graph, projectId, String(t.id));
+      if (card?.gate?.status !== "approved") {
+        const refused = reject(
+          "gate",
+          "GATE_NOT_APPROVED",
+          `H2: ${String(t.key)} is a fix card; approve its G6 first.`,
+          { gateKey: "G6", status: card?.gate?.status ?? null },
+        );
+        return sendError(res, await rejectAndCount(db, projectId, refused, at));
+      }
     }
     // AGENTS.md rule 8: the version guard runs before the evidence guard (H2).
     const stale = version(edit.version, Number(t.version));

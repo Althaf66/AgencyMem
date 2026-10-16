@@ -14,12 +14,19 @@ export { createGates, reopenGate, writeDocument, type EpisodeInput } from "./doc
 export { supersedeFacts, writeFacts, type EntityWrite, type FactWrite } from "./facts";
 export { flagImpact, type Flagged } from "./impact";
 export { writeProduct, type FeatureWrite, type RequirementWrite } from "./product";
-export { countRejection, createProject, deleteTestClient, setStage } from "./projects";
+export {
+  countRejection,
+  createProject,
+  deleteTestClient,
+  setBacktraceMs,
+  setStage,
+} from "./projects";
 export { answerQuestion, writeQuestions, type QuestionWrite } from "./questions";
 export { applySchema, type SchemaName } from "./schema";
 export { seedBoardForTest } from "./test-seed";
 export { recordTestRuns, writeTests, type TestCaseWrite, type TestResult } from "./tests";
-export { approveDeploy } from "./gates";
+export { approveDeploy, rejectFix } from "./gates";
+export { proposeFix, reportDefect, writeBugReport } from "./defects";
 export { writeVersioned, type PropValue } from "./versioned";
 export {
   claimItem,

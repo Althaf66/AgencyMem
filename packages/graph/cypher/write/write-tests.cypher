@@ -2,9 +2,8 @@
 // 1. Every case's criterion is a criterion of the Task; else no row and nothing is written.
 // 2. Each case's TestCase MERGEs on (projectId, file), gets its title and version + 1, and VERIFIES
 //    its AcceptanceCriterion.
-// 3. When every criterion of a build Task now has a TestCase and the card is in Backlog or Rework,
-//    the card moves to Ready (version + 1).
-// ponytail: fix cards (Ready only once their G6 is approved) arrive with task 5.3.
+// 3. When every criterion of the Task now has a TestCase and the card is in Backlog or Rework,
+//    the card moves to Ready (version + 1); a fix card only once its G6 is approved (T26).
 MATCH (t:Task {projectId: $projectId, id: $taskId})
 OPTIONAL MATCH (t)-[:HAS_CRITERION]->(k:AcceptanceCriterion)
 WITH t.column AS before, collect(k.key) AS keys
@@ -26,7 +25,11 @@ CALL {
   OPTIONAL MATCH (k)<-[:VERIFIES]-(x:TestCase)
   WITH t, k, count(x) AS tests
   WITH t, min(tests) AS fewest
-  FOREACH (_ IN CASE WHEN fewest > 0 AND t.kind = 'build' AND t.column IN ['Backlog', 'Rework']
+  // FalkorDB: after an aggregation, a property filter on g here matches nothing (gotcha 10).
+  OPTIONAL MATCH (g:Gate)-[:GUARDS]->(t)
+  WITH t, fewest, sum(CASE WHEN g.status = 'approved' THEN 1 ELSE 0 END) AS approved
+  FOREACH (_ IN CASE WHEN fewest > 0 AND (t.kind = 'build' OR approved > 0)
+    AND t.column IN ['Backlog', 'Rework']
     THEN [1] ELSE [] END | SET t.column = 'Ready', t.version = t.version + 1)
   RETURN t.column AS after, t.version AS version
 }

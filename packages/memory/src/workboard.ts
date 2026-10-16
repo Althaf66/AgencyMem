@@ -294,6 +294,8 @@ export async function completeTask(
   to: Column;
   version: number;
   mergeItemId: string | null;
+  /** A fix card's Defect, now fixed (approved decision 7). */
+  fixed: { id: string; version: number } | null;
 } | null> {
   const rows = await writeQuery<{
     key: string;
@@ -301,6 +303,8 @@ export async function completeTask(
     toColumn: Column;
     version: number;
     mergeItemId: string | null;
+    fixedDefectId: string | null;
+    defectVersion: number | null;
   }>(ctx.db, ctx.graph, "write/complete-task", {
     projectId: ctx.projectId,
     taskId: input.taskId,
@@ -322,6 +326,7 @@ export async function completeTask(
         to: row.toColumn,
         version: row.version,
         mergeItemId: row.mergeItemId,
+        fixed: row.fixedDefectId ? { id: row.fixedDefectId, version: row.defectVersion! } : null,
       }
     : null;
 }

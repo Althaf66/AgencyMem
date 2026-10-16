@@ -2,7 +2,8 @@
 // G1 is decidable when a discovery item is done and no Question is open; G2 when a proposal item is
 // done and none is open or claimed; G3 when an architect item is done and no architect or
 // architect_revise item is open or claimed; G5 when the newest launch item is done and a
-// ReadinessReport exists (T22), with whether the newest report passed (task 5.2).
+// ReadinessReport exists (T22), with whether the newest report passed (task 5.2). A G6 has the fix
+// card it GUARDS (task 5.3).
 OPTIONAL MATCH (w:WorkItem {projectId: $projectId, kind: 'discovery', status: 'done'})
 WITH count(w) AS discoveryDone
 OPTIONAL MATCH (q:Question {projectId: $projectId, status: 'open'})
@@ -29,6 +30,7 @@ OPTIONAL MATCH (lr:ReadinessReport {projectId: $projectId, createdAt: reportAt})
 WITH discoveryDone, openQuestions, proposalDone, proposalOpen, architectDone, architectOpen,
   lastLaunch, collect(lr.passed)[0] AS reportPassed
 MATCH (g:Gate {projectId: $projectId})
+OPTIONAL MATCH (g)-[:GUARDS]->(t:Task)
 RETURN g, discoveryDone, openQuestions, proposalDone, proposalOpen, architectDone, architectOpen,
-  lastLaunch, reportPassed
+  lastLaunch, reportPassed, t.id AS taskId, t.key AS taskKey, t.title AS taskTitle
 ORDER BY g.key, g.createdAt

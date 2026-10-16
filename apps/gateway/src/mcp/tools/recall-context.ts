@@ -372,6 +372,39 @@ export async function recallContextTool(
     }));
   }
 
+  // agent-prompts.md section 8: the bug report, the product, every card with its criteria, the
+  // linked commits and the design.
+  if (item.kind === "maintenance" && item.subjectId) {
+    const report = await findOwn(ctx, item.subjectId, "Episode");
+    if (report.ok) {
+      context.defect = { reportEpisodeId: item.subjectId, text: String(report.output.text) };
+    }
+    context.requirements = (await currentProduct()).requirements;
+    context.tasks = await readQuery<Ctx["tasks"][number]>(ctx.db, graph, "read/task", {
+      projectId,
+      taskId: null,
+    });
+    const changes = await readQuery<NonNullable<Context["codeChanges"]>[number]>(
+      ctx.db,
+      graph,
+      "read/code-change",
+      { projectId, id: null },
+    );
+    context.codeChanges = changes
+      .filter((c) => c.linked)
+      .map((c) => ({
+        id: c.id,
+        sha: c.sha,
+        branch: c.branch,
+        taskKey: c.taskKey,
+        files: c.files,
+        message: c.message,
+        committedAt: c.committedAt,
+        linked: c.linked,
+      }));
+    context.design = await readDesign(ctx.db, graph, projectId);
+  }
+
   // A merge item reads its card: the runner merges card/<key>.
   if (item.kind === "merge" && item.subjectId) {
     context.tasks = await readQuery<Ctx["tasks"][number]>(ctx.db, graph, "read/task", {

@@ -1,6 +1,6 @@
 // Routes 10, 11 and 27 of contracts.md section 8: the gates snapshot, a decision on one gate, and the
 // readiness report. G1 (stage-machine.md T6), G2 (T9, T10), G3 (T13, T14) and G5 (T22, T23) are
-// decided here; G6 arrives with task 5.3.
+// decided here, and each fix card's G6 (T26, T27).
 import express, { type Router } from "express";
 import {
   GateDecisionBody,
@@ -11,16 +11,14 @@ import {
   type GateStatus,
 } from "@agencymem/contracts";
 import { readQuery, type FalkorDB } from "@agencymem/graph";
-import { approveDeploy, writeVersioned } from "@agencymem/memory";
+import { approveDeploy, rejectFix, writeVersioned } from "@agencymem/memory";
 import type { Events } from "../events/bus";
 import { reject, rejectAndCount, version } from "../mcp/guards";
 import { runStage } from "../stage/effects";
 import { MISSING_ACTOR, headerNode, parseBody, pathProject, personActor, sendError } from "./http";
 
 const DECISION = "POST /api/gates/:id/decision";
-// ponytail: the gates whose rules are not built yet are never decidable; each task replaces its line.
-const LATER: Partial<Record<GateKey, string>> = { G6: "5.3" };
-// stage-machine.md section 5: G1 and G5 cannot be rejected. G6 rejects arrive with task 5.3.
+// stage-machine.md section 5: G1 and G5 cannot be rejected.
 const NO_REJECT: Partial<Record<GateKey, string>> = {
   G1: "G1 cannot be rejected; answer the questions instead.",
   G5: "G5 cannot be rejected; leave it waiting.",
@@ -37,12 +35,16 @@ type Row = {
   /** The newest launch item's status, and whether the newest ReadinessReport passed (G5). */
   lastLaunch: string | null;
   reportPassed: boolean | null;
+  /** G6 only: the fix card it GUARDS. */
+  taskId: string | null;
+  taskKey: string | null;
+  taskTitle: string | null;
 };
 
 /** canDecide and blockedBy from the gate rules (stage-machine.md section 5). */
 function rules(key: GateKey, status: GateStatus, row: Row): string[] {
   if (status !== "waiting") return []; // decided; an approved gate stays approved
-  if (LATER[key]) return [`Not built yet (task ${LATER[key]})`];
+  if (key === "G6") return []; // decidable once its fix card exists, which propose_fix wrote
   if (key === "G2") {
     if (row.proposalOpen > 0) return ["Proposal is still working"];
     return row.proposalDone === 0 ? ["No proposal yet"] : [];
@@ -77,7 +79,7 @@ function toView(row: Row): GateView {
     reason: p.reason ?? null,
     canDecide: status === "waiting" && blockedBy.length === 0,
     blockedBy,
-    task: null, // G6 only (task 5.3)
+    task: row.taskId ? { id: row.taskId, key: row.taskKey, title: row.taskTitle } : null,
   });
 }
 
@@ -132,12 +134,6 @@ export function gatesRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
     const { projectId, graph, props } = found;
     const key = props.key as GateKey;
 
-    if (LATER[key]) {
-      return sendError(res, {
-        code: "INTERNAL",
-        reason: `Deciding ${key} is not built yet (task ${LATER[key]}).`,
-      });
-    }
     const { decision } = body.data;
     const reason = body.data.reason?.trim() || null;
     if (decision === "reject" && NO_REJECT[key]) {
@@ -209,6 +205,30 @@ export function gatesRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
         version: 1,
         summary: `Deployed to ${environment}`,
       });
+    } else if (key === "G6" && decision === "reject") {
+      // T27: the gate, its Defect (wont_fix) and the card's note, in one query.
+      const rejected = await rejectFix(
+        { db, graph, projectId },
+        { gateId: view.id, version: body.data.version, reason: reason!, actor, now: Date.now() },
+      );
+      if (rejected === null) {
+        const refused = reject("version", "VERSION_OLD", `${key} changed on another screen.`);
+        return sendError(res, await rejectAndCount(db, projectId, refused, at));
+      }
+      deps.events.emit(projectId, "task.edited", {
+        taskId: rejected.taskId,
+        fields: ["note"],
+        version: rejected.taskVersion,
+        actor,
+      });
+      if (rejected.defect) {
+        deps.events.emit(projectId, "node.written", {
+          label: "Defect",
+          id: rejected.defect.id,
+          version: rejected.defect.version,
+          summary: `Defect won't be fixed (${rejected.key} rejected)`,
+        });
+      }
     } else {
       const written = await writeVersioned(
         { db, graph, projectId },
@@ -234,6 +254,7 @@ export function gatesRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
         key,
         decision,
         ...(reason ? { reason } : {}),
+        ...(row.taskId ? { taskId: row.taskId } : {}),
         actor,
       });
     } finally {
