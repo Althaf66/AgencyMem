@@ -11,6 +11,7 @@ import { bugReportsRouter } from "./api/bug-reports";
 import { closeRouter } from "./api/close";
 import { changeRequestsRouter } from "./api/change-requests";
 import { docsRouter } from "./api/docs";
+import { evidenceRouter } from "./api/evidence";
 import { featuresRouter } from "./api/features";
 import { filesRouter } from "./api/files";
 import { gatesRouter } from "./api/gates";
@@ -126,6 +127,7 @@ export function createGateway(
     queryRouter({ db, events }),
     tasksRouter({ db, events }),
     metricsRouter({ db, events }),
+    evidenceRouter({ db, events }),
     notFound,
   );
   app.use("/hooks", requireToken(hook), express.json(), hooksRouter({ db, events }), notFound);

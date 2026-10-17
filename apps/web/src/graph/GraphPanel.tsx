@@ -30,13 +30,28 @@ const VIEWS: { view: GraphViewName; name: string; label: string | null }[] = [
 const LIMIT = 500;
 
 /** What the panel reads from the store: it re-renders on these, not on every event or toast. */
-type PanelState = Pick<AppState, "graph" | "projectId" | "node" | "loadGraph">;
+export type PanelState = Pick<AppState, "graph" | "projectId" | "node" | "loadGraph" | "feed">;
 
-function Stage(props: {
+/** How far back a node.written event still pulses its node (ms). */
+const PULSE_WINDOW = 3000;
+
+/** The nodes recent node.written events named, each with the event's time. */
+function pulses(feed: AppState["feed"]): Map<string, number> {
+  const since = Date.now() - PULSE_WINDOW;
+  const out = new Map<string, number>();
+  for (const e of feed) {
+    if (e.type !== "node.written" || e.at < since) continue;
+    for (const id of [e.data.id, ...(e.data.ids ?? [])]) out.set(id, e.at);
+  }
+  return out;
+}
+
+export function GraphStage(props: {
   s: PanelState;
   data: GraphData;
   view: GraphViewName;
   focus: string | null;
+  height?: number;
 }) {
   const { s, data, view, focus } = props;
   const [layout, setLayout] = useState<Layout>(DEFAULT_LAYOUT[view]);
@@ -144,6 +159,8 @@ function Stage(props: {
               reverse={view === "impact"}
               onSelect={setSelected}
               onFocus={(id) => go("why", id)}
+              height={props.height}
+              pulse={pulses(s.feed)}
             />
           </Suspense>
         )}
@@ -179,7 +196,7 @@ export function GraphPanelView(props: {
         empty="No nodes yet. Upload notes to start."
         isEmpty={(d) => d.graph.nodes.length === 0}
       >
-        {(data) => <Stage s={s} data={data} view={view} focus={focus} />}
+        {(data) => <GraphStage s={s} data={data} view={view} focus={focus} />}
       </SliceView>
     </section>
   );
@@ -198,6 +215,7 @@ export function GraphPanel(props: {
       projectId: a.projectId,
       node: a.node,
       loadGraph: a.loadGraph,
+      feed: a.feed,
     })),
   );
   const { view, focus } = props;

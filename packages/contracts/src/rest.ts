@@ -18,6 +18,7 @@ import {
   text,
 } from "./common";
 import { EdgeType } from "./edges";
+import { Envelope } from "./events";
 import {
   AgentId,
   AssumptionStatus,
@@ -411,6 +412,13 @@ export const CloseProjectResponse = z.object({ project: ProjectInfo, workItemId:
 // 31 POST /api/items/:id/retry (with X-AM-Project)
 export const RetryItemBody = z.object({});
 export const RetryItemResponse = z.object({ item: WorkItem });
+
+// Evidence routes (UI token): what the agents did, for the Home feed, Pipeline and card story.
+
+// GET /api/projects/:id/events: the gateway's replay buffer, oldest first (in memory: a gateway
+// restart empties it).
+export const EventsResponse = z.object({ events: z.array(Envelope) });
+export type EventsResponse = z.infer<typeof EventsResponse>;
 
 // Agent token route
 

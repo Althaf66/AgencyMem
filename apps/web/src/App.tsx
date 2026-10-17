@@ -4,6 +4,7 @@ import { Docs } from "./docs/Docs";
 import { Gates } from "./gates/Gates";
 import { GraphPanel } from "./graph/GraphPanel";
 import { Health } from "./health/Health";
+import { Home } from "./home/Home";
 import { Files } from "./intake/Files";
 import { Projects } from "./projects/Projects";
 import { Questionnaire } from "./questionnaire/Questionnaire";
@@ -23,6 +24,7 @@ export function App({ store }: { store: AppStore }) {
   return (
     <Shell store={store} route={route}>
       {route.screen === "projects" && <Projects store={store} />}
+      {route.screen === "home" && <Home store={store} projectId={route.projectId} />}
       {route.screen === "board" && <Board store={store} />}
       {route.screen === "files" && <Files store={store} />}
       {route.screen === "questions" && <Questionnaire store={store} />}

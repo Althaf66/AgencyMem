@@ -1,6 +1,8 @@
 // The questionnaire (ui.md section 5): contradictions first, then open questions, then unclear
-// points. Each card has the five parts; a contradiction shows its two source lines side by side.
+// points. Each card is a dropdown: the question on its face, and inside the five parts, the source
+// lines (a contradiction's two side by side) and the answer buttons.
 import { useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { useStore } from "zustand";
 import type { QuestionKind, QuestionView } from "@agencymem/contracts";
 import type { AppState, AppStore } from "../store";
@@ -40,73 +42,76 @@ function QuestionCard({ q, s }: { q: QuestionView; s: AppState }) {
   const [text, setText] = useState("");
   const [busy, run] = useBusy(q.version);
   return (
-    <article className={`card question ${q.status}`}>
-      <header>
+    <details className={`question ${q.status}`}>
+      <summary>
+        <ChevronRight className="icon chevron" aria-hidden="true" />
         <span className="kind">{q.kind}</span>
         <h3>{q.text}</h3>
         <Chip status={q.status} />
-      </header>
-      <SourcePair question={q} />
-      <dl className="parts">
-        <dt>Recommended</dt>
-        <dd>{q.recommended}</dd>
-        <dt>Reasoning</dt>
-        <dd>{q.reasoning}</dd>
-        <dt>Assumption</dt>
-        <dd>
-          {q.assumption.text} <Chip status={q.assumption.status} />
-        </dd>
-        <dt>Approach</dt>
-        <dd>{q.approach}</dd>
-        {q.answer && (
-          <>
-            <dt>Answer</dt>
-            <dd>
-              {q.answer.text}{" "}
-              <span className="muted">{`${q.answer.actor} · ${time(q.answer.at)}`}</span>
-            </dd>
-          </>
+      </summary>
+      <div className="question-body">
+        <SourcePair question={q} />
+        <dl className="parts">
+          <dt>Recommended</dt>
+          <dd>{q.recommended}</dd>
+          <dt>Reasoning</dt>
+          <dd>{q.reasoning}</dd>
+          <dt>Assumption</dt>
+          <dd>
+            {q.assumption.text} <Chip status={q.assumption.status} />
+          </dd>
+          <dt>Approach</dt>
+          <dd>{q.approach}</dd>
+          {q.answer && (
+            <>
+              <dt>Answer</dt>
+              <dd>
+                {q.answer.text}{" "}
+                <span className="muted">{`${q.answer.actor} · ${time(q.answer.at)}`}</span>
+              </dd>
+            </>
+          )}
+        </dl>
+        {q.status === "open" && !own && (
+          <div className="actions">
+            <button
+              type="button"
+              className="primary"
+              disabled={busy}
+              onClick={() => void run(() => s.answer(q, true))}
+            >
+              Accept recommended
+            </button>
+            <button type="button" onClick={() => setOwn(true)}>
+              Answer differently
+            </button>
+          </div>
         )}
-      </dl>
-      {q.status === "open" && !own && (
-        <div className="actions">
-          <button
-            type="button"
-            className="primary"
-            disabled={busy}
-            onClick={() => void run(() => s.answer(q, true))}
+        {q.status === "open" && own && (
+          <form
+            className="reason"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void run(() => s.answer(q, false, text.trim()));
+            }}
           >
-            Accept recommended
-          </button>
-          <button type="button" onClick={() => setOwn(true)}>
-            Answer differently
-          </button>
-        </div>
-      )}
-      {q.status === "open" && own && (
-        <form
-          className="reason"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void run(() => s.answer(q, false, text.trim()));
-          }}
-        >
-          <textarea
-            required
-            maxLength={2000}
-            value={text}
-            placeholder="Your answer"
-            onChange={(e) => setText(e.target.value)}
-          />
-          <button type="submit" className="primary" disabled={!text.trim() || busy}>
-            Send
-          </button>
-          <button type="button" onClick={() => setOwn(false)}>
-            Cancel
-          </button>
-        </form>
-      )}
-    </article>
+            <textarea
+              required
+              maxLength={2000}
+              value={text}
+              placeholder="Your answer"
+              onChange={(e) => setText(e.target.value)}
+            />
+            <button type="submit" className="primary" disabled={!text.trim() || busy}>
+              Send
+            </button>
+            <button type="button" onClick={() => setOwn(false)}>
+              Cancel
+            </button>
+          </form>
+        )}
+      </div>
+    </details>
   );
 }
 

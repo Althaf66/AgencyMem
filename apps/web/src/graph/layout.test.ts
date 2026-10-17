@@ -2,7 +2,16 @@
 // node size and the delivery filter.
 import { describe, expect, it } from "vitest";
 import type { GraphView } from "@agencymem/contracts";
-import { flowColumn, highlight, hops, linkKey, merge, nodeSize, visible } from "./layout";
+import {
+  flowColumn,
+  highlight,
+  hops,
+  linkKey,
+  merge,
+  nodeSize,
+  provenance,
+  visible,
+} from "./layout";
 
 const node = (id: string, label: string) => ({
   id,
@@ -77,5 +86,40 @@ describe("graph layout", () => {
     expect(hidden.nodes.some((n) => n.id === "W")).toBe(false);
     expect(visible(all, { delivery: true, keep: new Set() }).nodes).toHaveLength(7);
     expect(visible(all, { delivery: false, keep: new Set(["W"]) }).nodes).toHaveLength(7);
+  });
+});
+
+describe("provenance", () => {
+  it("walks a code change back to the document its card came from", () => {
+    const view: GraphView = {
+      nodes: [
+        node("D", "Document"),
+        node("E", "Episode"),
+        node("F", "Fact"),
+        node("R", "Requirement"),
+        node("T", "Task"),
+        node("C", "CodeChange"),
+        node("K", "AcceptanceCriterion"),
+      ],
+      links: [
+        link("E", "PART_OF", "D"),
+        link("F", "SOURCED_FROM", "E"),
+        link("R", "DERIVED_FROM", "F"),
+        link("T", "HAS_CRITERION", "K"), // not upstream
+        link("T", "IMPLEMENTS", "R"),
+        link("C", "FOR_TASK", "T"),
+      ],
+    };
+    expect(provenance(view, "C").map((n) => n.id)).toEqual(["D", "E", "F", "R", "T", "C"]);
+    expect(provenance(view, "D").map((n) => n.id)).toEqual(["D"]);
+    expect(provenance(view, "missing")).toEqual([]);
+  });
+
+  it("stops on a cycle", () => {
+    const view: GraphView = {
+      nodes: [node("A", "Fact"), node("B", "Fact")],
+      links: [link("A", "DERIVED_FROM", "B"), link("B", "DERIVED_FROM", "A")],
+    };
+    expect(provenance(view, "A").map((n) => n.id)).toEqual(["B", "A"]);
   });
 });

@@ -64,6 +64,7 @@ export type GraphData = {
   ms: number | null;
 };
 export type RunStep = {
+  seq: number;
   itemId: string;
   agent: string;
   step: string;
@@ -97,6 +98,8 @@ export type AppState = {
   graph: Slice<GraphData>;
   /** The last 50 run steps per work item. */
   runLog: Record<string, RunStep[]>;
+  /** The last FEED events of the open project, oldest first: the Home activity feed. */
+  feed: Envelope[];
   toasts: Toast[];
   connection: "connecting" | "live" | "closed";
   lastSeq: number;
@@ -175,6 +178,39 @@ const TOAST_MS = 6000;
 const GRAPH_EVENTS = ["node.written", "node.ended", "task.moved"];
 const PATHS = { why: "why", impact: "impact", backtrace: "backtrace" } as const;
 const RUN_LOG = 50;
+const FEED = 300;
+
+/** `a` and `b` as one list, each seq once, in seq order, the newest `cap`. */
+function bySeq<T extends { seq: number }>(a: T[], b: T[], cap: number): T[] {
+  const all = new Map([...a, ...b].map((x) => [x.seq, x]));
+  return [...all.values()].sort((x, y) => x.seq - y.seq).slice(-cap);
+}
+
+function stepOf(event: Extract<Envelope, { type: "run.step" }>): RunStep {
+  const { itemId, agent, step, text, model, tokens, ms } = event.data;
+  // Older events may lack the numbers; they show as none.
+  return {
+    seq: event.seq,
+    itemId,
+    agent,
+    step,
+    text,
+    model: model ?? null,
+    tokens: tokens ?? 0,
+    ms: ms ?? 0,
+    at: event.at,
+  };
+}
+
+/** `runLog` with the run steps among `events` added. */
+function withSteps(runLog: Record<string, RunStep[]>, events: Envelope[]) {
+  const out = { ...runLog };
+  for (const e of events) {
+    if (e.type !== "run.step") continue;
+    out[e.data.itemId] = bySeq(out[e.data.itemId] ?? [], [stepOf(e)], RUN_LOG);
+  }
+  return out;
+}
 
 /** The slices an event makes stale. There is no stage event, so item and gate events re-read the
  * project (its stage). */
@@ -254,6 +290,17 @@ export function createAppStore(api: Api): AppStore {
       else void get().loadGraph(data.view, data.focus);
     }
 
+    /** The gateway's recent events: the feed and run logs a refreshed page would otherwise lose.
+     * Merged by seq, so events the socket delivered meanwhile are not doubled. */
+    async function history(): Promise<void> {
+      const id = get().projectId;
+      if (!id) return;
+      const result = await api.events(id);
+      if (!result.ok || get().projectId !== id) return; // no history is not an error on screen
+      const events = result.data.events;
+      set((s) => ({ feed: bySeq(s.feed, events, FEED), runLog: withSteps(s.runLog, events) }));
+    }
+
     /** A rejected write: the reason as a toast; an old version reloads what it showed. */
     function rejected(error: Rejection, reload: SliceName): false {
       if (error.details?.reasonCode === "VERSION_OLD") {
@@ -281,6 +328,7 @@ export function createAppStore(api: Api): AppStore {
       agencyMetrics: empty(),
       graph: empty(),
       runLog: {},
+      feed: [],
       toasts: [],
       connection: "closed",
       lastSeq: 0,
@@ -323,9 +371,10 @@ export function createAppStore(api: Api): AppStore {
           agencyMetrics: empty(),
           graph: empty(),
           runLog: {},
+          feed: [],
           lastSeq: 0,
         });
-        await Promise.all([...SLICES, ...UNSEQ].map((name) => fetchSlice(name)));
+        await Promise.all([...SLICES, ...UNSEQ].map((name) => fetchSlice(name)).concat(history()));
       },
 
       load: fetchSlice,
@@ -348,28 +397,7 @@ export function createAppStore(api: Api): AppStore {
         }
         if (event.seq > get().graph.seq && GRAPH_EVENTS.includes(event.type)) reloadGraph();
         if (!fresh) return;
-        if (event.type === "run.step") {
-          const { itemId, agent, step, text, model, tokens, ms } = event.data;
-          set((s) => ({
-            runLog: {
-              ...s.runLog,
-              [itemId]: [
-                ...(s.runLog[itemId] ?? []),
-                // Older events may lack the numbers; they show as none.
-                {
-                  itemId,
-                  agent,
-                  step,
-                  text,
-                  model: model ?? null,
-                  tokens: tokens ?? 0,
-                  ms: ms ?? 0,
-                  at: event.at,
-                },
-              ].slice(-RUN_LOG),
-            },
-          }));
-        }
+        set((s) => ({ feed: bySeq(s.feed, [event], FEED), runLog: withSteps(s.runLog, [event]) }));
         // record_change_request sums up what a CR flagged (ui.md: "CR-1 flagged 3 cards and ...").
         if (
           event.type === "node.written" &&

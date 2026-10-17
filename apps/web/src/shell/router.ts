@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Doc } from "@agencymem/contracts";
 
-export type Screen = "board" | "files" | "questions" | "gates" | "health";
+export type Screen = "home" | "board" | "files" | "questions" | "gates" | "health";
 export type GraphViewName = "all" | "why" | "impact" | "backtrace";
 export const GRAPH_VIEWS: GraphViewName[] = ["all", "why", "impact", "backtrace"];
 export type Route =
@@ -15,13 +15,13 @@ export type Route =
 export const graphHash = (projectId: string, view: GraphViewName, focus: string | null) =>
   `#/p/${projectId}/graph?${new URLSearchParams(focus ? { focus, view } : { view }).toString()}`;
 
-const SCREENS: Screen[] = ["board", "files", "questions", "gates", "health"];
+const SCREENS: Screen[] = ["home", "board", "files", "questions", "gates", "health"];
 
 export function parseHash(hash: string): Route {
   const match = /^#\/p\/([0-9A-Za-z]+)(?:\/([a-z]+)(?:\/([a-z]+))?)?/.exec(hash);
   if (!match) return { screen: "projects" };
   const projectId = match[1]!;
-  const screen = match[2] ?? "board"; // the board is a project's default screen (ui.md section 2)
+  const screen = match[2] ?? "home"; // Home is a project's default screen
   if (screen === "docs") {
     const doc = Doc.safeParse(match[3]);
     return { screen, projectId, doc: doc.success ? doc.data : "prd" };

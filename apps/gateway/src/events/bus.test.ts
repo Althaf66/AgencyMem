@@ -31,6 +31,18 @@ describe("event bus", () => {
     expect(events.replay(A, BASE + 5)).toEqual([]);
   });
 
+  it("hands out every buffered event of one project, oldest first, as a copy", () => {
+    const events = createEvents({ now: () => BASE });
+    expect(events.recent(A)).toEqual([]);
+    events.emit(A, "metrics.updated", metric(1));
+    events.emit(B, "metrics.updated", metric(1));
+    events.emit(A, "metrics.updated", metric(2));
+    const recent = events.recent(A);
+    expect(recent.map((e) => e.seq)).toEqual([BASE + 1, BASE + 2]);
+    recent.pop();
+    expect(events.recent(A)).toHaveLength(2);
+  });
+
   it(`keeps the last ${REPLAY_BUFFER} events and resets a client that is further behind`, () => {
     const events = createEvents({ now: () => BASE });
     for (let i = 1; i <= REPLAY_BUFFER + 1; i++) events.emit(A, "metrics.updated", metric(i));

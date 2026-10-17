@@ -1,6 +1,17 @@
-// The shell (ui.md section 2): top bar with the project, the stage stepper and the actor name; the
-// side nav; the status bar with the WebSocket state and the last seq; toasts.
+// The shell (ui.md section 2): the side nav with icons, the top bar with the project, the stage rail
+// and the actor name; the status bar with the WebSocket state and the last seq; toasts.
 import { useState, type ReactNode } from "react";
+import {
+  Activity,
+  FileText,
+  FileUp,
+  House,
+  MessageCircleQuestion,
+  Network,
+  ShieldCheck,
+  SquareKanban,
+  type LucideIcon,
+} from "lucide-react";
 import { useStore } from "zustand";
 import { Stage, type GateKey, type GateStatus } from "@agencymem/contracts";
 import type { AppState, AppStore } from "../store";
@@ -28,8 +39,12 @@ export function StageStepper({ s }: { s: AppState }) {
       {STAGES.map((name, i) => {
         const gate = GATE_AFTER[name];
         return (
-          <li key={name} className={i < now ? "done" : i === now ? "current" : ""}>
-            {name.replace("_", " ")}
+          <li
+            key={name}
+            className={i < now ? "done" : i === now ? "current" : ""}
+            title={name.replace("_", " ")}
+          >
+            <span className="name">{name.replace("_", " ")}</span>
             {gate && (
               <span className={`diamond ${status(gate) ?? ""}`}>
                 {gate}
@@ -48,7 +63,7 @@ function ActorField() {
   const [name, setName] = useState(getActor());
   return (
     <label className="actor">
-      as human:
+      as human
       <input
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -132,35 +147,54 @@ function Toasts({ s }: { s: AppState }) {
   );
 }
 
+const Brand = () => (
+  <a href="#/" className="brand">
+    <span className="logo" aria-hidden="true" />
+    AgencyMem
+  </a>
+);
+
 export function Shell(props: { store: AppStore; route: Route; children: ReactNode }) {
   const s = useStore(props.store);
   const { route } = props;
   const projectId = route.screen === "projects" ? null : route.projectId;
-  const nav = (screen: string, label: string, path = screen) => (
+  const nav = (screen: string, label: string, Icon: LucideIcon, path = screen) => (
     <a href={`#/p/${projectId}/${path}`} className={route.screen === screen ? "active" : ""}>
+      <Icon className="icon" aria-hidden="true" />
       {label}
     </a>
   );
   return (
-    <div className="shell">
+    <div className={projectId ? "shell" : "shell bare"}>
       <header className="topbar">
-        <a href="#/" className="brand">
-          AgencyMem
-        </a>
-        {projectId && <span className="project">{s.project.data?.name ?? "…"}</span>}
+        {!projectId && <Brand />}
+        {projectId && (
+          <span className="project">
+            <span className="muted">{s.project.data?.clientName ?? ""}</span>
+            <strong>{s.project.data?.name ?? "…"}</strong>
+          </span>
+        )}
         {projectId && <StageStepper s={s} />}
         {projectId && <ChangeRequestButton s={s} />}
         <ActorField />
       </header>
       {projectId && (
         <nav className="sidenav">
-          {nav("board", "Board")}
-          {nav("files", "Files")}
-          {nav("questions", "Questions")}
-          {nav("docs", "Docs", "docs/prd")}
-          {nav("gates", "Gates")}
-          {nav("graph", "Graph")}
-          {nav("health", "Health")}
+          <Brand />
+          <span className="eyebrow">Overview</span>
+          {nav("home", "Home", House)}
+          {nav("graph", "Graph", Network)}
+          <span className="eyebrow">Discover</span>
+          {nav("files", "Files", FileUp)}
+          {nav("questions", "Questions", MessageCircleQuestion)}
+          {nav("docs", "Docs", FileText, "docs/prd")}
+          {nav("gates", "Gates", ShieldCheck)}
+          <span className="eyebrow">Deliver</span>
+          {nav("board", "Board", SquareKanban)}
+          {nav("health", "Health", Activity)}
+          <div className="side-foot">
+            <span className={`conn ${s.connection}`}>{s.connection}</span>
+          </div>
         </nav>
       )}
       <main>{props.children}</main>

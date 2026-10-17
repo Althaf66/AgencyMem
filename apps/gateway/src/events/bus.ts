@@ -15,6 +15,8 @@ export type Events = {
   /** The seq of the project's last event: the seq a snapshot read now reflects (C12). */
   current(projectId: string): number;
   replay(projectId: string, since: number): Replay;
+  /** Every event the replay buffer still holds for the project, oldest first. */
+  recent(projectId: string): Envelope[];
 };
 
 /**
@@ -64,6 +66,9 @@ export function createEvents(opts: { now?: () => number } = {}): Events {
       const oldest = buffer[0]?.seq ?? last + 1;
       if (since < oldest - 1) return "reset"; // events between `since` and the buffer are gone
       return buffer.filter((event) => event.seq > since);
+    },
+    recent(projectId) {
+      return [...(buffers.get(projectId) ?? [])];
     },
   };
 }

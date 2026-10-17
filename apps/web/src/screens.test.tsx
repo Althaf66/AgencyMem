@@ -10,6 +10,7 @@ import type {
   FeatureView,
   GateView,
   ItemView,
+  Envelope,
   ProjectInfo,
   QuestionView,
 } from "@agencymem/contracts";
@@ -20,6 +21,7 @@ import { DocsView } from "./docs/Docs";
 import { GatesView } from "./gates/Gates";
 import { GraphPanelView } from "./graph/GraphPanel";
 import { HealthView } from "./health/Health";
+import { HomeView, feedLine, nextStep } from "./home/Home";
 import { FilesView } from "./intake/Files";
 import { ProjectsView } from "./projects/Projects";
 import { QuestionnaireView, SourcePair } from "./questionnaire/Questionnaire";
@@ -111,6 +113,7 @@ describe("screen states", () => {
           runLog: {
             I1: [
               {
+                seq: 1,
                 itemId: "I1",
                 agent: "discovery",
                 step: "think",
@@ -173,6 +176,9 @@ describe("questionnaire", () => {
       expect(html).toContain(`<dt>${part}</dt>`);
     }
     expect(html).toContain("Accept recommended");
+    // Each question is a dropdown: the question on its face, the parts inside, closed at first.
+    expect(html).toMatch(/<details class="question open"><summary>.*Is a slot 20/s);
+    expect(html).not.toContain('<details class="question open" open');
   });
 });
 
@@ -518,7 +524,7 @@ describe("board", () => {
 describe("routes", () => {
   it("opens a project on its board, and keeps the other screens", () => {
     expect(parseHash("#/p/01JA0000000000000000000001")).toEqual({
-      screen: "board",
+      screen: "home",
       projectId: "01JA0000000000000000000001",
     });
     expect(parseHash("#/p/01JA0000000000000000000001/gates")).toMatchObject({ screen: "gates" });
@@ -596,6 +602,7 @@ describe("graph panel", () => {
   it("shows the build run's steps under the card, each with agent, text, model, tokens and ms", () => {
     const card = cardView();
     const step = (text: string, extra = {}) => ({
+      seq: 1,
       itemId: card.id,
       agent: "build",
       step: "tool",
@@ -754,5 +761,71 @@ describe("health panel (task 5.6)", () => {
       />,
     );
     expect(html).toContain("The curve appears after the first project closes.");
+  });
+});
+
+describe("home", () => {
+  const ev = (seq: number, type: string, data: Record<string, unknown>) =>
+    ({ projectId: "P", seq, type, at: 1, data }) as unknown as Envelope;
+
+  it("draws the feed from gateway events, newest first, and skips lease renewals", () => {
+    const html = renderToString(
+      <HomeView
+        s={state({
+          project: ready({ id: "P", stage: "build" } as ProjectInfo),
+          feed: [
+            ev(1, "node.written", {
+              label: "Fact",
+              id: "F1",
+              version: 1,
+              summary: "Slots are 20 min",
+            }),
+            ev(2, "lease.changed", { itemId: "I", owner: "build-1", until: 2, reason: "renew" }),
+            ev(3, "run.step", {
+              itemId: "I",
+              agent: "planner",
+              step: "recall",
+              text: "Read 14 facts",
+              model: null,
+              tokens: 0,
+              ms: 0,
+            }),
+          ],
+        })}
+      />,
+    );
+    expect(html).toContain("planner · recall: Read 14 facts");
+    expect(html).toContain("Fact · Slots are 20 min");
+    expect(html.indexOf("Read 14 facts")).toBeLessThan(html.indexOf("Slots are 20 min"));
+    expect(html).not.toContain("renew");
+    expect(html).toContain('href="#/p/P/graph?focus=F1&amp;view=why"');
+  });
+
+  it("says when nothing has happened yet, and shows the key numbers", () => {
+    const html = renderToString(<HomeView s={state({})} />);
+    expect(html).toContain("Waiting for the agents");
+    expect(html).toContain("Guard refusals");
+    expect(html).toContain("Model cost");
+  });
+
+  it("points at a gate a person can decide before anything else", () => {
+    expect(
+      nextStep(state({ gates: ready([gate({ canDecide: true, blockedBy: [] })]) })),
+    ).toMatchObject({
+      title: "Decide G1",
+      href: "#/p/P/gates",
+    });
+    expect(
+      feedLine(
+        ev(1, "write.rejected", {
+          tool: "write_fact",
+          guard: "source",
+          reasonCode: "X",
+          reason: "No source.",
+          agent: "intake",
+        }),
+        "P",
+      )?.text,
+    ).toBe("source guard refused write_fact: No source.");
   });
 });

@@ -143,3 +143,42 @@ export function fixedSize(label: string): number | null {
   if (shapeOf(label) === "diamond" || shapeOf(label) === "square") return 7;
   return null;
 }
+
+/** The links that point from a node to what it came from, most telling first. */
+const UPSTREAM = [
+  "IMPLEMENTS",
+  "FOR_TASK",
+  "CAUSED_BY",
+  "FIXES",
+  "RUNS",
+  "VERIFIES",
+  "OF",
+  "FOR",
+  "HAS_REQUIREMENT",
+  "RENDERS",
+  "DERIVED_FROM",
+  "RAISED_ON",
+  "BETWEEN",
+  "ANSWERS",
+  "FROM",
+  "REPORTED_IN",
+  "SOURCED_FROM",
+  "PART_OF",
+];
+
+/** A node's provenance among the drawn nodes: its chain back to the source, the source first and
+ * the node last. ponytail: follows one upstream link per hop (the first in UPSTREAM order); the Why
+ * view shows the full path. */
+export function provenance(view: GraphView, nodeId: string, max = 7): GraphView["nodes"] {
+  const byId = new Map(view.nodes.map((n) => [n.id, n]));
+  const chain: GraphView["nodes"] = [];
+  for (let id: string | undefined = nodeId; id && chain.length < max;) {
+    const node = byId.get(id);
+    if (!node || chain.includes(node)) break;
+    chain.unshift(node);
+    const from = view.links.filter((l) => l.source === id && UPSTREAM.includes(l.type));
+    from.sort((a, b) => UPSTREAM.indexOf(a.type) - UPSTREAM.indexOf(b.type));
+    id = from[0]?.target;
+  }
+  return chain;
+}

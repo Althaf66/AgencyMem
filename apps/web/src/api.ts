@@ -11,6 +11,7 @@ import {
   DocResponse,
   DocumentsResponse,
   ErrorBody,
+  EventsResponse,
   FeaturesResponse,
   GateDecisionResponse,
   GatesResponse,
@@ -133,6 +134,7 @@ export function createApi(opts: ApiOptions) {
       call(PathResponse, "GET", `/api/projects/${id}/impact/${nodeId}`),
     backtrace: (id: string, nodeId: string) =>
       call(PathResponse, "GET", `/api/projects/${id}/backtrace/${nodeId}`),
+    events: (id: string) => call(EventsResponse, "GET", `/api/projects/${id}/events`),
     changeRequest: (id: string, text: string) =>
       call(ChangeRequestResponse, "POST", `/api/projects/${id}/change-requests`, {
         body: { text },

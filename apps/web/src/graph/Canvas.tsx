@@ -1,6 +1,8 @@
 // The graph stage (ui.md graph panel): one react-force-graph-2d canvas, always dark. A layout is a
 // set of d3 forces; switching it swaps the forces, reheats for 1.5 seconds, then freezes. The path
-// highlighter lights the path a view returned and fades the rest to 15%. Browser only: GraphPanel
+// highlighter lights the path a view returned and fades the rest to 15%. Hover shows a node's
+// label, title and provenance and lights its neighbours; the legend hides a group; a node a fresh
+// node.written event names pulses. Browser only: GraphPanel
 // loads this module after mount, so server-side tests never import the canvas library.
 import { forceRadial, forceX, forceY } from "d3-force";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -20,6 +22,7 @@ import {
   hops,
   linkKey,
   nodeSize,
+  provenance,
   shapeOf,
 } from "./layout";
 
@@ -50,6 +53,32 @@ function colorOf(n: Base): string {
 }
 const radiusOf = (n: Base) => (fixedSize(n.label) ?? nodeSize(n.deg)) * 0.6;
 const endOf = (end: L["source"]) => (typeof end === "object" ? (end as N) : null);
+
+/** How long a written node pulses (ms). The ring only moves while the engine draws frames, which
+ * the event's graph reload starts. */
+const PULSE_MS = 3000;
+
+/** The hover card: a DOM element built with textContent, so no node text is read as HTML. */
+function tooltip(n: Base, graph: GraphView): HTMLElement {
+  const el = (tag: string, cls: string, text = "") => {
+    const e = document.createElement(tag);
+    e.className = cls;
+    e.textContent = text;
+    return e;
+  };
+  const box = el("div", "tip");
+  const label = el("div", "tip-label", n.label);
+  label.style.color = colorOf(n);
+  box.append(label, el("div", "tip-title", n.title));
+  const chain = provenance(graph, n.id);
+  if (chain.length > 1) {
+    const path = el("div", "tip-path");
+    for (const c of chain) path.append(el("span", "", `${c.label} ${c.title.slice(0, 28)}`));
+    box.append(path);
+  }
+  box.append(el("div", "tip-meta", `${n.id}${n.state ? ` · ${n.state}` : ""} · ${n.deg} links`));
+  return box;
+}
 
 function drawShape(ctx: CanvasRenderingContext2D, n: N, r: number, color: string) {
   const x = n.x ?? 0;
@@ -112,8 +141,26 @@ export default function Canvas(props: {
   reverse: boolean;
   onSelect: (id: string) => void;
   onFocus: (id: string) => void;
+  height?: number;
+  /** Node id to the time a node.written event named it. */
+  pulse?: Map<string, number>;
 }) {
-  const { graph, lit, layout, focus, reverse } = props;
+  const { lit, layout, focus, reverse, pulse } = props;
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const groups = useMemo(
+    () => [...new Set(props.graph.nodes.map((n) => n.group))].sort(),
+    [props.graph],
+  );
+  // The legend hides whole groups; what stays keeps its place.
+  const graph = useMemo(() => {
+    if (hidden.size === 0) return props.graph;
+    const nodes = props.graph.nodes.filter((n) => !hidden.has(n.group));
+    const ids = new Set(nodes.map((n) => n.id));
+    return {
+      nodes,
+      links: props.graph.links.filter((l) => ids.has(l.source) && ids.has(l.target)),
+    };
+  }, [props.graph, hidden]);
   const ref = useRef<ForceGraphMethods<Base, L> | undefined>(undefined);
   const box = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(800);
@@ -179,6 +226,16 @@ export default function Canvas(props: {
   }, [graph, focus, reverse]);
 
   const ring1 = data.nodes.filter((n) => n.hop === 1).length;
+  // The hovered node and its neighbours stay bright; the rest fade (when no path is lit).
+  const near = useMemo(() => {
+    if (!hover) return null;
+    const out = new Set([hover]);
+    for (const l of graph.links) {
+      if (l.source === hover) out.add(l.target);
+      if (l.target === hover) out.add(l.source);
+    }
+    return out;
+  }, [graph, hover]);
 
   useEffect(() => {
     const fg = ref.current;
@@ -229,7 +286,7 @@ export default function Canvas(props: {
       <ForceGraph2D<Base, L>
         ref={ref}
         width={width}
-        height={600}
+        height={props.height ?? 600}
         backgroundColor={STAGE.bg}
         graphData={data}
         cooldownTime={1500}
@@ -245,7 +302,18 @@ export default function Canvas(props: {
           const r = radiusOf(n);
           const on = lit.nodes.has(n.id);
           const color = colorOf(n);
-          ctx.globalAlpha = hasPath && !on ? 0.15 : 1;
+          ctx.globalAlpha = hasPath && !on ? 0.15 : !hasPath && near && !near.has(n.id) ? 0.2 : 1;
+          const at = pulse?.get(n.id);
+          const age = at === undefined ? PULSE_MS : Date.now() - at;
+          if (age < PULSE_MS) {
+            // A real write just named this node: an expanding ring that fades out.
+            const t = age / PULSE_MS;
+            ctx.strokeStyle = rgba(STAGE.accent, 1 - t);
+            ctx.lineWidth = 2 / scale;
+            ctx.beginPath();
+            ctx.arc(n.x ?? 0, n.y ?? 0, r + 4 + t * 18, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
           if (on) {
             ctx.shadowColor = color; // the glow of the highlighted path
             ctx.shadowBlur = 16;
@@ -295,7 +363,9 @@ export default function Canvas(props: {
         }}
         linkColor={(l) => {
           const from = endOf(l.source);
-          const a = linkLit(l) ? 0.9 : hasPath ? 0.04 : 0.12;
+          const touches =
+            !!near && near.has(endOf(l.source)?.id ?? "") && near.has(endOf(l.target)?.id ?? "");
+          const a = linkLit(l) || (touches && !hasPath) ? 0.9 : hasPath || near ? 0.04 : 0.12;
           return rgba(from ? colorOf(from) : STAGE.label, a);
         }}
         linkWidth={(l) => (linkLit(l) ? 2 : 1)}
@@ -315,6 +385,8 @@ export default function Canvas(props: {
           const w = ctx.measureText(text).width;
           ctx.fillText(text, ((a.x ?? 0) + (b.x ?? 0)) / 2 - w / 2, ((a.y ?? 0) + (b.y ?? 0)) / 2);
         }}
+        // float-tooltip takes an HTMLElement too; the typings list only string and React elements.
+        nodeLabel={(n) => tooltip(n, props.graph) as unknown as string}
         onNodeHover={(n) => setHover(n?.id ?? null)}
         onNodeClick={(n) => {
           // ponytail: force-graph has no double-click event; two clicks within 300 ms count as one.
@@ -325,6 +397,23 @@ export default function Canvas(props: {
           else props.onSelect(n.id);
         }}
       />
+      <div className="legend" role="group" aria-label="Groups">
+        {groups.map((g) => (
+          <button
+            type="button"
+            key={g}
+            aria-pressed={!hidden.has(g)}
+            onClick={() => {
+              const next = new Set(hidden);
+              if (!next.delete(g)) next.add(g);
+              setHidden(next);
+            }}
+          >
+            <span className="swatch" style={{ background: GROUP_COLOR[g] ?? STAGE.muted }} />
+            {g}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

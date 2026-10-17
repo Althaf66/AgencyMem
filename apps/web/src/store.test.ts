@@ -9,7 +9,7 @@ import { createAppStore } from "./store";
 const P = "01JA0000000000000000000001";
 
 /** An api whose snapshots answer with `seq` and count their calls. */
-function stubApi(seq = { value: 5 }) {
+function stubApi(seq = { value: 5 }, history: Envelope[] = []) {
   const calls: string[] = [];
   const ok = <T>(name: string, data: T) => {
     calls.push(name);
@@ -27,6 +27,7 @@ function stubApi(seq = { value: 5 }) {
     features: () => ok("features", { features: [] }),
     board: () => ok("board", { columns: [], lanes: [], cards: [], items: [] }),
     progress: () => ok("progress", { stage: "build", gates: [], lanes: [] }),
+    events: () => Promise.resolve({ ok: true as const, data: { events: history } }),
     patchTask: vi.fn(),
     retry: vi.fn(),
     changeRequest: vi.fn(),
@@ -193,6 +194,7 @@ describe("store", () => {
     );
     expect(store.getState().runLog.I1).toEqual([
       {
+        seq: 6,
         itemId: "I1",
         agent: "discovery",
         step: "think",
@@ -218,6 +220,25 @@ describe("store", () => {
       );
     expect(store.getState().runLog.I1).toHaveLength(1);
     expect(store.getState().toasts).toHaveLength(1);
+  });
+
+  it("fills the feed and run logs from the gateway's recent events, each seq once", async () => {
+    const step = event(4, "run.step", {
+      itemId: "I1",
+      agent: "planner",
+      step: "recall",
+      text: "Read 3 facts",
+      model: null,
+      tokens: 0,
+      ms: 0,
+    }).event;
+    const { api } = stubApi(undefined, [step]);
+    const store = createAppStore(api);
+    await store.getState().open(P);
+    expect(store.getState().feed.map((e) => e.seq)).toEqual([4]);
+    expect(store.getState().runLog.I1?.map((r) => r.text)).toEqual(["Read 3 facts"]);
+    store.getState().receive(event(6, "metrics.updated", { metric: "x", value: 1 }));
+    expect(store.getState().feed.map((e) => e.seq)).toEqual([4, 6]);
   });
 
   it("answers with the version it shows; an old version says so and reloads", async () => {
