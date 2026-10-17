@@ -8,9 +8,11 @@ import {
   House,
   MessageCircleQuestion,
   Monitor,
+  Moon,
   Network,
   ShieldCheck,
   SquareKanban,
+  Sun,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
@@ -149,12 +151,62 @@ function Toasts({ s }: { s: AppState }) {
   );
 }
 
+/** The mark: a yellow tile with a black three-node graph. */
+export const Logo = ({ size = 22 }: { size?: number }) => (
+  <svg className="logo" width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+    <rect width="32" height="32" rx="6" fill="#facc15" />
+    <path
+      d="M10 11.5 22.5 10 15.5 22.5Z"
+      fill="none"
+      stroke="#0a0a0a"
+      strokeWidth="2.4"
+      strokeLinejoin="round"
+    />
+    <circle cx="10" cy="11.5" r="3.6" fill="#0a0a0a" />
+    <circle cx="22.5" cy="10" r="3.6" fill="#0a0a0a" />
+    <circle cx="15.5" cy="22.5" r="3.6" fill="#0a0a0a" />
+  </svg>
+);
+
 const Brand = () => (
   <a href="#/" className="brand">
-    <span className="logo" aria-hidden="true" />
+    <Logo />
     AgencyMem
   </a>
 );
+
+/** Dark or light: an attribute on <html> (index.html sets it before paint) and a saved choice. */
+export function ThemeToggle() {
+  const [light, setLight] = useState(
+    () => typeof document !== "undefined" && document.documentElement.dataset.theme === "light",
+  );
+  const flip = () => {
+    const next = light ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem("agencymem.theme", next);
+    } catch {
+      // ponytail: a blocked storage only forgets the choice on reload.
+    }
+    setLight(!light);
+  };
+  const label = light ? "Switch to dark theme" : "Switch to light theme";
+  return (
+    <button
+      type="button"
+      className="ghost icon-button"
+      onClick={flip}
+      aria-label={label}
+      title={label}
+    >
+      {light ? (
+        <Moon className="icon" aria-hidden="true" />
+      ) : (
+        <Sun className="icon" aria-hidden="true" />
+      )}
+    </button>
+  );
+}
 
 export function Shell(props: { store: AppStore; route: Route; children: ReactNode }) {
   const s = useStore(props.store);
@@ -179,6 +231,7 @@ export function Shell(props: { store: AppStore; route: Route; children: ReactNod
         {projectId && <StageStepper s={s} />}
         {projectId && <ChangeRequestButton s={s} />}
         <ActorField />
+        <ThemeToggle />
       </header>
       {projectId && (
         <nav className="sidenav">

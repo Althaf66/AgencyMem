@@ -96,20 +96,20 @@ export const nodeSize = (degree: number) =>
 
 /** Group colours, dark values (ui.md section 3): the graph stage is always dark. */
 export const GROUP_COLOR: Record<string, string> = {
-  Sources: "#94a3b8",
-  Knowledge: "#22d3ee",
-  Product: "#a78bfa",
+  Sources: "#a3a3a3",
+  Knowledge: "#38bdf8",
+  Product: "#c084fc",
   Design: "#fb923c",
   Delivery: "#4ade80",
 };
 export const STAGE = {
-  bg: "#05060a",
-  read: "#22d3ee",
-  label: "#e8e9ec",
-  muted: "#6b6f76",
-  accent: "#8b85ff",
-  warn: "#f0a948",
-  danger: "#ff7a6b",
+  bg: "#0a0a0a",
+  read: "#38bdf8",
+  label: "#ededed",
+  muted: "#737373",
+  accent: "#facc15",
+  warn: "#fb923c",
+  danger: "#ef4444",
 };
 
 export type Shape = "ring" | "dot" | "diamond" | "circle" | "square" | "task" | "triangle";

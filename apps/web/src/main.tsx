@@ -5,8 +5,8 @@ import { App } from "./App";
 import { connectLive, pageSocketUrl } from "./live";
 import { getActor } from "./shell/actor";
 import { createAppStore } from "./store";
-import "@fontsource-variable/inter";
-import "@fontsource-variable/jetbrains-mono";
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
 import "./styles.css";
 
 const root = document.getElementById("root");

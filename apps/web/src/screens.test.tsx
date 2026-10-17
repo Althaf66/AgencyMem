@@ -30,7 +30,7 @@ import { PHASES, PipelineView, phaseState } from "./pipeline/Pipeline";
 import { PreviewPanel } from "./preview/Preview";
 import { ProjectsView } from "./projects/Projects";
 import { QuestionnaireView, SourcePair } from "./questionnaire/Questionnaire";
-import { ChangeRequestButton, StageStepper } from "./shell/Shell";
+import { ChangeRequestButton, Logo, StageStepper, ThemeToggle } from "./shell/Shell";
 import { parseHash } from "./shell/router";
 import {
   createAppStore,
@@ -970,5 +970,13 @@ describe("live code view", () => {
   it("reads the file an edit step names", () => {
     expect(editedPath("Edited server/routes/doctors.ts")).toBe("server/routes/doctors.ts");
     expect(editedPath("Ran npm test")).toBeNull();
+  });
+});
+
+describe("theme", () => {
+  it("draws the logo tile and offers the light theme from the dark default", () => {
+    expect(renderToString(<Logo />)).toContain('fill="#facc15"');
+    const toggle = renderToString(<ThemeToggle />);
+    expect(toggle).toContain('aria-label="Switch to light theme"');
   });
 });

@@ -43,6 +43,8 @@ const PULSE_WINDOW = 3000;
 function pulses(feed: AppState["feed"]): Map<string, Pulse> {
   const since = Date.now() - PULSE_WINDOW;
   const out = new Map<string, Pulse>();
+  if (typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches)
+    return out;
   for (const e of feed) {
     if (e.at < since) continue;
     if (e.type === "node.written") {
