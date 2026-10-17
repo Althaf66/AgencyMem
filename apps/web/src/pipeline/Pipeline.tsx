@@ -10,6 +10,7 @@ import {
   FlaskConical,
   Hammer,
   Lightbulb,
+  Monitor,
   PencilRuler,
   Rocket,
   Search,
@@ -158,6 +159,13 @@ function Launch({ s }: { s: AppState }) {
   );
 }
 
+const PreviewLink = ({ s }: { s: AppState }) => (
+  <a className="button" href={`#/p/${s.projectId}/preview`}>
+    <Monitor className="icon" aria-hidden="true" />
+    Open the built app
+  </a>
+);
+
 export function PipelineView({ s }: { s: AppState }) {
   const stage = s.project.data?.stage;
   return (
@@ -202,6 +210,7 @@ export function PipelineView({ s }: { s: AppState }) {
                     ))}
                     {phase.cards && <Cards s={s} />}
                     {phase.launch && <Launch s={s} />}
+                    {(phase.launch || phase.cards) && <PreviewLink s={s} />}
                   </div>
                 </li>
               );

@@ -18,7 +18,7 @@ import {
   text,
 } from "./common";
 import { EdgeType } from "./edges";
-import { Envelope } from "./events";
+import { Envelope, eventData } from "./events";
 import {
   AgentId,
   AssumptionStatus,
@@ -457,6 +457,11 @@ export const TestRunView = z.object({
 });
 export const TestRunsResponse = z.object({ runs: z.array(TestRunView) });
 export type TestRunsResponse = z.infer<typeof TestRunsResponse>;
+// GET | POST | DELETE /api/projects/:id/preview: the built app from main, run by the gateway.
+export const PreviewView = eventData["preview.changed"];
+export type PreviewView = z.infer<typeof PreviewView>;
+export const PreviewResponse = z.object({ preview: PreviewView });
+export type PreviewResponse = z.infer<typeof PreviewResponse>;
 
 // Agent token route
 

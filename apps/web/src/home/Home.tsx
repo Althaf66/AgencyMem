@@ -11,6 +11,7 @@ import {
   Cpu,
   Database,
   FileText,
+  Monitor,
   PenLine,
   ShieldCheck,
   SquareKanban,
@@ -143,6 +144,14 @@ export function feedLine(e: Envelope, projectId: string): Line | null {
         text: `${e.data.agent} read ${e.data.ids.length} nodes from the graph`,
         meta: `${at} · ${e.data.tool}`,
         href: `#/p/${projectId}/pipeline`,
+      };
+    case "preview.changed":
+      return {
+        icon: Monitor,
+        tone: e.data.status === "ready" ? "ok" : e.data.status === "failed" ? "danger" : "",
+        text: `App preview ${e.data.status}${e.data.url ? ` at ${e.data.url}` : ""}`,
+        meta: at,
+        href: `#/p/${projectId}/preview`,
       };
   }
 }
@@ -293,6 +302,11 @@ export function HomeView({ s }: { s: AppState }) {
           <span className="muted">{next.text}</span>
         </a>
         <StageRail s={s} />
+        <a className="panel next" href={`#/p/${s.projectId}/preview`}>
+          <span className="eyebrow">Built app</span>
+          <h3>Open the live preview</h3>
+          <span className="muted">Runs main as the agents merged it, inside this page.</span>
+        </a>
       </div>
       <div className="home-center">
         <SliceView

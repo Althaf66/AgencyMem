@@ -69,6 +69,12 @@ export const eventData = {
     tool: z.enum(["recall_context", "get_task_context"]),
     ids: z.array(Id),
   }),
+  // The live preview of the project's built app changed: started, ready, stopped, failed, or more log.
+  "preview.changed": z.object({
+    status: z.enum(["stopped", "installing", "starting", "ready", "failed"]),
+    url: z.string().nullable(),
+    log: z.array(z.string()),
+  }),
 } as const;
 
 export const EventType = z.enum(
@@ -99,6 +105,7 @@ export const Envelope = z.discriminatedUnion("type", [
   envelope("write.rejected"),
   envelope("metrics.updated"),
   envelope("context.read"),
+  envelope("preview.changed"),
 ]);
 export type Envelope = z.infer<typeof Envelope>;
 

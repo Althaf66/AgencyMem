@@ -24,6 +24,7 @@ import {
   NodeResponse,
   PatchTaskResponse,
   PathResponse,
+  PreviewResponse,
   ProgressMetricResponse,
   ProgressView,
   ProjectMetrics,
@@ -141,6 +142,13 @@ export function createApi(opts: ApiOptions) {
     events: (id: string) => call(EventsResponse, "GET", `/api/projects/${id}/events`),
     commitDiff: (id: string, sha: string) =>
       call(CommitDiffResponse, "GET", `/api/projects/${id}/commits/${sha}/diff`),
+    preview: (id: string, method: "GET" | "POST" | "DELETE") =>
+      call(
+        PreviewResponse,
+        method,
+        `/api/projects/${id}/preview`,
+        method === "GET" ? {} : { body: {} },
+      ),
     items: (id: string) => call(ItemsResponse, "GET", `/api/projects/${id}/items`),
     itemRuns: (id: string, itemId: string) =>
       call(ItemRunsResponse, "GET", `/api/projects/${id}/items/${itemId}/runs`),

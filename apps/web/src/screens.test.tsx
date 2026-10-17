@@ -26,6 +26,7 @@ import { HomeView, feedLine, nextStep } from "./home/Home";
 import { FilesView } from "./intake/Files";
 import { lineClass } from "./pipeline/Evidence";
 import { PHASES, PipelineView, phaseState } from "./pipeline/Pipeline";
+import { PreviewPanel } from "./preview/Preview";
 import { ProjectsView } from "./projects/Projects";
 import { QuestionnaireView, SourcePair } from "./questionnaire/Questionnaire";
 import { ChangeRequestButton, StageStepper } from "./shell/Shell";
@@ -923,5 +924,25 @@ describe("card story", () => {
     expect(lineClass("--- insert doctors", true)).toBe("del");
     expect(lineClass("+++x", true)).toBe("add");
     expect(lineClass(" same", true)).toBe("");
+  });
+});
+
+describe("app preview", () => {
+  it("offers to run the app when stopped, shows the frame when ready, and the log when it failed", () => {
+    expect(renderToString(<PreviewPanel s={state({})} />)).toContain("Run the app");
+    const ready = renderToString(
+      <PreviewPanel
+        s={state({ preview: { status: "ready", url: "http://127.0.0.1:5191", log: [] } })}
+      />,
+    );
+    expect(ready).toContain('<iframe src="http://127.0.0.1:5191"');
+    expect(ready).toContain("Stop");
+    const failed = renderToString(
+      <PreviewPanel
+        s={state({ preview: { status: "failed", url: null, log: ["Error: no main"] } })}
+      />,
+    );
+    expect(failed).toContain("Error: no main");
+    expect(failed).not.toContain("<iframe");
   });
 });

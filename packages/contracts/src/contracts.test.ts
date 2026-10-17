@@ -693,6 +693,7 @@ const eventFixtures: Record<EventType, unknown> = {
   },
   "metrics.updated": { metric: "rejectedWrites", value: 3 },
   "context.read": { itemId: ID, agent: "planner", tool: "recall_context", ids: [ID2] },
+  "preview.changed": { status: "ready", url: "http://127.0.0.1:5191", log: ["listening"] },
 };
 
 /** REST bodies and replies: [name, schema, fixture]. */

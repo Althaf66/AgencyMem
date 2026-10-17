@@ -11,6 +11,7 @@ import {
   GitCommitHorizontal,
   GitMerge,
   Hammer,
+  Monitor,
   Rocket,
   type LucideIcon,
 } from "lucide-react";
@@ -119,6 +120,10 @@ function Story({ s, card }: { s: AppState; card: CardView }) {
               ? `G5 ${g5.status}${g5.decidedBy ? ` by ${g5.decidedBy}` : ""}`
               : "G5 not open yet."}
           </p>
+          <a className="button" href={`#/p/${project}/preview`}>
+            <Monitor className="icon" aria-hidden="true" />
+            Open the built app
+          </a>
         </Step>
       </ol>
     </>

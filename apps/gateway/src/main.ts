@@ -29,6 +29,7 @@ import { createEvents, type Events } from "./events/bus";
 import { startLeaseSweeper } from "./events/sweeper";
 import { attachEventSocket } from "./events/ws";
 import { mcpRouter } from "./mcp/server";
+import { createPreviews, stopAllPreviews } from "./preview";
 import { startup } from "./stage/effects";
 
 /** The technical design binds the gateway to 127.0.0.1 by default. */
@@ -89,6 +90,7 @@ export function createGateway(
   const hook = required(cfg.AM_HOOK_TOKEN, "AM_HOOK_TOKEN");
   const falkordbUrl = required(cfg.FALKORDB_URL, "FALKORDB_URL"); // has a default in config
 
+  const previews = createPreviews({ events });
   const app = express();
   app.disable("x-powered-by");
 
@@ -127,7 +129,12 @@ export function createGateway(
     queryRouter({ db, events }),
     tasksRouter({ db, events }),
     metricsRouter({ db, events }),
-    evidenceRouter({ db, events, workspacesDir: required(cfg.WORKSPACES_DIR, "WORKSPACES_DIR") }),
+    evidenceRouter({
+      db,
+      events,
+      workspacesDir: required(cfg.WORKSPACES_DIR, "WORKSPACES_DIR"),
+      previews,
+    }),
     notFound,
   );
   app.use("/hooks", requireToken(hook), express.json(), hooksRouter({ db, events }), notFound);
@@ -167,6 +174,7 @@ export function createGateway(
   server.close = (callback) => {
     stopSocket();
     stopSweeper();
+    previews.stopAll();
     for (const ws of wss.clients) ws.terminate();
     return closeServer(callback);
   };
@@ -178,6 +186,11 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   try {
     const cfg = loadConfig(process.env, "gateway");
     const events = createEvents();
+    // A preview is a child process: it goes when the gateway goes.
+    process.once("exit", stopAllPreviews);
+    for (const signal of ["SIGINT", "SIGTERM"] as const) {
+      process.once(signal, () => process.exit(0));
+    }
     createGateway(cfg, { events }).listen(cfg.AM_PORT, HOST, () => {
       console.log(`gateway listening on http://${HOST}:${cfg.AM_PORT}`);
       // Stage machine rule 3: repair anything a crash left half done.

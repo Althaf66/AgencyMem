@@ -18,6 +18,7 @@ import type {
   ProgressMetricResponse,
   ProgressView,
   ProjectMetrics,
+  PreviewView,
   ProjectInfo,
   QuestionView,
   ReadinessResponse,
@@ -103,6 +104,8 @@ export type AppState = {
   runLog: Record<string, RunStep[]>;
   /** The last FEED events of the open project, oldest first: the Home activity feed. */
   feed: Envelope[];
+  /** The built app's live preview, as the last preview.changed event or answer told it. */
+  preview: PreviewView;
   toasts: Toast[];
   connection: "connecting" | "live" | "closed";
   lastSeq: number;
@@ -125,6 +128,8 @@ export type AppState = {
   commitDiff(sha: string): ReturnType<Api["commitDiff"]>;
   itemRuns(itemId: string): ReturnType<Api["itemRuns"]>;
   testRuns(taskId: string): ReturnType<Api["testRuns"]>;
+  /** Reads (GET), starts (POST) or stops (DELETE) the preview. */
+  previewAction(method: "GET" | "POST" | "DELETE"): Promise<void>;
   answer(question: QuestionView, accept: boolean, text?: string): Promise<boolean>;
   decide(
     gate: GateView,
@@ -187,6 +192,7 @@ const GRAPH_EVENTS = ["node.written", "node.ended", "task.moved"];
 const PATHS = { why: "why", impact: "impact", backtrace: "backtrace" } as const;
 const RUN_LOG = 50;
 const FEED = 300;
+const NO_PREVIEW: PreviewView = { status: "stopped", url: null, log: [] };
 
 /** `a` and `b` as one list, each seq once, in seq order, the newest `cap`. */
 function bySeq<T extends { seq: number }>(a: T[], b: T[], cap: number): T[] {
@@ -338,6 +344,7 @@ export function createAppStore(api: Api): AppStore {
       graph: empty(),
       runLog: {},
       feed: [],
+      preview: NO_PREVIEW,
       toasts: [],
       connection: "closed",
       lastSeq: 0,
@@ -382,6 +389,7 @@ export function createAppStore(api: Api): AppStore {
           graph: empty(),
           runLog: {},
           feed: [],
+          preview: NO_PREVIEW,
           lastSeq: 0,
         });
         await Promise.all([...SLICES, ...UNSEQ].map((name) => fetchSlice(name)).concat(history()));
@@ -407,6 +415,7 @@ export function createAppStore(api: Api): AppStore {
         }
         if (event.seq > get().graph.seq && GRAPH_EVENTS.includes(event.type)) reloadGraph();
         if (!fresh) return;
+        if (event.type === "preview.changed") set({ preview: event.data });
         set((s) => ({ feed: bySeq(s.feed, [event], FEED), runLog: withSteps(s.runLog, [event]) }));
         // record_change_request sums up what a CR flagged (ui.md: "CR-1 flagged 3 cards and ...").
         if (
@@ -439,6 +448,14 @@ export function createAppStore(api: Api): AppStore {
       commitDiff: (sha) => api.commitDiff(get().projectId ?? "", sha),
       itemRuns: (itemId) => api.itemRuns(get().projectId ?? "", itemId),
       testRuns: (taskId) => api.testRuns(get().projectId ?? "", taskId),
+      async previewAction(method) {
+        const id = get().projectId;
+        if (!id) return;
+        const result = await api.preview(id, method);
+        if (get().projectId !== id) return;
+        if (result.ok) set({ preview: result.data.preview });
+        else get().toast(result.error.reason);
+      },
 
       async answer(question, accept, text) {
         const id = get().projectId;

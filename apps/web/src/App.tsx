@@ -8,6 +8,7 @@ import { Health } from "./health/Health";
 import { Home } from "./home/Home";
 import { Files } from "./intake/Files";
 import { Pipeline } from "./pipeline/Pipeline";
+import { PreviewScreen } from "./preview/Preview";
 import { Projects } from "./projects/Projects";
 import { Questionnaire } from "./questionnaire/Questionnaire";
 import { Shell } from "./shell/Shell";
@@ -29,6 +30,7 @@ export function App({ store }: { store: AppStore }) {
       {route.screen === "home" && <Home store={store} projectId={route.projectId} />}
       {route.screen === "pipeline" && <Pipeline store={store} projectId={route.projectId} />}
       {route.screen === "card" && <CardStory store={store} cardKey={route.key} />}
+      {route.screen === "preview" && <PreviewScreen store={store} projectId={route.projectId} />}
       {route.screen === "board" && <Board store={store} />}
       {route.screen === "files" && <Files store={store} />}
       {route.screen === "questions" && <Questionnaire store={store} />}

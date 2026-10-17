@@ -7,6 +7,7 @@ import {
   FileUp,
   House,
   MessageCircleQuestion,
+  Monitor,
   Network,
   ShieldCheck,
   SquareKanban,
@@ -193,6 +194,7 @@ export function Shell(props: { store: AppStore; route: Route; children: ReactNod
           {nav("gates", "Gates", ShieldCheck)}
           <span className="eyebrow">Deliver</span>
           {nav("board", "Board", SquareKanban)}
+          {nav("preview", "App preview", Monitor)}
           {nav("health", "Health", Activity)}
           <div className="side-foot">
             <span className={`conn ${s.connection}`}>{s.connection}</span>

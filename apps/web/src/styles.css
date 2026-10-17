@@ -1579,3 +1579,76 @@ a.card:hover {
   color: var(--danger);
   white-space: pre-wrap;
 }
+
+/* The app preview: a browser frame */
+.browser {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+}
+.browser-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: #0f1219;
+  border-bottom: 1px solid var(--border);
+}
+.dots {
+  display: inline-flex;
+  gap: 6px;
+}
+.dots i {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #ff5f57;
+}
+.dots i:nth-child(2) {
+  background: #febc2e;
+}
+.dots i:nth-child(3) {
+  background: #28c840;
+}
+.address {
+  flex: 1;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  font-size: 12px;
+}
+.browser iframe {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: #fff;
+}
+.browser-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  padding: 32px;
+  color: var(--muted);
+  text-align: center;
+}
+.icon.big {
+  width: 40px;
+  height: 40px;
+  color: var(--faint);
+}
+.log {
+  width: min(720px, 100%);
+  margin: 0;
+  padding: 12px;
+  text-align: left;
+  background: #05060a;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font: 11.5px/1.5 var(--mono);
+  color: var(--muted);
+  white-space: pre-wrap;
+}

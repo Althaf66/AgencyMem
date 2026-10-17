@@ -11,10 +11,12 @@ import {
   type EventsResponse,
   type ItemRunsResponse,
   type ItemsResponse,
+  type PreviewResponse,
   type TestRunsResponse,
 } from "@agencymem/contracts";
 import { readQuery, type FalkorDB } from "@agencymem/graph";
 import type { Events } from "../events/bus";
+import type { Previews } from "../preview";
 import { pathProject, sendError } from "./http";
 import { readItems } from "./tasks";
 
@@ -23,10 +25,10 @@ const run = promisify(execFile);
 const DIFF_MAX = 300_000;
 const AGENCYMEM_ROOT = fileURLToPath(new URL("../../../..", import.meta.url));
 
-/** A project's repository: <WORKSPACES_DIR>/<projectId>/repo, a relative dir read from the
- * AgencyMem root (as the runner's repo.ts does). */
-export const repoOf = (workspacesDir: string, projectId: string) =>
-  resolve(AGENCYMEM_ROOT, workspacesDir, projectId, "repo");
+/** A project's folder: <WORKSPACES_DIR>/<projectId>, a relative dir read from the AgencyMem root
+ * (as the runner's repo.ts does). Its repository is `repo` inside it. */
+export const projectDirOf = (workspacesDir: string, projectId: string) =>
+  resolve(AGENCYMEM_ROOT, workspacesDir, projectId);
 
 /** `git show` output as one patch per file. */
 export function splitDiff(text: string): CommitDiffResponse["files"] {
@@ -43,6 +45,7 @@ export function evidenceRouter(deps: {
   db: () => Promise<FalkorDB>;
   events: Events;
   workspacesDir: string;
+  previews: Previews;
 }): Router {
   const router = express.Router();
 
@@ -86,7 +89,10 @@ export function evidenceRouter(deps: {
       const shown = await run(
         "git",
         ["-c", "core.quotepath=off", "show", "--format=", "--no-color", "--no-ext-diff", sha.data],
-        { cwd: repoOf(deps.workspacesDir, found.id), maxBuffer: 20 * DIFF_MAX },
+        {
+          cwd: resolve(projectDirOf(deps.workspacesDir, found.id), "repo"),
+          maxBuffer: 20 * DIFF_MAX,
+        },
       );
       out = shown.stdout;
     } catch {
@@ -160,6 +166,21 @@ export function evidenceRouter(deps: {
       { projectId: found.id, taskId },
     );
     const body: TestRunsResponse = { runs: runs.map((r) => ({ ...r, error: r.error ?? null })) };
+    res.json(body);
+  });
+
+  // GET | POST | DELETE /api/projects/:id/preview: the built app's live preview.
+  router.all("/projects/:id/preview", async (req, res, next) => {
+    if (!["GET", "POST", "DELETE"].includes(req.method)) return next();
+    const found = await pathProject(await deps.db(), req.params.id);
+    if (!found.ok) return sendError(res, found.error);
+    const preview =
+      req.method === "POST"
+        ? deps.previews.start(found.id, projectDirOf(deps.workspacesDir, found.id))
+        : req.method === "DELETE"
+          ? deps.previews.stop(found.id)
+          : deps.previews.get(found.id);
+    const body: PreviewResponse = { preview };
     res.json(body);
   });
 
