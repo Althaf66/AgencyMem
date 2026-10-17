@@ -9,7 +9,7 @@ import {
   ModelRequestError,
   ModelUnavailableError,
 } from "./errors";
-import { PRICES, type Prices } from "./prices";
+import { PRICES, costOf, type Prices } from "./prices";
 
 export type JsonRequest<T> = {
   tier: Tier;
@@ -59,14 +59,13 @@ export function createModelClient(deps: { chat: Chat; prices?: Prices }): ModelC
   const prices = deps.prices ?? PRICES;
   const unpriced = new Set<string>();
   const cost = (model: string, tokensIn: number, tokensOut: number) => {
-    const price = prices[model];
-    if (!price) {
+    const priced = costOf(prices, model, tokensIn, tokensOut);
+    if (priced === null) {
       if (!unpriced.has(model))
         console.warn(`llm: no price for model ${model}; its cost counts as 0`);
       unpriced.add(model);
-      return 0;
     }
-    return (tokensIn * price.inPerMillion + tokensOut * price.outPerMillion) / 1_000_000;
+    return priced ?? 0;
   };
 
   return {

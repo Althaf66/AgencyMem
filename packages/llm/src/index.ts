@@ -15,5 +15,5 @@ export {
   ModelRequestError,
   ModelUnavailableError,
 } from "./errors";
-export { PRICES, type Price, type Prices } from "./prices";
+export { PRICES, costOf, type Price, type Prices } from "./prices";
 export { Recording, loadRecording, replayChat } from "./replay";

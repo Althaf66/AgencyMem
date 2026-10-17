@@ -3,6 +3,7 @@
 // OPENCODE_VERSION. Shapes as seen on 1.18.32: { type, timestamp, sessionID, part }. Raw model
 // text and tool output are never sent.
 import { basename, isAbsolute, relative } from "node:path";
+import { PRICES, costOf, type Prices } from "@agencymem/llm";
 import type { StepBody } from "./mcp-client";
 import type { RunResult } from "./opencode";
 
@@ -96,7 +97,12 @@ const ENDED: Record<RunResult["reason"], string> = {
  * The run's last step. `final: true` makes the gateway write the run's one Run node, with the token
  * totals (agent-prompts.md section 11, worker step 1). `model` is OpenCode's provider/model.
  */
-export function finalStep(itemId: string, result: RunResult, model: string): StepBody {
+export function finalStep(
+  itemId: string,
+  result: RunResult,
+  model: string,
+  prices: Prices = PRICES,
+): StepBody {
   const seconds = Math.round(result.ms / 1000);
   const text =
     result.reason === "spawn"
@@ -105,16 +111,18 @@ export function finalStep(itemId: string, result: RunResult, model: string): Ste
         ? `${ENDED.exit} (exit ${result.exitCode}, ${seconds} s)`
         : `${ENDED[result.reason]} (${seconds} s)`;
   const slash = model.indexOf("/");
+  const id = model.slice(slash + 1);
   return {
     itemId,
     step: "exit",
     text,
-    model: model.slice(slash + 1),
+    model: id,
     endpoint: model.startsWith("fallback/") ? "openrouter" : "primary",
     tokensIn: result.tokens.input,
     tokensOut: result.tokens.output,
     ms: result.ms,
-    cost: 0, // ponytail: OpenCode reports cost 0 on an openai-compatible provider; no price table yet
+    // OpenCode reports cost 0 on an openai-compatible provider, so the meter's table prices it.
+    cost: costOf(prices, id, result.tokens.input, result.tokens.output) ?? 0,
     final: true,
   };
 }

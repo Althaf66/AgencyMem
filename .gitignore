@@ -13,3 +13,4 @@ sim-state/
 !tests/runner/**/*.md
 tests/discovery-eval/out/
 tests/load/out/
+scripts/out/

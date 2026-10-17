@@ -139,6 +139,12 @@ describe("finalStep", () => {
     expect(finalStep("T1", { ...result, reason: "exit" }, "agencymem/m").endpoint).toBe("primary");
   });
 
+  it("prices the run's tokens from the price table by the model id (task 6.5)", () => {
+    const prices = { "vendor/model-y": { inPerMillion: 2, outPerMillion: 10 } };
+    const step = finalStep("T1", { ...result, reason: "exit" }, "fallback/vendor/model-y", prices);
+    expect(step.cost).toBeCloseTo((13_000 * 2 + 400 * 10) / 1_000_000, 12);
+  });
+
   it("says why a stopped run stopped", () => {
     const text = (reason: "lease" | "timeout" | "stall" | "spawn") =>
       finalStep("T1", { ...result, reason, exitCode: null }, "fallback/m").text;
