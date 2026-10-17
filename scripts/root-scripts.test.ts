@@ -24,7 +24,6 @@ describe("root scripts", () => {
   });
 
   it.each([
-    ["test:load", "6.1"],
     ["test:restart", "6.2"],
     ["test:isolation", "6.3"],
   ])("stub %s names the task that replaces it (%s)", (name, task) => {

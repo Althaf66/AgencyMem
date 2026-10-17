@@ -17,7 +17,7 @@
     "test": "vitest run",
     "seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
     "sim:run": "tsx --env-file-if-exists=.env apps/simulator/src/main.ts",
-    "test:load": "tsx scripts/stub.ts test:load 6.1",
+    "test:load": "vitest run tests/load",
     "test:restart": "tsx scripts/stub.ts test:restart 6.2",
     "test:isolation": "tsx scripts/stub.ts test:isolation 6.3",
     "eval:discovery": "tsx --env-file-if-exists=.env tests/discovery-eval/score.ts",

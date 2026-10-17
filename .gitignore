@@ -12,3 +12,4 @@ sim-state/
 !apps/runner/src/agents/**/*.md
 !tests/runner/**/*.md
 tests/discovery-eval/out/
+tests/load/out/
