@@ -179,12 +179,15 @@ describe("questionnaire", () => {
     expect(html).toContain('href="#/p/P/gates"');
     expect(html).toContain("G1: 1 question still open");
     for (const part of ["Recommended", "Reasoning", "Assumption", "Approach", "Answer"]) {
-      expect(html).not.toContain(`<dt>${part}</dt>`);
+      expect(html).toContain(`<dt>${part}</dt>`);
     }
     expect(html).toContain("Accept recommended");
-    // Each question is a dropdown: the question on its face, the file lines inside, closed at first.
-    expect(html).toMatch(/<details class="question open"><summary>.*Is a slot 20/s);
-    expect(html).not.toContain('<details class="question open" open');
+    // Only the file lines are a dropdown, closed at first; the question and its parts are shown.
+    expect(html).toMatch(
+      /<article class="question open"><header class="question-head">.*Is a slot 20/s,
+    );
+    expect(html).toMatch(/<details class="sources-drop"><summary>.*Lines from the uploaded files/s);
+    expect(html).not.toContain('<details class="sources-drop" open');
   });
 });
 

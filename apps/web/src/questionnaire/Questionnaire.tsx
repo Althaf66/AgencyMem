@@ -1,12 +1,12 @@
 // The questionnaire (ui.md section 5): contradictions first, then open questions, then unclear
-// points. Each card is a dropdown: the question on its face, and inside only the lines from the
-// uploaded files (a contradiction's two side by side) and the answer buttons.
+// points. Each card shows the question, its five parts, the answer and the answer buttons; only the
+// lines from the uploaded files (a contradiction's two side by side) sit in a dropdown.
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useStore } from "zustand";
 import type { QuestionKind, QuestionView } from "@agencymem/contracts";
 import type { AppState, AppStore } from "../store";
-import { Chip, SliceView, useBusy } from "../ui";
+import { Chip, SliceView, time, useBusy } from "../ui";
 
 const GROUPS: { kind: QuestionKind; title: string }[] = [
   { kind: "contradiction", title: "Contradictions" },
@@ -42,15 +42,41 @@ function QuestionCard({ q, s }: { q: QuestionView; s: AppState }) {
   const [text, setText] = useState("");
   const [busy, run] = useBusy(q.version);
   return (
-    <details className={`question ${q.status}`}>
-      <summary>
-        <ChevronRight className="icon chevron" aria-hidden="true" />
+    <article className={`question ${q.status}`}>
+      <header className="question-head">
         <span className="kind">{q.kind}</span>
         <h3>{q.text}</h3>
         <Chip status={q.status} />
-      </summary>
+      </header>
       <div className="question-body">
-        <SourcePair question={q} />
+        <details className="sources-drop">
+          <summary>
+            <ChevronRight className="icon chevron" aria-hidden="true" />
+            {`Lines from the uploaded files (${q.sources.length})`}
+          </summary>
+          <SourcePair question={q} />
+        </details>
+        <dl className="parts">
+          <dt>Recommended</dt>
+          <dd>{q.recommended}</dd>
+          <dt>Reasoning</dt>
+          <dd>{q.reasoning}</dd>
+          <dt>Assumption</dt>
+          <dd>
+            {q.assumption.text} <Chip status={q.assumption.status} />
+          </dd>
+          <dt>Approach</dt>
+          <dd>{q.approach}</dd>
+          {q.answer && (
+            <>
+              <dt>Answer</dt>
+              <dd>
+                {q.answer.text}{" "}
+                <span className="muted">{`${q.answer.actor} · ${time(q.answer.at)}`}</span>
+              </dd>
+            </>
+          )}
+        </dl>
         {q.status === "open" && !own && (
           <div className="actions">
             <button
@@ -90,7 +116,7 @@ function QuestionCard({ q, s }: { q: QuestionView; s: AppState }) {
           </form>
         )}
       </div>
-    </details>
+    </article>
   );
 }
 
