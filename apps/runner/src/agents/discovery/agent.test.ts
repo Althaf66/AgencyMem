@@ -34,6 +34,7 @@ describe("Discovery agent", () => {
   it("has the shared preamble and its own rules in its prompt", () => {
     expect(discovery.prompt).toMatch(/^You are the Discovery agent of AgencyMem/);
     expect(discovery.prompt).toMatch(/At most 20 questions\./);
+    expect(discovery.maxTokens).toBe(8000);
   });
 
   it("asks for a repair: an unknown fact, a contradiction from one episode, a missing summary", () => {

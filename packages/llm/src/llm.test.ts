@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { RunInput } from "@agencymem/contracts";
 import { z } from "zod";
 import {
@@ -140,6 +140,15 @@ describe("fallback rule (technical design, Model routing)", () => {
     expect((await createModelClient({ chat: chat() }).json(ask)).runs[0]!.endpoint).toBe(
       "openrouter",
     );
+  });
+
+  it("logs why the primary failed before it falls back", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    primary.replies.push({ status: 429 });
+    openRouter.replies.push({ status: 200, body: completion(good, "or-deep") });
+    await createModelClient({ chat: chat() }).json(ask);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/^llm: primary failed \(429/));
+    warn.mockRestore();
   });
 
   it("does not fall back on a 4xx other than 429: the request itself is wrong", async () => {

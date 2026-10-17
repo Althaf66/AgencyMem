@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { crsDue, gateDecision } from "./persona";
+import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+import { client, crsDue, gateDecision } from "./persona";
 
 describe("gateDecision", () => {
   it("rejects the first G2 and approves the revision", () => {
@@ -36,5 +37,18 @@ describe("crsDue", () => {
     expect(crsDue(2, 6, 4)).toBe(2);
     expect(crsDue(2, 6, 6)).toBe(2);
     expect(crsDue(0, 6, 6)).toBe(0);
+  });
+});
+
+describe("client", () => {
+  it("names the project in X-AM-Project, which routes 9 and 11 need (contracts.md)", async () => {
+    const fetch = vi.fn(async () => Response.json({}));
+    vi.stubGlobal("fetch", fetch);
+    await client({ url: "http://gw", token: "t" }, "persona:P1", "P1")(z.object({}), "/api/x");
+    vi.unstubAllGlobals();
+    expect(fetch).toHaveBeenCalledWith(
+      "http://gw/api/x",
+      expect.objectContaining({ headers: expect.objectContaining({ "X-AM-Project": "P1" }) }),
+    );
   });
 });

@@ -100,7 +100,8 @@ class GatewayError extends Error {
   }
 }
 
-function client(gw: Gateway, actor: string) {
+// Routes with no project id in the path (9, 11) find the project by X-AM-Project (contracts.md).
+export function client(gw: Gateway, actor: string, project?: string) {
   return async <T>(
     schema: z.ZodType<T>,
     path: string,
@@ -113,6 +114,7 @@ function client(gw: Gateway, actor: string) {
       headers: {
         "X-AM-Token": gw.token,
         "X-AM-Actor": actor,
+        ...(project === undefined ? {} : { "X-AM-Project": project }),
         ...(json === undefined ? {} : { "Content-Type": "application/json" }),
       },
     });
@@ -152,7 +154,7 @@ export async function runProject(run: ProjectRun): Promise<string> {
     },
   });
   const id = project.id;
-  const api = client(gw, `persona:${id}`);
+  const api = client(gw, `persona:${id}`, id);
   await run.save(id, {});
   console.log(`[${set}] project ${id}`);
 

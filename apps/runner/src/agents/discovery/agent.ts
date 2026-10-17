@@ -33,6 +33,7 @@ export const discovery: Agent<DiscoveryOutput> = {
   id: "discovery",
   kinds: ["discovery"],
   tier: "deep",
+  maxTokens: 8000, // agent-prompts.md, Model request: up to 20 questions with sources
   task: "Find the contradictions, open questions and unclear points.",
   prompt: await loadPrompt(import.meta.url, "Discovery"),
   output: DiscoveryOutput,

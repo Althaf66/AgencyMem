@@ -126,6 +126,11 @@ export function createChat(cfg: LlmConfig, opts: { openRouterBaseUrl?: string } 
           throw new ModelRequestError(e instanceof Error ? e.message : String(e), status);
         }
         lastError = e;
+        // The next endpoint answers in its place, so this line is the only record of why.
+        const status = e instanceof APIError && e.status ? `${e.status}, ` : "";
+        console.warn(
+          `llm: ${target.endpoint} failed (${status}${e instanceof Error ? e.message : String(e)}); trying the next endpoint`,
+        );
       }
     }
     const reason = lastError instanceof Error ? lastError.message : String(lastError);
