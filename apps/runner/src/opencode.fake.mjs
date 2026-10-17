@@ -54,20 +54,38 @@ if (mode === "selfclose") {
   }
   process.exit(0);
 }
-if (mode === "commit" || mode === "nocommit") {
+if (mode === "commit" || mode === "nocommit" || mode === "commit-hang") {
   // A build run: commit one file in the worktree (the real post-commit hook posts it), overlapping
-  // with another worker's run, and log when it ran to FAKE_OC_LOG.
+  // with another worker's run, and log when it ran to FAKE_OC_LOG. The file is named after the card
+  // (the worktree folder) and its text changes per run, so a second run on a card commits again and
+  // two cards never clash at merge. commit-hang then hangs: the run the restart test stops.
   const { execFileSync } = await import("node:child_process");
   const { appendFileSync, writeFileSync } = await import("node:fs");
+  const { basename } = await import("node:path");
   const dir = process.argv[process.argv.indexOf("--dir") + 1];
   const start = Date.now();
-  if (mode === "commit") {
-    writeFileSync(`${dir}/built-by-${process.env.AM_WORKER_ID}.txt`, "built\n");
+  if (mode !== "nocommit") {
+    const text = `built by ${process.env.AM_WORKER_ID} at ${start}\n`;
+    writeFileSync(`${dir}/built-${basename(dir)}.txt`, text);
     execFileSync("git", ["add", "-A"], { cwd: dir });
     execFileSync("git", ["-c", "commit.gpgsign=false", "commit", "-m", "feat: build"], {
       cwd: dir,
       stdio: "ignore",
     });
+  }
+  if (mode === "commit-hang") {
+    // Hangs until its runner is gone (on POSIX it runs in its own process group, so the kill of
+    // the runner does not reach it).
+    const parent = process.ppid;
+    await new Promise(() =>
+      setInterval(() => {
+        try {
+          process.kill(parent, 0);
+        } catch {
+          process.exit(1);
+        }
+      }, 200),
+    );
   }
   await new Promise((r) => setTimeout(r, 1500));
   step("stop", 7, 3);

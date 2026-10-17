@@ -23,14 +23,14 @@ describe("root scripts", () => {
     expect(pkg.scripts[name]).toBeTruthy();
   });
 
-  it.each([
-    ["test:restart", "6.2"],
-    ["test:isolation", "6.3"],
-  ])("stub %s names the task that replaces it (%s)", (name, task) => {
-    const cmd = pkg.scripts[name] ?? "";
-    expect(cmd).toMatch(/^tsx scripts\/stub\.ts /);
-    const run = spawnSync("pnpm", ["exec", ...cmd.split(" ")], { encoding: "utf8", shell: true });
-    expect(run.status).toBe(0);
-    expect(run.stdout).toContain(`not implemented until task ${task}`);
-  });
+  it.each([["test:isolation", "6.3"]])(
+    "stub %s names the task that replaces it (%s)",
+    (name, task) => {
+      const cmd = pkg.scripts[name] ?? "";
+      expect(cmd).toMatch(/^tsx scripts\/stub\.ts /);
+      const run = spawnSync("pnpm", ["exec", ...cmd.split(" ")], { encoding: "utf8", shell: true });
+      expect(run.status).toBe(0);
+      expect(run.stdout).toContain(`not implemented until task ${task}`);
+    },
+  );
 });

@@ -1,7 +1,7 @@
 // The lease sweeper (contracts.md section 10, P): every 30 seconds it frees the claimed work items
-// whose lease ended and tells the screens. Card (Task) expiry arrives with claim_task (task 4.2).
+// and the In progress or Testing cards whose lease ended, and tells the screens.
 import { REGISTRY_GRAPH, clientGraphName, readQuery, type FalkorDB } from "@agencymem/graph";
-import { expireLeases } from "@agencymem/memory";
+import { expireLeases, expireTaskLeases } from "@agencymem/memory";
 import type { Events } from "./bus";
 
 export const SWEEP_MS = 30_000;
@@ -38,6 +38,23 @@ export async function sweepOnce(
           id: item.id,
           version: item.version,
           summary: `${item.kind} item ${item.status}: lease ended`,
+        });
+      }
+      // A card a stopped runner held goes back to Ready, so the board shows the recovery.
+      const cards = await expireTaskLeases({ db: deps.db, graph, projectId: project.id }, { now });
+      for (const card of cards) {
+        deps.events.emit(project.id, "lease.changed", {
+          itemId: card.id,
+          owner: null,
+          until: null,
+          reason: "expire",
+        });
+        deps.events.emit(project.id, "task.moved", {
+          taskId: card.id,
+          key: card.key,
+          from: card.from,
+          to: "Ready",
+          version: card.version,
         });
       }
     } catch (e) {

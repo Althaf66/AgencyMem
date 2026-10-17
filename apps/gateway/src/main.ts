@@ -77,7 +77,11 @@ function onError(isUp: () => Promise<boolean>): ErrorRequestHandler {
 }
 
 /** `opts.events` lets a test listen to the bus; the gateway makes its own otherwise. */
-export function createGateway(cfg: Config, opts: { events?: Events } = {}): Server {
+/** `sweepMs` shortens the lease sweeper's round (the restart test); 30 s otherwise. */
+export function createGateway(
+  cfg: Config,
+  opts: { events?: Events; sweepMs?: number } = {},
+): Server {
   const events = opts.events ?? createEvents();
   const agent = required(cfg.AM_AGENT_TOKEN, "AM_AGENT_TOKEN");
   const ui = required(cfg.AM_UI_TOKEN, "AM_UI_TOKEN");
@@ -154,7 +158,7 @@ export function createGateway(cfg: Config, opts: { events?: Events } = {}): Serv
   });
 
   const stopSocket = attachEventSocket(wss, { events, db });
-  const stopSweeper = startLeaseSweeper({ db, events });
+  const stopSweeper = startLeaseSweeper({ db, events }, opts.sweepMs);
   // server.close() waits for every connection to end, and upgraded sockets never end on their own,
   // so the sockets must go before the close, not on its 'close' event.
   const closeServer = server.close.bind(server);

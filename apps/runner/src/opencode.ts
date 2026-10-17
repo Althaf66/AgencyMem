@@ -170,8 +170,9 @@ export async function runOpenCode(opts: {
     if (empty >= STALL_STEPS) stop("stall");
   });
 
+  let beating: Promise<unknown> = Promise.resolve();
   const beat = setInterval(() => {
-    opts.heartbeat().catch((e: unknown) => {
+    beating = opts.heartbeat().catch((e: unknown) => {
       // The lease ended or went to another worker: stop at once (contracts.md, heartbeat). Any
       // other failure is a blip; the lease outlives several missed beats.
       if (leaseLost(e)) stop("lease");
@@ -199,6 +200,8 @@ export async function runOpenCode(opts: {
   clearInterval(beat);
   clearTimeout(timer);
   killTree(); // leftovers whose parent already exited
+  // The worker's complete_task comes next: no beat may land after it clears the lease.
+  await beating;
   return { reason: end, exitCode, ms: Date.now() - started, tokens, providerError };
 }
 

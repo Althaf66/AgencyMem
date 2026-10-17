@@ -55,8 +55,9 @@ export async function runItem(
   await say("claim", `Claimed ${item.kind}`);
 
   let lost = false;
+  let beating: Promise<unknown> = Promise.resolve();
   const beat = setInterval(() => {
-    session.call("heartbeat", { itemId }).catch((e: unknown) => {
+    beating = session.call("heartbeat", { itemId }).catch((e: unknown) => {
       if (leaseLost(e)) lost = true; // stop at the next step; another worker may claim it
     });
   }, opts.heartbeatMs);
@@ -68,6 +69,9 @@ export async function runItem(
     summary?: string,
     result?: MergeResult,
   ): Promise<ItemResult> => {
+    // No beat may land after complete_item clears the lease: it would count as a rejected write.
+    clearInterval(beat);
+    await beating;
     if (lost) return "stopped";
     try {
       await session.call("complete_item", {

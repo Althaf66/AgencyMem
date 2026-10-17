@@ -39,6 +39,7 @@ export {
   complete,
   completeMerge,
   expireLeases,
+  expireTaskLeases,
   openItem,
   renew,
   writeHandoff,

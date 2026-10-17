@@ -222,6 +222,23 @@ export async function expireLeases(ctx: Ctx, input: { now: number }): Promise<Wo
   return rows.map((row) => WorkItem.parse(row.w.properties));
 }
 
+/**
+ * Frees the project's cards whose build lease ended: In progress or Testing back to Ready with one
+ * more attempt (contracts.md section 10). Returns the cards it moved.
+ */
+export async function expireTaskLeases(
+  ctx: Ctx,
+  input: { now: number },
+): Promise<{ id: string; key: string; from: Column; version: number }[]> {
+  const rows = await writeQuery<{ id: string; key: string; fromColumn: Column; version: number }>(
+    ctx.db,
+    ctx.graph,
+    "write/expire-task-leases",
+    { projectId: ctx.projectId, now: input.now },
+  );
+  return rows.map((r) => ({ id: r.id, key: r.key, from: r.fromColumn, version: r.version }));
+}
+
 /** Cancels the open and claimed items of `kinds` (T30). `claimed`: the item had a lease. */
 export async function cancelItems(
   ctx: Ctx,
