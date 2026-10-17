@@ -31,3 +31,86 @@ jobs:
       - run: pnpm check:cypher
       - run: pnpm test
       - run: pnpm -r build
+
+  # Task 6.4: Discovery's real recall on the three note sets (fixtures.md section 6), with a real
+  # model through a running gateway and runner. The evidence tests run in `check` (pnpm test).
+  # Pull requests get no secrets, and each run pays for three model runs, so the eval runs on pushes
+  # to main only; without LLM_API_KEY it reports "skipped" and passes.
+  discovery-eval:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 45 # three evals of up to 10 minutes each, plus set-up
+    concurrency:
+      group: discovery-eval
+      cancel-in-progress: true
+    services:
+      falkordb:
+        image: falkordb/falkordb:latest
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      FALKORDB_URL: redis://localhost:6380
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_MODEL_THIN: ${{ secrets.LLM_MODEL_THIN }}
+      LLM_MODEL_DEEP: ${{ secrets.LLM_MODEL_DEEP }}
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      OPENROUTER_MODEL_THIN: ${{ secrets.OPENROUTER_MODEL_THIN }}
+      OPENROUTER_MODEL_DEEP: ${{ secrets.OPENROUTER_MODEL_DEEP }}
+      OPENROUTER_BUILD_MODEL: ${{ secrets.OPENROUTER_BUILD_MODEL }}
+      # Outside the checkout: the runner refuses a WORKSPACES_DIR inside the repository.
+      WORKSPACES_DIR: ${{ github.workspace }}/../agencymem-workspaces
+    steps:
+      - if: env.LLM_API_KEY == ''
+        run: 'echo "eval: skipped (no LLM_API_KEY secret)"'
+      - if: env.LLM_API_KEY != ''
+        uses: actions/checkout@v4
+      - if: env.LLM_API_KEY != ''
+        uses: pnpm/action-setup@v4
+      - if: env.LLM_API_KEY != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - if: env.LLM_API_KEY != ''
+        run: pnpm install --frozen-lockfile
+      # The runner refuses to start without OpenCode at OPENCODE_VERSION, though Discovery does not
+      # build anything.
+      - if: env.LLM_API_KEY != ''
+        run: npm install -g opencode-ai@1.18.32
+      # Throwaway tokens for this run only, never written into the repository (AGENTS.md rule 10).
+      - if: env.LLM_API_KEY != ''
+        run: |
+          for name in AM_AGENT_TOKEN AM_UI_TOKEN AM_HOOK_TOKEN; do
+            value=$(openssl rand -hex 16)
+            echo "::add-mask::$value"
+            echo "$name=$value" >> "$GITHUB_ENV"
+          done
+      - if: env.LLM_API_KEY != ''
+        name: Start the gateway and the runner
+        run: |
+          pnpm seed
+          (cd apps/gateway && nohup pnpm exec tsx src/main.ts > ../../gateway.log 2>&1 &)
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4000/healthz && break; sleep 2; done
+          curl -sf http://127.0.0.1:4000/healthz || { cat gateway.log; exit 1; }
+          (cd apps/runner && nohup pnpm exec tsx src/main.ts > ../../runner.log 2>&1 &)
+          # The runner prints "runner started" once its config and OpenCode check pass.
+          for i in $(seq 1 30); do grep -q "runner started" runner.log && break; sleep 2; done
+          grep -q "runner started" runner.log || { cat runner.log; exit 1; }
+      - if: env.LLM_API_KEY != ''
+        run: pnpm eval:discovery --set A
+      - if: env.LLM_API_KEY != ''
+        run: pnpm eval:discovery --set B
+      - if: env.LLM_API_KEY != ''
+        run: pnpm eval:discovery --set C
+      - if: always() && env.LLM_API_KEY != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: discovery-eval
+          path: |
+            tests/discovery-eval/out/*.json
+            gateway.log
+            runner.log
