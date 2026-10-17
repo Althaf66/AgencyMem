@@ -2056,6 +2056,80 @@ a.card:hover {
 .pad {
   padding: 12px;
 }
+/* The Code screen: where the code is, then the chosen code */
+.code-grid {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.sources {
+  position: sticky;
+  top: 72px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  display: grid;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.sources > .eyebrow {
+  padding: 12px 14px 10px;
+}
+.sources > .src-group {
+  border-top: 1px solid var(--border);
+}
+.src {
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  transition: background-color 0.15s;
+}
+a.src:hover {
+  background: var(--surface-hover);
+  text-decoration: none;
+}
+.src.on {
+  background: var(--surface-hover);
+}
+.src.on::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+}
+.src-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.src-head .chip {
+  margin-left: auto;
+}
+.src-key {
+  font: 600 12.5px/1 var(--mono);
+}
+.src-sub {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.src.empty .src-key,
+.src.empty .src-sub {
+  color: var(--faint);
+}
+@media (max-width: 1000px) {
+  .code-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 /* Prism token colours: yellow keywords on the dark code ground */
 .token.comment,
 .token.prolog {

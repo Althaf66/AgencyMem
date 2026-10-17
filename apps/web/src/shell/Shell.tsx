@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import {
   Activity,
+  Code2,
   FileText,
   FileUp,
   House,
@@ -247,6 +248,7 @@ export function Shell(props: { store: AppStore; route: Route; children: ReactNod
           {nav("gates", "Gates", ShieldCheck)}
           <span className="eyebrow">Deliver</span>
           {nav("board", "Board", SquareKanban)}
+          {nav("code", "Code", Code2)}
           {nav("preview", "App preview", Monitor)}
           {nav("health", "Health", Activity)}
           <div className="side-foot">

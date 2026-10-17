@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Board } from "./board/Board";
 import { CardStory } from "./card/CardStory";
+import { Code } from "./code/Code";
 import { Docs } from "./docs/Docs";
 import { Gates } from "./gates/Gates";
 import { GraphPanel } from "./graph/GraphPanel";
@@ -30,6 +31,7 @@ export function App({ store }: { store: AppStore }) {
       {route.screen === "home" && <Home store={store} projectId={route.projectId} />}
       {route.screen === "pipeline" && <Pipeline store={store} projectId={route.projectId} />}
       {route.screen === "card" && <CardStory store={store} cardKey={route.key} />}
+      {route.screen === "code" && <Code store={store} cardKey={route.key} />}
       {route.screen === "preview" && <PreviewScreen store={store} projectId={route.projectId} />}
       {route.screen === "board" && <Board store={store} />}
       {route.screen === "files" && <Files store={store} />}

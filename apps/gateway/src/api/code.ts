@@ -66,10 +66,19 @@ const mergeBase = async (dir: string) => (await git(dir, "merge-base", "main", "
 export function codeRouter(deps: { db: () => Promise<FalkorDB>; workspacesDir: string }): Router {
   const router = express.Router();
 
-  /** The project and the card's code location, or the rejection to send. */
+  /** The project and the card's (or main's) code location, or the rejection to send. */
   async function locate(id: string, rawKey: string, rawMerged: unknown) {
     const found = await pathProject(await deps.db(), id);
     if (!found.ok) return found;
+    const projectDir = projectDirOf(deps.workspacesDir, found.id);
+    // `main` is the finished code: the repo's main branch, no card's change marked.
+    if (rawKey === "main") {
+      const repo = join(projectDir, "repo");
+      const where: Where = existsSync(join(repo, ".git"))
+        ? { source: "main", dir: repo }
+        : { source: "none" };
+      return { ok: true as const, where };
+    }
     const key = CardKey.safeParse(rawKey);
     const merged = rawMerged === undefined ? undefined : Sha.safeParse(rawMerged);
     if (!key.success || (merged && !merged.success)) {
@@ -78,7 +87,6 @@ export function codeRouter(deps: { db: () => Promise<FalkorDB>; workspacesDir: s
         error: { code: "VALIDATION_FAILED" as const, reason: "Bad card key or merge sha." },
       };
     }
-    const projectDir = projectDirOf(deps.workspacesDir, found.id);
     return { ok: true as const, where: whereIs(projectDir, key.data, merged?.data) };
   }
 

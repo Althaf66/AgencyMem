@@ -11,6 +11,7 @@ export type Route =
   | { screen: Screen; projectId: string }
   | { screen: "docs"; projectId: string; doc: Doc }
   | { screen: "card"; projectId: string; key: string }
+  | { screen: "code"; projectId: string; key: string | null }
   | { screen: "graph"; projectId: string; focus: string | null; view: GraphViewName };
 
 /** The hash of a graph view (ui.md section 2: `#/p/:id/graph?focus=&view=`). */
@@ -28,6 +29,9 @@ const SCREENS: Screen[] = [
   "health",
 ];
 
+/** The hash of the Code screen on main or on one card. */
+export const codeHash = (projectId: string, key: string) => `#/p/${projectId}/code/${key}`;
+
 /** The hash of a card's story. */
 export const cardHash = (projectId: string, key: string) => `#/p/${projectId}/card/${key}`;
 
@@ -41,6 +45,7 @@ export function parseHash(hash: string): Route {
     return { screen, projectId, doc: doc.success ? doc.data : "prd" };
   }
   if (screen === "card" && match[3]) return { screen, projectId, key: match[3] };
+  if (screen === "code") return { screen, projectId, key: match[3] ?? null };
   if (screen === "graph") {
     const query = new URLSearchParams(hash.split("?")[1] ?? "");
     const view = query.get("view") as GraphViewName;

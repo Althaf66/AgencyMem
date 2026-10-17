@@ -17,6 +17,8 @@ import { useRead } from "../ui";
 
 type S = Pick<AppState, "cardFiles" | "cardFile" | "runLog">;
 type File = CardFilesResponse["files"][number];
+/** A card, or main (`key: "main"`): the finished code, with no change of its own. */
+export type CodeSource = Pick<CardView, "key" | "id" | "mergedSha">;
 type Dir = { name: string; dirs: Map<string, Dir>; files: (File & { name: string })[] };
 
 /** The line height of the code pane, in px: the changed-line bands are placed by it. */
@@ -72,21 +74,26 @@ function treeOf(files: File[]): Dir {
 const changed = (d: Dir): boolean =>
   d.files.some((f) => f.change) || [...d.dirs.values()].some(changed);
 
-function Tree(props: { dir: Dir; open: string | null; pick: (path: string) => void }) {
-  const { dir } = props;
+function Tree(props: {
+  dir: Dir;
+  open: string | null;
+  pick: (path: string) => void;
+  prefix?: string;
+}) {
+  const { dir, prefix = "" } = props;
   return (
     <ul className="tree">
       {[...dir.dirs.values()]
         .sort((a, b) => a.name.localeCompare(b.name))
         .map((d) => (
           <li key={d.name}>
-            <details open={changed(d)}>
+            <details open={changed(d) || !!props.open?.startsWith(`${prefix}${d.name}/`)}>
               <summary>
                 <ChevronRight className="icon chevron" aria-hidden="true" />
                 <Folder className="icon" aria-hidden="true" />
                 {d.name}
               </summary>
-              <Tree dir={d} open={props.open} pick={props.pick} />
+              <Tree dir={d} open={props.open} pick={props.pick} prefix={`${prefix}${d.name}/`} />
             </details>
           </li>
         ))}
@@ -109,7 +116,7 @@ function Tree(props: { dir: Dir; open: string | null; pick: (path: string) => vo
   );
 }
 
-function FilePane(props: { s: S; card: CardView; file: File; stamp: number }) {
+function FilePane(props: { s: S; card: CodeSource; file: File; stamp: number }) {
   const { s, card, file } = props;
   const merged = card.mergedSha ?? undefined;
   const [tab, setTab] = useState<"code" | "diff">("code");
@@ -201,7 +208,7 @@ const SOURCE = {
   none: "No code yet",
 };
 
-export function CodeView({ s, card }: { s: S; card: CardView }) {
+export function CodeView({ s, card }: { s: S; card: CodeSource }) {
   const merged = card.mergedSha ?? undefined;
   const edits = (s.runLog[card.id] ?? []).filter((st) => st.step === "edit");
   const lastEdit = edits.at(-1);
@@ -218,6 +225,8 @@ export function CodeView({ s, card }: { s: S; card: CardView }) {
     (live && files.some((f) => f.path === live) ? live : null) ??
     picked ??
     files.find((f) => f.change)?.path ??
+    // ponytail: with no change to show (main), open the first source file, not a dotfile.
+    files.find((f) => /\/[^/.][^/]*\.(tsx?|jsx?)$/.test(f.path))?.path ??
     files[0]?.path ??
     null;
   const file = files.find((f) => f.path === path);
@@ -240,17 +249,25 @@ export function CodeView({ s, card }: { s: S; card: CardView }) {
             {SOURCE.worktree}
           </span>
         ) : (
-          <span className="chip">{SOURCE[data.source]}</span>
+          <span className="chip">
+            {card.key === "main" ? "Main · everything merged so far" : SOURCE[data.source]}
+          </span>
         )}
-        <span className="muted">{`${files.length} files · ${changes} changed by ${card.key}`}</span>
+        <span className="muted">
+          {card.key === "main"
+            ? `${files.length} files`
+            : `${files.length} files · ${changes} changed by ${card.key}`}
+        </span>
         {lastEdit && (
           <span className="muted grow">{`last edit: ${editedPath(lastEdit.text) ?? lastEdit.text}`}</span>
         )}
-        <label className="follow">
-          <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
-          <Eye className="icon" aria-hidden="true" />
-          Follow edits
-        </label>
+        {card.key !== "main" && (
+          <label className="follow">
+            <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
+            <Eye className="icon" aria-hidden="true" />
+            Follow edits
+          </label>
+        )}
       </header>
       <div className="ide-body">
         <nav className="ide-tree" aria-label="Files">

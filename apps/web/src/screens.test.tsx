@@ -19,6 +19,7 @@ import { BoardView } from "./board/Board";
 import { CardDrawer } from "./board/CardDrawer";
 import { CardStoryView } from "./card/CardStory";
 import { addedLines, editedPath } from "./card/CodeView";
+import { CodeScreenView, codeState } from "./code/Code";
 import { DocsView } from "./docs/Docs";
 import { GatesView } from "./gates/Gates";
 import { GraphPanelView } from "./graph/GraphPanel";
@@ -978,5 +979,43 @@ describe("theme", () => {
     expect(renderToString(<Logo />)).toContain('fill="#facc15"');
     const toggle = renderToString(<ThemeToggle />);
     expect(toggle).toContain('aria-label="Switch to light theme"');
+  });
+});
+
+describe("code screen", () => {
+  const sha = "a".repeat(40);
+  const commit = { sha, message: "feat: x", committedAt: 1, linked: true };
+  const cards = [
+    cardView({ key: "CARD-01", commits: [commit], mergedSha: "b".repeat(40) }),
+    cardView({ key: "CARD-02", column: "In progress", leaseHolder: "builder", commits: [commit] }),
+    cardView({ key: "CARD-03", commits: [commit] }),
+    cardView({ key: "CARD-04" }),
+  ];
+
+  it("tells building, partial, merged and not started apart", () => {
+    expect(cards.map(codeState)).toEqual(["merged", "building", "partial", "none"]);
+  });
+
+  it("lists main first, then the card being built, and opens that card", () => {
+    const html = renderToString(
+      <CodeScreenView cardKey={null} s={state({ board: ready(boardOf(cards)) })} />,
+    );
+    const at = (text: string) => html.indexOf(text);
+    expect(at("main")).toBeLessThan(at("CARD-02"));
+    expect(at("CARD-02")).toBeLessThan(at("CARD-03"));
+    expect(at("CARD-03")).toBeLessThan(at("CARD-01"));
+    expect(html).toContain("builder is writing it now");
+    expect(html).toContain("no code yet");
+    expect(html).toMatch(/href="#\/p\/P\/code\/CARD-02" class="src on" aria-current="page"/);
+    expect(html).not.toContain('href="#/p/P/code/CARD-04"');
+  });
+
+  it("deep-links one card's code", () => {
+    expect(parseHash("#/p/P/code/CARD-03")).toEqual({
+      screen: "code",
+      projectId: "P",
+      key: "CARD-03",
+    });
+    expect(parseHash("#/p/P/code")).toEqual({ screen: "code", projectId: "P", key: null });
   });
 });

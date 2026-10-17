@@ -194,6 +194,13 @@ describe("code view", () => {
     expect((body as { diff: string }).diff).toContain("+export const hello = 2;");
   });
 
+  it("reads main as the finished code, untouched by a card's worktree", async () => {
+    const main = await get(`/api/projects/${ctx.projectId}/cards/main/files`);
+    expect(main.body).toEqual({ source: "main", files: [{ path: "hello.ts", change: null }] });
+    const { body } = await get(`/api/projects/${ctx.projectId}/cards/main/file?path=hello.ts`);
+    expect(body).toMatchObject({ text: "export const hello = 1;\n", diff: "" });
+  });
+
   it("refuses a path that leaves the tree, and a bad card key", async () => {
     for (const path of ["../repo/hello.ts", ".git/config", "/etc/passwd", "C:/x"]) {
       const r = await get(
