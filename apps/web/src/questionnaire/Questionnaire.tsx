@@ -1,12 +1,12 @@
 // The questionnaire (ui.md section 5): contradictions first, then open questions, then unclear
-// points. Each card is a dropdown: the question on its face, and inside the five parts, the source
-// lines (a contradiction's two side by side) and the answer buttons.
+// points. Each card is a dropdown: the question on its face, and inside only the lines from the
+// uploaded files (a contradiction's two side by side) and the answer buttons.
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { useStore } from "zustand";
 import type { QuestionKind, QuestionView } from "@agencymem/contracts";
 import type { AppState, AppStore } from "../store";
-import { Chip, SliceView, time, useBusy } from "../ui";
+import { Chip, SliceView, useBusy } from "../ui";
 
 const GROUPS: { kind: QuestionKind; title: string }[] = [
   { kind: "contradiction", title: "Contradictions" },
@@ -51,27 +51,6 @@ function QuestionCard({ q, s }: { q: QuestionView; s: AppState }) {
       </summary>
       <div className="question-body">
         <SourcePair question={q} />
-        <dl className="parts">
-          <dt>Recommended</dt>
-          <dd>{q.recommended}</dd>
-          <dt>Reasoning</dt>
-          <dd>{q.reasoning}</dd>
-          <dt>Assumption</dt>
-          <dd>
-            {q.assumption.text} <Chip status={q.assumption.status} />
-          </dd>
-          <dt>Approach</dt>
-          <dd>{q.approach}</dd>
-          {q.answer && (
-            <>
-              <dt>Answer</dt>
-              <dd>
-                {q.answer.text}{" "}
-                <span className="muted">{`${q.answer.actor} · ${time(q.answer.at)}`}</span>
-              </dd>
-            </>
-          )}
-        </dl>
         {q.status === "open" && !own && (
           <div className="actions">
             <button

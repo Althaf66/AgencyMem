@@ -215,7 +215,8 @@ function StageRail({ s }: { s: AppState }) {
 }
 
 /** What waits now, from the snapshots: open questions, a gate a person can decide, or the agents. */
-export function nextStep(s: AppState): { title: string; text: string; href: string } {
+/** `you`: a person has to act (the header's bell shows its dot). */
+export function nextStep(s: AppState): { title: string; text: string; href: string; you?: true } {
   const project = s.projectId ?? "";
   const open = s.questions.data?.filter((q) => q.status === "open").length ?? 0;
   const gate = s.gates.data?.find(
@@ -226,12 +227,14 @@ export function nextStep(s: AppState): { title: string; text: string; href: stri
       title: `Decide ${gate.key}`,
       text: "The gate is ready for your decision.",
       href: `#/p/${project}/gates`,
+      you: true,
     };
   if (open > 0 && s.project.data?.stage === "discovery") {
     return {
       title: `${open} open question${open === 1 ? "" : "s"}`,
       text: "Discovery is waiting for your answers.",
       href: `#/p/${project}/questions`,
+      you: true,
     };
   }
   const building = s.board.data?.cards.find((c) => c.column === "In progress" && c.leaseHolder);

@@ -1,9 +1,9 @@
 // Routes 24 and 25 of contracts.md section 8: the health panel's numbers, all read from the graph.
 // Counts come from read/case-metrics (approved decision 15), coverage from read/progress (as the
 // progress header), rejection counters and backtraceMs from the registry Project, tokens and cost
-// from the Run nodes. Project names come from the registry, so the agency graph stays anonymous.
+// from the Run nodes by agent and model, priced from the meter's table. Project names come from the registry, so the agency graph stays anonymous.
 import express, { type Router } from "express";
-import { AgencyMetrics, FeatureKind, ProjectMetrics } from "@agencymem/contracts";
+import { AgencyMetrics, FeatureKind, PRICES, ProjectMetrics, costOf } from "@agencymem/contracts";
 import {
   AGENCY_GRAPH,
   REGISTRY_GRAPH,
@@ -52,12 +52,22 @@ export function metricsRouter(deps: { db: () => Promise<FalkorDB>; events: Event
       "read/progress",
       params,
     );
-    const [runs] = await readQuery<{ tokensIn: number; tokensOut: number; cost: number }>(
-      db,
-      found.graph,
-      "read/run-totals",
-      params,
-    );
+    type Group = {
+      agent: string;
+      model: string;
+      runs: number;
+      tokensIn: number;
+      tokensOut: number;
+      cost: number;
+    };
+    const groups = await readQuery<Group>(db, found.graph, "read/run-costs", params);
+    // Priced from the table now, so runs recorded before a model had a price are counted too.
+    const models = groups.map((g) => ({
+      ...g,
+      cost: costOf(PRICES, g.model, g.tokensIn, g.tokensOut) ?? g.cost,
+      price: PRICES[g.model] ?? null,
+    }));
+    const sum = (key: "tokensIn" | "tokensOut" | "cost") => models.reduce((n, m) => n + m[key], 0);
     res.json(
       ProjectMetrics.parse({
         estimateError: m.estimateError,
@@ -73,7 +83,10 @@ export function metricsRouter(deps: { db: () => Promise<FalkorDB>; events: Event
           queries: p.rejectedQueries ?? 0,
         },
         coverage: { covered: progress?.covered ?? 0, total: progress?.total ?? 0 },
-        ...runs,
+        tokensIn: sum("tokensIn"),
+        tokensOut: sum("tokensOut"),
+        cost: sum("cost"),
+        models,
         backtraceMs: p.backtraceMs ?? null,
         seq,
       }),

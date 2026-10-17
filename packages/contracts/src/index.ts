@@ -8,5 +8,6 @@ export * from "./errors";
 export * from "./events";
 export * from "./fixtures";
 export * from "./nodes";
+export * from "./prices";
 export * from "./rest";
 export * from "./tools";

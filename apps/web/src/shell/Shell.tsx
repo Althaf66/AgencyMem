@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import {
   Activity,
+  Bell,
   Code2,
   FileText,
   FileUp,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react";
 import { useStore } from "zustand";
 import { Stage, type GateKey, type GateStatus } from "@agencymem/contracts";
+import { nextStep } from "../home/Home";
 import type { AppState, AppStore } from "../store";
 import { getActor, setActor } from "./actor";
 import type { Route } from "./router";
@@ -176,6 +178,28 @@ const Brand = () => (
   </a>
 );
 
+/** Home's Next box as the top bar's notification: a bell, with a dot when a person has to act. */
+export function NextBell({ s }: { s: AppState }) {
+  const next = nextStep(s);
+  return (
+    <details className="next-bell">
+      <summary className="button ghost icon-button" aria-label={`Next: ${next.title}`} title="Next">
+        <Bell className="icon" aria-hidden="true" />
+        {next.you && <span className="dot" aria-hidden="true" />}
+      </summary>
+      <a
+        className="next-pop"
+        href={next.href}
+        onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")}
+      >
+        <span className="eyebrow">Next</span>
+        <strong>{next.title}</strong>
+        <span className="muted">{next.text}</span>
+      </a>
+    </details>
+  );
+}
+
 /** Dark or light: an attribute on <html> (index.html sets it before paint) and a saved choice. */
 export function ThemeToggle() {
   const [light, setLight] = useState(
@@ -232,6 +256,8 @@ export function Shell(props: { store: AppStore; route: Route; children: ReactNod
         {projectId && <StageStepper s={s} />}
         {projectId && <ChangeRequestButton s={s} />}
         <ActorField />
+        {/* Keyed by the route, so it closes when the screen changes. */}
+        {projectId && <NextBell key={JSON.stringify(route)} s={s} />}
         <ThemeToggle />
       </header>
       {projectId && (

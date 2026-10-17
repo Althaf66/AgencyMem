@@ -896,6 +896,17 @@ const restFixtures: [string, z.ZodType, unknown][] = [
       tokensIn: 1000,
       tokensOut: 400,
       cost: 0.12,
+      models: [
+        {
+          agent: "discovery",
+          model: "claude-haiku-5-5",
+          runs: 2,
+          tokensIn: 1000,
+          tokensOut: 400,
+          cost: 0.12,
+          price: { inPerMillion: 0.1, outPerMillion: 0.5 },
+        },
+      ],
       backtraceMs: null,
       seq: 9,
     },

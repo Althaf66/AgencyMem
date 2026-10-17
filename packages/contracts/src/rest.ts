@@ -205,6 +205,20 @@ export const ProjectMetrics = z.object({
   tokensIn: Count,
   tokensOut: Count,
   cost: z.number().nonnegative(),
+  /** The model calls by agent and model, priced from the meter's table (null: no price). */
+  models: z.array(
+    z.object({
+      agent: z.string(),
+      model: z.string(),
+      runs: Count,
+      tokensIn: Count,
+      tokensOut: Count,
+      cost: z.number().nonnegative(),
+      price: z
+        .object({ inPerMillion: z.number().nonnegative(), outPerMillion: z.number().nonnegative() })
+        .nullable(),
+    }),
+  ),
   backtraceMs: z.number().nullable(),
   seq: Seq,
 });

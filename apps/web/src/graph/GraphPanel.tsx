@@ -30,8 +30,6 @@ const VIEWS: { view: GraphViewName; name: string; labels: string[] | null }[] = 
   // What a work item or card read from the graph (its RECALLED edges).
   { view: "read", name: "Read", labels: ["WorkItem", "Task"] },
 ];
-/** Route 16's `limit`: above it the panel asks for a focus node. */
-const LIMIT = 500;
 
 /** What the panel reads from the store: it re-renders on these, not on every event or toast. */
 export type PanelState = Pick<AppState, "graph" | "projectId" | "node" | "loadGraph" | "feed">;
@@ -204,11 +202,6 @@ export function GraphStage(props: {
           {`${shown.nodes.length} nodes${data.ms === null ? "" : ` · ${data.ms} ms query`}`}
         </span>
       </p>
-      {view === "all" && !focus && data.graph.nodes.length >= LIMIT && (
-        <p className="state">
-          {`Showing the first ${LIMIT} nodes. Double-click a node, or open Why from a card, to focus.`}
-        </p>
-      )}
       {data.path && (
         <ul className="graph-path" aria-label="Nodes on the highlighted path">
           {data.path.nodes.slice(0, 60).map((n) => (

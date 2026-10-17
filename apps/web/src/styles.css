@@ -289,6 +289,48 @@ button.link:hover {
   font-size: 12px;
 }
 
+/* The Next bell: Home's Next box as a top bar notification. */
+.next-bell {
+  position: relative;
+}
+.next-bell summary {
+  list-style: none;
+  position: relative;
+}
+.next-bell summary::-webkit-details-marker {
+  display: none;
+}
+.next-bell .dot {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+.next-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  width: 280px;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius);
+  color: var(--text);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+}
+.next-pop:hover {
+  text-decoration: none;
+  background: var(--surface-hover);
+}
+
 /* The stage rail: one segment per stage, the current one yellow and named. */
 .stepper {
   display: flex;
@@ -1294,6 +1336,13 @@ button.card:hover:not(:disabled) {
 }
 .health svg circle {
   fill: currentColor;
+}
+.health-grid > .wide {
+  grid-column: 1 / -1;
+  overflow-x: auto;
+}
+.health tfoot th {
+  border-top: 1px solid var(--border-strong);
 }
 .health-numbers {
   list-style: none;

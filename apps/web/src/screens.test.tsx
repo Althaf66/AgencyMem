@@ -31,7 +31,7 @@ import { PHASES, PipelineView, phaseState } from "./pipeline/Pipeline";
 import { PreviewPanel } from "./preview/Preview";
 import { ProjectsView } from "./projects/Projects";
 import { QuestionnaireView, SourcePair } from "./questionnaire/Questionnaire";
-import { ChangeRequestButton, Logo, StageStepper, ThemeToggle } from "./shell/Shell";
+import { ChangeRequestButton, Logo, NextBell, StageStepper, ThemeToggle } from "./shell/Shell";
 import { parseHash } from "./shell/router";
 import {
   createAppStore,
@@ -179,10 +179,10 @@ describe("questionnaire", () => {
     expect(html).toContain('href="#/p/P/gates"');
     expect(html).toContain("G1: 1 question still open");
     for (const part of ["Recommended", "Reasoning", "Assumption", "Approach", "Answer"]) {
-      expect(html).toContain(`<dt>${part}</dt>`);
+      expect(html).not.toContain(`<dt>${part}</dt>`);
     }
     expect(html).toContain("Accept recommended");
-    // Each question is a dropdown: the question on its face, the parts inside, closed at first.
+    // Each question is a dropdown: the question on its face, the file lines inside, closed at first.
     expect(html).toMatch(/<details class="question open"><summary>.*Is a slot 20/s);
     expect(html).not.toContain('<details class="question open" open');
   });
@@ -708,6 +708,26 @@ describe("health panel (task 5.6)", () => {
     tokensIn: 400000,
     tokensOut: 12000,
     cost: 3.1,
+    models: [
+      {
+        agent: "discovery",
+        model: "claude-haiku-5-5",
+        runs: 4,
+        tokensIn: 400000,
+        tokensOut: 12000,
+        cost: 0.046,
+        price: { inPerMillion: 0.1, outPerMillion: 0.5 },
+      },
+      {
+        agent: "build",
+        model: "z-ai/glm-5.3",
+        runs: 1,
+        tokensIn: 0,
+        tokensOut: 0,
+        cost: 0,
+        price: null,
+      },
+    ],
     backtraceMs: 3,
   };
   const row = (name: string, order: number, estimateError: number | null) => ({
@@ -750,6 +770,11 @@ describe("health panel (task 5.6)", () => {
     expect(html.match(/<circle/g)).toHaveLength(2); // the open project has no point
     expect(html).toContain("calendar (low)"); // a point's tooltip lists its lessons
     expect(html).toContain("Blocked items: none");
+    // Each model priced from the table, with "no price" for one the table lacks.
+    expect(html).toMatch(/claude-haiku-5-5<\/td><td>discovery<\/td><td>4<\/td>/);
+    expect(html).toContain("<td>$0.10</td><td>$0.50</td><td>$0.05</td>");
+    expect(html).toContain("no price");
+    expect(html).toContain("<h3>Work items</h3>");
   });
 
   it("has its own route", () => {
@@ -979,6 +1004,15 @@ describe("theme", () => {
     expect(renderToString(<Logo />)).toContain('fill="#facc15"');
     const toggle = renderToString(<ThemeToggle />);
     expect(toggle).toContain('aria-label="Switch to light theme"');
+  });
+
+  it("rings the header bell with Home's Next when a gate waits for a person", () => {
+    const ready1 = gate({ canDecide: true, blockedBy: [] });
+    const bell = renderToString(<NextBell s={state({ gates: ready([ready1]) })} />);
+    expect(bell).toContain('aria-label="Next: Decide G1"');
+    expect(bell).toContain('class="dot"');
+    expect(bell).toContain('href="#/p/P/gates"');
+    expect(renderToString(<NextBell s={state({})} />)).not.toContain('class="dot"');
   });
 });
 

@@ -138,15 +138,17 @@ async function closedProject() {
   await setStage(db, project.id, "intake", "maintenance");
   await closeProject(ctx, { actuals: [{ featureId: featureIds[0]!, actualHours: 4 }], now });
 
-  const run = (tokensIn: number, tokensOut: number, cost: number) =>
+  const run = (tokensIn: number, tokensOut: number, cost: number, model = "m") =>
     writeRun(ctx, {
       itemId: "01JA0000000000000000000001",
       agent: "discovery",
-      run: { step: "s", model: "m", endpoint: "primary", tokensIn, tokensOut, ms: 1, cost },
+      run: { step: "s", model, endpoint: "primary", tokensIn, tokensOut, ms: 1, cost },
       now,
     });
   await run(100, 20, 0.5);
   await run(300, 40, 0.25);
+  // Recorded at cost 0 before the table had its price: the route prices it from the table.
+  await run(1_000_000, 1_000_000, 0, "claude-haiku-5-5");
   await countRejection(db, project.id, "rejectedClaims");
   await countRejection(db, project.id, "rejectedClaims");
   await countRejection(db, project.id, "rejectedWrites");
@@ -166,11 +168,21 @@ describe("health metrics (routes 24 and 25)", () => {
       cardsReopenedPerCR: null,
       rejected: { claims: 2, writes: 1, completions: 0, queries: 0 },
       coverage: { covered: 0, total: 1 },
-      tokensIn: 400,
-      tokensOut: 60,
-      cost: 0.75,
+      tokensIn: 1_000_400,
+      tokensOut: 1_000_060,
       backtraceMs: 7,
     });
+    const m = ProjectMetrics.parse(body);
+    expect(m.cost).toBeCloseTo(1.35); // 0.75 recorded + 0.10 + 0.50 priced
+    expect(m.models).toEqual([
+      expect.objectContaining({
+        model: "claude-haiku-5-5",
+        runs: 1,
+        cost: 0.6,
+        price: { inPerMillion: 0.1, outPerMillion: 0.5 },
+      }),
+      expect.objectContaining({ model: "m", runs: 2, tokensIn: 400, cost: 0.75, price: null }),
+    ]);
   });
 
   it("lists every project in run order with the lessons its estimates used", async () => {
