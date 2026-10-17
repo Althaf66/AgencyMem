@@ -52,7 +52,10 @@ export function toNode({ p, label }: NodeRow): Node {
     key: str(p.key),
     title: str(p.title),
   });
-  return { id, label, title, group: groupOf(label), state: stateOf(p, label) };
+  const node: Node = { id, label, title, group: groupOf(label), state: stateOf(p, label) };
+  // The graph's time slider replays the nodes in the order they were written.
+  if (typeof p.createdAt === "number") node.createdAt = p.createdAt;
+  return node;
 }
 
 /** A short value for an edge (contracts.md GraphView): a run's result, an estimate's hours. */
@@ -164,6 +167,10 @@ export function graphRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
   );
   router.get("/projects/:id/impact/:nodeId", (req, res) =>
     path(req, res, "GET /api/projects/:id/impact/:nodeId", "read/impact-path", "Fact"),
+  );
+  // The Read view: what a WorkItem or Task read from the graph (its RECALLED edges).
+  router.get("/projects/:id/recalled/:nodeId", (req, res) =>
+    path(req, res, "GET /api/projects/:id/recalled/:nodeId", "read/recalled"),
   );
   router.get("/projects/:id/backtrace/:nodeId", (req, res) =>
     path(req, res, "GET /api/projects/:id/backtrace/:defectId", "read/backtrace", "Defect"),

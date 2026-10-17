@@ -55,6 +55,9 @@ export function NodeDrawer(props: {
             <a href={graphHash(project, "why", nodeId)}>Why</a>
             {label === "Fact" && <a href={graphHash(project, "impact", nodeId)}>Impact</a>}
             {label === "Defect" && <a href={graphHash(project, "backtrace", nodeId)}>Backtrace</a>}
+            {(label === "WorkItem" || label === "Task") && (
+              <a href={graphHash(project, "read", nodeId)}>What it read</a>
+            )}
           </nav>
           {validTo !== null && (
             <p className="chip warn">

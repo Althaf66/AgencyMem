@@ -1,7 +1,7 @@
 // The evidence an item leaves, each part read from the gateway when it opens: what it read from the
 // graph (RECALLED links), what it wrote (outputIds), its model calls (Run nodes), its live steps,
 // a commit's diff, and a card's test runs.
-import { Brain, Cpu, FileCode, FlaskConical, PenLine } from "lucide-react";
+import { Brain, Cpu, FileCode, FlaskConical, Network, PenLine } from "lucide-react";
 import { graphHash } from "../shell/router";
 import type { AppState, RunStep } from "../store";
 import { time, useRead } from "../ui";
@@ -33,6 +33,12 @@ export function ContextRead(props: { s: S; itemId: string; wrote?: boolean }) {
         <h4>
           <Brain className="icon" aria-hidden="true" />
           {`Read from the graph · ${read.length} nodes`}
+          {read.length > 0 && (
+            <a className="chip accent" href={graphHash(s.projectId ?? "", "read", itemId)}>
+              <Network className="icon" aria-hidden="true" />
+              Show on graph
+            </a>
+          )}
         </h4>
         {read.length === 0 ? (
           <p className="muted">
@@ -159,6 +165,20 @@ export function lineClass(line: string, inHunk: boolean): string {
   return line.startsWith("+") ? "add" : line.startsWith("-") ? "del" : "";
 }
 
+/** A patch's lines, coloured: header, hunk, added, removed. */
+export function Patch({ lines }: { lines: string[] }) {
+  const firstHunk = lines.findIndex((l) => l.startsWith("@@"));
+  return (
+    <pre>
+      {lines.map((line, i) => (
+        <span key={i} className={lineClass(line, firstHunk !== -1 && i > firstHunk)}>
+          {`${line}\n`}
+        </span>
+      ))}
+    </pre>
+  );
+}
+
 /** One commit's patch, file by file, read from the project's repo. */
 export function DiffView({ s, sha }: { s: S; sha: string }) {
   const { data, error } = useRead(() => s.commitDiff(sha), `diff:${sha}`);
@@ -180,13 +200,7 @@ export function DiffView({ s, sha }: { s: S; sha: string }) {
               <span className="add-n">{`+${added}`}</span>
               <span className="del-n">{`-${removed}`}</span>
             </summary>
-            <pre>
-              {lines.map((line, i) => (
-                <span key={i} className={lineClass(line, firstHunk !== -1 && i > firstHunk)}>
-                  {`${line}\n`}
-                </span>
-              ))}
-            </pre>
+            <Patch lines={lines} />
           </details>
         );
       })}

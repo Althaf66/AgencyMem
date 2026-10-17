@@ -128,6 +128,9 @@ export type AppState = {
   commitDiff(sha: string): ReturnType<Api["commitDiff"]>;
   itemRuns(itemId: string): ReturnType<Api["itemRuns"]>;
   testRuns(taskId: string): ReturnType<Api["testRuns"]>;
+  /** A card's code: its files, and one file with the card's diff of it. */
+  cardFiles(key: string, merged?: string): ReturnType<Api["cardFiles"]>;
+  cardFile(key: string, path: string, merged?: string): ReturnType<Api["cardFile"]>;
   /** Reads (GET), starts (POST) or stops (DELETE) the preview. */
   previewAction(method: "GET" | "POST" | "DELETE"): Promise<void>;
   answer(question: QuestionView, accept: boolean, text?: string): Promise<boolean>;
@@ -189,7 +192,7 @@ const DESIGN = [
 const TOAST_MS = 6000;
 /** The events the graph panel follows (ui.md graph panel, Data and interactions). */
 const GRAPH_EVENTS = ["node.written", "node.ended", "task.moved"];
-const PATHS = { why: "why", impact: "impact", backtrace: "backtrace" } as const;
+const PATHS = { why: "why", impact: "impact", backtrace: "backtrace", read: "recalled" } as const;
 const RUN_LOG = 50;
 const FEED = 300;
 const NO_PREVIEW: PreviewView = { status: "stopped", url: null, log: [] };
@@ -448,6 +451,8 @@ export function createAppStore(api: Api): AppStore {
       commitDiff: (sha) => api.commitDiff(get().projectId ?? "", sha),
       itemRuns: (itemId) => api.itemRuns(get().projectId ?? "", itemId),
       testRuns: (taskId) => api.testRuns(get().projectId ?? "", taskId),
+      cardFiles: (key, merged) => api.cardFiles(get().projectId ?? "", key, merged),
+      cardFile: (key, path, merged) => api.cardFile(get().projectId ?? "", key, path, merged),
       async previewAction(method) {
         const id = get().projectId;
         if (!id) return;

@@ -234,6 +234,14 @@ export function nextStep(s: AppState): { title: string; text: string; href: stri
       href: `#/p/${project}/questions`,
     };
   }
+  const building = s.board.data?.cards.find((c) => c.column === "In progress" && c.leaseHolder);
+  if (building) {
+    return {
+      title: `Watch ${building.key} being built`,
+      text: `${building.leaseHolder} is writing "${building.title}". Open its live code.`,
+      href: `#/p/${project}/card/${building.key}`,
+    };
+  }
   const items = s.board.data?.items ?? [];
   const busy = items.filter((i) => i.status === "claimed");
   if (busy.length > 0) {

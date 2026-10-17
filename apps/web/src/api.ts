@@ -5,6 +5,8 @@ import {
   AgencyMetrics,
   AnswerResponse,
   BoardResponse,
+  CardFileResponse,
+  CardFilesResponse,
   ChangeRequestResponse,
   ChatResponse,
   CommitDiffResponse,
@@ -137,6 +139,8 @@ export function createApi(opts: ApiOptions) {
       call(PathResponse, "GET", `/api/projects/${id}/why/${nodeId}`),
     impact: (id: string, nodeId: string) =>
       call(PathResponse, "GET", `/api/projects/${id}/impact/${nodeId}`),
+    recalled: (id: string, nodeId: string) =>
+      call(PathResponse, "GET", `/api/projects/${id}/recalled/${nodeId}`),
     backtrace: (id: string, nodeId: string) =>
       call(PathResponse, "GET", `/api/projects/${id}/backtrace/${nodeId}`),
     events: (id: string) => call(EventsResponse, "GET", `/api/projects/${id}/events`),
@@ -148,6 +152,18 @@ export function createApi(opts: ApiOptions) {
         method,
         `/api/projects/${id}/preview`,
         method === "GET" ? {} : { body: {} },
+      ),
+    cardFiles: (id: string, key: string, merged?: string) =>
+      call(
+        CardFilesResponse,
+        "GET",
+        `/api/projects/${id}/cards/${key}/files${merged ? `?merged=${merged}` : ""}`,
+      ),
+    cardFile: (id: string, key: string, path: string, merged?: string) =>
+      call(
+        CardFileResponse,
+        "GET",
+        `/api/projects/${id}/cards/${key}/file?${new URLSearchParams({ path, ...(merged ? { merged } : {}) }).toString()}`,
       ),
     items: (id: string) => call(ItemsResponse, "GET", `/api/projects/${id}/items`),
     itemRuns: (id: string, itemId: string) =>

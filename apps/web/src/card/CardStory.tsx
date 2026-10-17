@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Brain,
   ClipboardCheck,
+  Code2,
   FlaskConical,
   GitCommitHorizontal,
   GitMerge,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 import type { CardView } from "@agencymem/contracts";
 import { ContextRead, DiffView, ModelCalls, StepLog, TestRuns } from "../pipeline/Evidence";
+import { CodeView } from "./CodeView";
 import { graphHash } from "../shell/router";
 import type { AppState, AppStore } from "../store";
 import { Chip, Disclosure, SliceView, time } from "../ui";
@@ -77,6 +79,9 @@ function Story({ s, card }: { s: AppState; card: CardView }) {
           <ModelCalls s={s} itemId={card.id} />
           <StepLog steps={s.runLog[card.id] ?? []} />
           {card.note && <p className="muted">{card.note}</p>}
+        </Step>
+        <Step icon={Code2} title="Code" done={commits.length > 0}>
+          <CodeView s={s} card={card} />
         </Step>
         <Step
           icon={GitCommitHorizontal}

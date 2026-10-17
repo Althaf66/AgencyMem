@@ -38,6 +38,8 @@ export function titleOf(o: Other): string {
       return o.statement ?? o.id;
     case "Question":
       return o.text ?? o.id;
+    case "WorkItem":
+      return o.kind ? `${o.kind} work item` : o.id;
     default:
       return o.key ?? o.name ?? o.title ?? o.id;
   }

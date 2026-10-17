@@ -183,3 +183,20 @@ export function provenance(view: GraphView, nodeId: string, max = 7): GraphView[
   }
   return chain;
 }
+
+/** The distinct times nodes were written, oldest first: the time slider's steps. */
+export const writeTimes = (view: GraphView): number[] =>
+  [...new Set(view.nodes.flatMap((n) => (n.createdAt === undefined ? [] : [n.createdAt])))].sort(
+    (a, b) => a - b,
+  );
+
+/** The graph as it stood at `until`: nodes written by then (and `keep`), and links among them.
+ * A node with no write time always shows. */
+export function asOf(view: GraphView, until: number | null, keep: Set<string>): GraphView {
+  if (until === null) return view;
+  const nodes = view.nodes.filter(
+    (n) => n.createdAt === undefined || n.createdAt <= until || keep.has(n.id),
+  );
+  const ids = new Set(nodes.map((n) => n.id));
+  return { nodes, links: view.links.filter((l) => ids.has(l.source) && ids.has(l.target)) };
+}

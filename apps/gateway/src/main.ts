@@ -9,6 +9,7 @@ import { connect, isReachable } from "@agencymem/graph";
 import pkg from "../package.json" with { type: "json" };
 import { bugReportsRouter } from "./api/bug-reports";
 import { closeRouter } from "./api/close";
+import { codeRouter } from "./api/code";
 import { changeRequestsRouter } from "./api/change-requests";
 import { docsRouter } from "./api/docs";
 import { evidenceRouter } from "./api/evidence";
@@ -135,6 +136,7 @@ export function createGateway(
       workspacesDir: required(cfg.WORKSPACES_DIR, "WORKSPACES_DIR"),
       previews,
     }),
+    codeRouter({ db, workspacesDir: required(cfg.WORKSPACES_DIR, "WORKSPACES_DIR") }),
     notFound,
   );
   app.use("/hooks", requireToken(hook), express.json(), hooksRouter({ db, events }), notFound);

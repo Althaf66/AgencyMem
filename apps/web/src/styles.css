@@ -1652,3 +1652,264 @@ a.card:hover {
   color: var(--muted);
   white-space: pre-wrap;
 }
+
+/* The graph's time slider */
+.time-slider {
+  margin: 0 0 8px;
+  padding: 4px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  flex-wrap: nowrap;
+}
+.time-slider input[type="range"] {
+  flex: 1;
+  padding: 0;
+  border: 0;
+  background: none;
+  accent-color: var(--accent);
+}
+.time-slider button {
+  padding: 4px 8px;
+}
+
+/* The live code view: a small read-only IDE */
+.ide {
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #07080c;
+}
+.ide-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #0f1219;
+  border-bottom: 1px solid var(--border);
+}
+.live-chip .icon {
+  width: 13px;
+  height: 13px;
+  animation: blink 1.6s ease-in-out infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+.follow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+.ide-body {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  height: 560px;
+}
+.ide-tree {
+  overflow: auto;
+  padding: 8px 4px;
+  border-right: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.tree {
+  list-style: none;
+  margin: 0;
+  padding-left: 10px;
+}
+.ide-tree > .tree {
+  padding-left: 0;
+}
+.tree summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.tree summary::-webkit-details-marker {
+  display: none;
+}
+.tree .chevron {
+  width: 12px;
+  height: 12px;
+  transition: transform 0.15s;
+}
+.tree details[open] > summary .chevron {
+  transform: rotate(90deg);
+}
+.tree .icon {
+  width: 14px;
+  height: 14px;
+}
+.tree .file {
+  display: flex;
+  width: 100%;
+  gap: 6px;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+}
+.tree .file:hover {
+  background: var(--surface-hover);
+}
+.tree .file.on {
+  background: var(--accent-soft);
+}
+.tree .file.added {
+  color: var(--ok);
+}
+.tree .file.modified {
+  color: var(--warn);
+}
+.tree .file.deleted {
+  color: var(--danger);
+  text-decoration: line-through;
+}
+.badge {
+  margin-left: auto;
+  font: 600 10px var(--mono);
+}
+.file-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.file-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.change-added {
+  color: var(--ok);
+}
+.change-modified {
+  color: var(--warn);
+}
+.change-deleted {
+  color: var(--danger);
+}
+.tabs-sm {
+  display: inline-flex;
+  gap: 2px;
+}
+.tabs-sm button {
+  padding: 2px 10px;
+  font-size: 12px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+}
+.tabs-sm button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+.code {
+  flex: 1;
+  display: flex;
+  overflow: auto;
+  font: 12.5px/var(--line) var(--mono);
+}
+.gutter {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px 8px 12px;
+  text-align: right;
+  color: var(--faint);
+  user-select: none;
+  position: sticky;
+  left: 0;
+  background: #07080c;
+  z-index: 1;
+}
+.gutter span {
+  height: var(--line);
+}
+.gutter .hit {
+  color: var(--ok);
+  box-shadow: inset -2px 0 0 var(--ok);
+}
+.code-body {
+  position: relative;
+  flex: 1;
+  padding: 8px 0;
+}
+.code-body pre {
+  margin: 0;
+  padding: 0 16px;
+  font: inherit;
+  white-space: pre;
+  color: #d4d8e2;
+}
+.band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
+  height: var(--line);
+  background: rgba(61, 220, 151, 0.09);
+}
+.file-pane .diff {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+}
+.file-pane .diff pre {
+  max-height: none;
+}
+.pad {
+  padding: 12px;
+}
+/* Prism token colours, dark */
+.token.comment,
+.token.prolog {
+  color: #6b7280;
+  font-style: italic;
+}
+.token.keyword,
+.token.boolean,
+.token.important {
+  color: #c792ea;
+}
+.token.string,
+.token.char,
+.token.template-string,
+.token.attr-value {
+  color: #a5e075;
+}
+.token.number,
+.token.constant {
+  color: #f78c6c;
+}
+.token.function,
+.token.class-name {
+  color: #82aaff;
+}
+.token.tag,
+.token.property {
+  color: #f07178;
+}
+.token.attr-name,
+.token.builtin {
+  color: #ffcb6b;
+}
+.token.operator,
+.token.punctuation {
+  color: #89ddff;
+}

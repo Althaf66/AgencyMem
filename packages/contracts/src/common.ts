@@ -140,6 +140,7 @@ export const GraphView = z.object({
       title: z.string(),
       group: z.string(),
       state: z.enum(["ended", "stale", "rework", "failing"]).nullable(),
+      createdAt: EpochMs.optional(), // when it was written: the time slider's order
     }),
   ),
   links: z.array(

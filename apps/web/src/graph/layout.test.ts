@@ -9,8 +9,10 @@ import {
   linkKey,
   merge,
   nodeSize,
+  asOf,
   provenance,
   visible,
+  writeTimes,
 } from "./layout";
 
 const node = (id: string, label: string) => ({
@@ -121,5 +123,21 @@ describe("provenance", () => {
       links: [link("A", "DERIVED_FROM", "B"), link("B", "DERIVED_FROM", "A")],
     };
     expect(provenance(view, "A").map((n) => n.id)).toEqual(["B", "A"]);
+  });
+});
+
+describe("time slider", () => {
+  it("shows the graph as it stood at a time, keeping lit nodes and untimed ones", () => {
+    const at = (id: string, createdAt?: number) => ({ ...node(id, "Fact"), createdAt });
+    const view: GraphView = {
+      nodes: [at("A", 1), at("B", 2), at("C", 3), at("D")],
+      links: [link("B", "DERIVED_FROM", "A"), link("C", "DERIVED_FROM", "B")],
+    };
+    expect(writeTimes(view)).toEqual([1, 2, 3]);
+    const two = asOf(view, 2, new Set());
+    expect(two.nodes.map((n) => n.id)).toEqual(["A", "B", "D"]);
+    expect(two.links).toHaveLength(1);
+    expect(asOf(view, 1, new Set(["C"])).nodes.map((n) => n.id)).toEqual(["A", "C", "D"]);
+    expect(asOf(view, null, new Set())).toBe(view);
   });
 });

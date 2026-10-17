@@ -63,7 +63,7 @@ beforeAll(async () => {
     execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args], { cwd: repo })
       .toString()
       .trim();
-  git("init", "-q");
+  git("init", "-q", "-b", "main");
   writeFileSync(join(repo, "hello.ts"), "export const hello = 1;\n");
   git("add", ".");
   git("commit", "-qm", "feat: hello");
@@ -162,6 +162,72 @@ describe("evidence routes", () => {
     expect((body as { events: { type: string }[] }).events.at(-1)).toMatchObject({
       type: "metrics.updated",
     });
+  });
+});
+
+describe("code view", () => {
+  const files = async (q = "") =>
+    (await get(`/api/projects/${ctx.projectId}/cards/CARD-01/files${q}`)).body as {
+      source: string;
+      files: { path: string; change: string | null }[];
+    };
+
+  it("reads main while the card has no worktree", async () => {
+    expect(await files()).toEqual({ source: "main", files: [{ path: "hello.ts", change: null }] });
+  });
+
+  it("shows a card's worktree live: changed, new and untracked files, and the card's diff", async () => {
+    const repo = join(workspaces, ctx.projectId, "repo");
+    const wt = join(workspaces, ctx.projectId, "wt", "CARD-01");
+    execFileSync("git", ["worktree", "add", "-q", "-b", "card/CARD-01", wt, "main"], { cwd: repo });
+    writeFileSync(join(wt, "hello.ts"), "export const hello = 2;\n"); // not committed yet
+    writeFileSync(join(wt, "new.ts"), "export const fresh = true;\n"); // untracked
+    expect(await files()).toEqual({
+      source: "worktree",
+      files: [
+        { path: "hello.ts", change: "modified" },
+        { path: "new.ts", change: "added" },
+      ],
+    });
+    const { body } = await get(`/api/projects/${ctx.projectId}/cards/CARD-01/file?path=hello.ts`);
+    expect(body).toMatchObject({ text: "export const hello = 2;\n", truncated: false });
+    expect((body as { diff: string }).diff).toContain("+export const hello = 2;");
+  });
+
+  it("refuses a path that leaves the tree, and a bad card key", async () => {
+    for (const path of ["../repo/hello.ts", ".git/config", "/etc/passwd", "C:/x"]) {
+      const r = await get(
+        `/api/projects/${ctx.projectId}/cards/CARD-01/file?path=${encodeURIComponent(path)}`,
+      );
+      expect(r.status).toBe(400);
+    }
+    expect((await get(`/api/projects/${ctx.projectId}/cards/nope/files`)).status).toBe(400);
+  });
+});
+
+describe("read view and time order", () => {
+  it("returns an item with every node it read, and graph nodes carry createdAt", async () => {
+    const item = (await openItem(ctx, { kind: "launch", createdBy: "human:test", now: 5 }))!;
+    await recordRecall(ctx, {
+      itemId: item.id,
+      agent: "planner",
+      ids: [codeChangeId],
+      keys: [],
+      now: 6,
+    });
+    const { body } = await get(`/api/projects/${ctx.projectId}/recalled/${item.id}`);
+    const path = (
+      body as { path: { nodes: { id: string; title: string }[]; links: { type: string }[] } }
+    ).path;
+    expect(path.nodes.map((n) => n.id).sort()).toEqual([item.id, codeChangeId].sort());
+    expect(path.nodes.find((n) => n.id === item.id)?.title).toBe("launch work item");
+    expect(path.links).toEqual([
+      expect.objectContaining({ type: "RECALLED", target: codeChangeId }),
+    ]);
+    const graph = (await get(`/api/projects/${ctx.projectId}/graph`)).body as {
+      nodes: { createdAt?: number }[];
+    };
+    expect(graph.nodes.every((n) => typeof n.createdAt === "number")).toBe(true);
   });
 });
 

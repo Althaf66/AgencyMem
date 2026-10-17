@@ -18,6 +18,7 @@ import type { Api } from "./api";
 import { BoardView } from "./board/Board";
 import { CardDrawer } from "./board/CardDrawer";
 import { CardStoryView } from "./card/CardStory";
+import { addedLines, editedPath } from "./card/CodeView";
 import { DocsView } from "./docs/Docs";
 import { GatesView } from "./gates/Gates";
 import { GraphPanelView } from "./graph/GraphPanel";
@@ -944,5 +945,30 @@ describe("app preview", () => {
     );
     expect(failed).toContain("Error: no main");
     expect(failed).not.toContain("<iframe");
+  });
+});
+
+describe("live code view", () => {
+  it("maps a diff to the new file's added line numbers", () => {
+    const diff = [
+      "diff --git a/a.ts b/a.ts",
+      "--- a/a.ts",
+      "+++ b/a.ts",
+      "@@ -1,3 +1,4 @@",
+      " one",
+      "-two",
+      "+TWO",
+      "+three",
+      " four",
+      "@@ -10,1 +11,2 @@",
+      " ten",
+      "+eleven",
+    ].join("\n");
+    expect([...addedLines(diff)]).toEqual([2, 3, 12]);
+  });
+
+  it("reads the file an edit step names", () => {
+    expect(editedPath("Edited server/routes/doctors.ts")).toBe("server/routes/doctors.ts");
+    expect(editedPath("Ran npm test")).toBeNull();
   });
 });

@@ -2,13 +2,14 @@
 // first in the cut order), the views All, Why, Impact and Backtrace, the delivery-details toggle,
 // the header with the focus, node count and query time, the lit path in words, and the node drawer.
 import { Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { Pause, Play } from "lucide-react";
 import { useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 import { graphHash, type GraphViewName } from "../shell/router";
 import type { AppState, AppStore, GraphData } from "../store";
 import { SliceView } from "../ui";
 import type { Layout, Pulse } from "./Canvas";
-import { highlight, visible } from "./layout";
+import { asOf, highlight, visible, writeTimes } from "./layout";
 import { NodeDrawer } from "./NodeDrawer";
 
 const Canvas = lazy(() => import("./Canvas"));
@@ -19,12 +20,15 @@ const DEFAULT_LAYOUT: Record<GraphViewName, Layout> = {
   why: "Orbit",
   impact: "Flow",
   backtrace: "Flow",
+  read: "Orbit",
 };
-const VIEWS: { view: GraphViewName; name: string; label: string | null }[] = [
-  { view: "all", name: "All", label: null },
-  { view: "why", name: "Why", label: null },
-  { view: "impact", name: "Impact", label: "Fact" },
-  { view: "backtrace", name: "Backtrace", label: "Defect" },
+const VIEWS: { view: GraphViewName; name: string; labels: string[] | null }[] = [
+  { view: "all", name: "All", labels: null },
+  { view: "why", name: "Why", labels: null },
+  { view: "impact", name: "Impact", labels: ["Fact"] },
+  { view: "backtrace", name: "Backtrace", labels: ["Defect"] },
+  // What a work item or card read from the graph (its RECALLED edges).
+  { view: "read", name: "Read", labels: ["WorkItem", "Task"] },
 ];
 /** Route 16's `limit`: above it the panel asks for a focus node. */
 const LIMIT = 500;
@@ -74,10 +78,29 @@ export function GraphStage(props: {
   };
   // Stable inputs: a new graph object restarts the canvas simulation.
   const lit = useMemo(() => highlight(data.path), [data.path]);
+  const keep = useMemo(() => new Set([...lit.nodes, ...(focus ? [focus] : [])]), [lit, focus]);
+  // The time slider: a step per distinct write time; null is now. Play walks the real write
+  // times forward, so the graph grows in the order the agents wrote it.
+  const times = useMemo(() => writeTimes(data.graph), [data.graph]);
+  const [step, setStep] = useState<number | null>(null);
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    if (!playing) return;
+    const stride = Math.max(1, Math.ceil(times.length / 200)); // about 12 s for any project
+    const t = setInterval(() => {
+      setStep((at) => {
+        const next = (at ?? -1) + stride;
+        if (next < times.length - 1) return next;
+        setPlaying(false);
+        return null;
+      });
+    }, 60);
+    return () => clearInterval(t);
+  }, [playing, times.length]);
+  const until = step === null ? null : (times[step] ?? null);
   const shown = useMemo(
-    () =>
-      visible(data.graph, { delivery, keep: new Set([...lit.nodes, ...(focus ? [focus] : [])]) }),
-    [data.graph, delivery, lit, focus],
+    () => asOf(visible(data.graph, { delivery, keep }), until, keep),
+    [data.graph, delivery, keep, until],
   );
   const focusNode = data.graph.nodes.find((n) => n.id === focus);
 
@@ -103,7 +126,8 @@ export function GraphStage(props: {
         <span role="group" aria-label="View">
           {VIEWS.map((v) => {
             const fits =
-              v.view === "all" || (!!focusNode && (!v.label || focusNode.label === v.label));
+              v.view === "all" ||
+              (!!focusNode && (!v.labels || v.labels.includes(focusNode.label)));
             return (
               <button
                 type="button"
@@ -111,7 +135,9 @@ export function GraphStage(props: {
                 aria-pressed={view === v.view}
                 disabled={!fits}
                 title={
-                  fits ? undefined : `${v.name} needs a ${v.label ?? "focus node"} as the focus.`
+                  fits
+                    ? undefined
+                    : `${v.name} needs a ${v.labels?.join(" or ") ?? "focus node"} as the focus.`
                 }
                 onClick={() => go(v.view, v.view === "all" ? null : focus)}
               >
@@ -129,6 +155,47 @@ export function GraphStage(props: {
           Delivery details
         </label>
       </div>
+      {times.length > 1 && (
+        <div className="time-slider row">
+          <button
+            type="button"
+            className="ghost"
+            aria-label={playing ? "Pause" : "Replay the graph growing"}
+            onClick={() => {
+              if (!playing && step === null) setStep(0);
+              setPlaying(!playing);
+            }}
+          >
+            {playing ? <Pause className="icon" /> : <Play className="icon" />}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={times.length - 1}
+            value={step ?? times.length - 1}
+            aria-label="Graph as of"
+            onChange={(e) => {
+              setPlaying(false);
+              const at = Number(e.target.value);
+              setStep(at === times.length - 1 ? null : at);
+            }}
+          />
+          <span className="mono muted">
+            {until === null
+              ? "now"
+              : new Date(until).toLocaleString([], { dateStyle: "short", timeStyle: "medium" })}
+          </span>
+          {step !== null && (
+            <button
+              type="button"
+              className="ghost"
+              onClick={() => (setPlaying(false), setStep(null))}
+            >
+              Now
+            </button>
+          )}
+        </div>
+      )}
       <p className="graph-head row">
         {focusNode && <span>{`focus: ${focusNode.title}`}</span>}
         <span className="muted">
@@ -142,7 +209,7 @@ export function GraphStage(props: {
       )}
       {data.path && (
         <ul className="graph-path" aria-label="Nodes on the highlighted path">
-          {data.path.nodes.map((n) => (
+          {data.path.nodes.slice(0, 60).map((n) => (
             <li key={n.id}>
               <button type="button" className="link" onClick={() => setSelected(n.id)}>
                 <span className="muted">{`${n.label} `}</span>

@@ -457,6 +457,22 @@ export const TestRunView = z.object({
 });
 export const TestRunsResponse = z.object({ runs: z.array(TestRunView) });
 export type TestRunsResponse = z.infer<typeof TestRunsResponse>;
+// GET /api/projects/:id/cards/:key/files?merged=: the files of a card's code, live from its build
+// worktree while it exists, else from its merge commit (`merged`), else from main.
+const FileChange = z.enum(["added", "modified", "deleted"]).nullable();
+export const CardFilesResponse = z.object({
+  source: z.enum(["worktree", "merge", "main", "none"]),
+  files: z.array(z.object({ path: z.string(), change: FileChange })),
+});
+export type CardFilesResponse = z.infer<typeof CardFilesResponse>;
+// GET /api/projects/:id/cards/:key/file?path=&merged=: one file's text and the card's diff of it.
+export const CardFileResponse = z.object({
+  path: z.string(),
+  text: z.string(),
+  diff: z.string(), // the card's change to the file; empty when it has none
+  truncated: z.boolean(),
+});
+export type CardFileResponse = z.infer<typeof CardFileResponse>;
 // GET | POST | DELETE /api/projects/:id/preview: the built app from main, run by the gateway.
 export const PreviewView = eventData["preview.changed"];
 export type PreviewView = z.infer<typeof PreviewView>;
