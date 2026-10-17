@@ -27,9 +27,11 @@ export const ConfigSchema = z.object({
   OPENROUTER_MODEL_THIN: required,
   OPENROUTER_MODEL_DEEP: required,
   LLM_TIMEOUT_MS: int(60000),
-  OPENROUTER_BUILD_MODEL: required,
   OPENCODE_VERSION: withDefault("1.18.32"),
+  TOKENHARBOR_API_KEY: required,
   BUILD_MODEL: required,
+  ZEN_API_KEY: required,
+  ZEN_BUILD_MODEL: required,
   BUILD_WORKERS: int(1, 1, 2),
   AM_PROJECT_ID: optional,
   AM_WORKER_ID: optional,
@@ -55,11 +57,13 @@ const LLM = [
   "OPENROUTER_MODEL_DEEP",
 ] as const;
 
+/** Build (OpenCode) runs on TokenHarbor, with OpenCode Zen as the fallback (developer decision, 2026-10-18). */
+const BUILD = ["TOKENHARBOR_API_KEY", "BUILD_MODEL", "ZEN_API_KEY", "ZEN_BUILD_MODEL"] as const;
+
 /** The variables with no default that each app needs in order to start. */
 const REQUIRED_BY_APP = {
   gateway: ["AM_AGENT_TOKEN", "AM_UI_TOKEN", "AM_HOOK_TOKEN"],
-  // Build runs on OpenRouter only (developer decision, 2026-10-16): BUILD_MODEL is optional.
-  runner: ["AM_AGENT_TOKEN", "AM_HOOK_TOKEN", ...LLM, "OPENROUTER_BUILD_MODEL"],
+  runner: ["AM_AGENT_TOKEN", "AM_HOOK_TOKEN", ...LLM, ...BUILD],
   simulator: ["AM_UI_TOKEN", ...LLM],
   web: [],
 } as const satisfies Record<App, readonly (keyof z.input<typeof ConfigSchema>)[]>;
@@ -70,8 +74,7 @@ const NO_DEFAULT: readonly Key[] = [
   "AM_UI_TOKEN",
   "AM_HOOK_TOKEN",
   ...LLM,
-  "BUILD_MODEL",
-  "OPENROUTER_BUILD_MODEL",
+  ...BUILD,
 ];
 
 /** Variables with no default stay `string | undefined`; an app only gets the ones it requires. */

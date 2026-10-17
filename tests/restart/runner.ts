@@ -36,6 +36,7 @@ const worker = buildWorker({
   workspacesDir,
   gatewayUrl,
   hookToken: "hook-t",
+  buildModel: "vendor/primary-model",
   fallbackModel: "vendor/model",
   heartbeatMs,
   install: false,

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
-import { assertWorkspacesOutside, opencodeJson, writeCardConfig } from "./opencode-config";
+import { assertWorkspacesOutside, writeCardConfig } from "./opencode-config";
 import { workspacesPath } from "./repo";
 
 const tree = mkdtempSync(join(tmpdir(), "am-wt-"));
@@ -15,19 +15,13 @@ afterAll(() => rmSync(tree, { recursive: true, force: true }));
 const models = { buildModel: "build-model-x", fallbackModel: "vendor/fallback-model-y" };
 
 describe("writeCardConfig", () => {
-  it("leaves out the primary provider when BUILD_MODEL is not set (Build on OpenRouter only)", () => {
-    const json = opencodeJson({ fallbackModel: "vendor/fallback-model-y" });
-    expect(Object.keys(json.provider)).toEqual(["fallback"]);
-  });
-
   it("Done when: writes AGENTS.md and opencode.json as the docs give them, with no secret", async () => {
     // Real-looking values for every key and token the files refer to.
     const secrets = {
-      LLM_API_KEY: "sk-primary-secret-1",
-      OPENROUTER_API_KEY: "sk-or-secret-2",
+      TOKENHARBOR_API_KEY: "sk-th-secret-1",
+      ZEN_API_KEY: "sk-zen-secret-2",
       AM_AGENT_TOKEN: "agent-token-secret-3",
       AM_HOOK_TOKEN: "hook-token-secret-4",
-      LLM_BASE_URL: "http://127.0.0.1:9999/v1",
     };
     const saved = Object.fromEntries(Object.keys(secrets).map((k) => [k, process.env[k]]));
     Object.assign(process.env, secrets);
@@ -66,14 +60,14 @@ describe("writeCardConfig", () => {
       provider: {
         agencymem: {
           npm: "@ai-sdk/openai-compatible",
-          name: "AgencyMem primary endpoint",
-          options: { baseURL: "{env:LLM_BASE_URL}", apiKey: "{env:LLM_API_KEY}" },
+          name: "TokenHarbor",
+          options: { baseURL: "https://tokenharbor.ai/v1", apiKey: "{env:TOKENHARBOR_API_KEY}" },
           models: { "build-model-x": { name: "Build model" } },
         },
         fallback: {
           npm: "@ai-sdk/openai-compatible",
-          name: "OpenRouter fallback",
-          options: { baseURL: "https://openrouter.ai/api/v1", apiKey: "{env:OPENROUTER_API_KEY}" },
+          name: "OpenCode Zen fallback",
+          options: { baseURL: "https://opencode.ai/zen/v1", apiKey: "{env:ZEN_API_KEY}" },
           models: { "vendor/fallback-model-y": { name: "Build model (fallback)" } },
         },
       },

@@ -23,7 +23,8 @@ export type BuildOptions = {
   workspacesDir: string;
   gatewayUrl: string;
   hookToken: string;
-  /** OPENROUTER_BUILD_MODEL: Build runs on OpenRouter only (developer decision, 2026-10-16). */
+  /** BUILD_MODEL on TokenHarbor, then ZEN_BUILD_MODEL on OpenCode Zen (developer decision, 2026-10-18). */
+  buildModel: string;
   fallbackModel: string;
   heartbeatMs: number;
   /** false skips npm ci in the worktree (tests). */
@@ -50,7 +51,7 @@ function closedCard(event: unknown): boolean {
 
 export function buildWorker(opts: BuildOptions): Worker {
   const workerId = `build-${opts.n}`;
-  const model = `fallback/${opts.fallbackModel}`;
+  const models = [`agencymem/${opts.buildModel}`, `fallback/${opts.fallbackModel}`];
   return {
     id: "build",
     worker: workerId,
@@ -66,36 +67,46 @@ export function buildWorker(opts: BuildOptions): Worker {
       const { task } = await session.call("claim_task", {});
       if (!task) return "idle";
 
-      let result: RunResult;
+      let result!: RunResult;
+      let model = models[0]!;
       let closedByRun = false;
       try {
         const tree = await ensureWorktree(session.projectId, task.key, {
           workspacesDir: opts.workspacesDir,
           install: opts.install,
         });
-        await writeCardConfig(tree, task, { fallbackModel: opts.fallbackModel });
-        const events = forwardEvents((body) => session.step(body), task.id, tree);
-        result = await runOpenCode({
-          bin: opts.bin,
-          tree,
-          cardKey: task.key,
-          taskId: task.id,
-          model,
-          env: {
-            AM_PROJECT_ID: session.projectId,
-            AM_WORKER_ID: workerId,
-            GATEWAY_URL: opts.gatewayUrl,
-            AM_HOOK_TOKEN: opts.hookToken,
-            PORT: String(await freePort()),
-          },
-          heartbeat: () => session.call("heartbeat", { itemId: task.id }),
-          heartbeatMs: opts.heartbeatMs,
-          onEvent: (event) => {
-            if (closedCard(event)) closedByRun = true;
-            events.onEvent(event);
-          },
+        await writeCardConfig(tree, task, {
+          buildModel: opts.buildModel,
+          fallbackModel: opts.fallbackModel,
         });
-        await events.drain();
+        for (model of models) {
+          const events = forwardEvents((body) => session.step(body), task.id, tree);
+          result = await runOpenCode({
+            bin: opts.bin,
+            tree,
+            cardKey: task.key,
+            taskId: task.id,
+            model,
+            env: {
+              AM_PROJECT_ID: session.projectId,
+              AM_WORKER_ID: workerId,
+              GATEWAY_URL: opts.gatewayUrl,
+              AM_HOOK_TOKEN: opts.hookToken,
+              PORT: String(await freePort()),
+            },
+            heartbeat: () => session.call("heartbeat", { itemId: task.id }),
+            heartbeatMs: opts.heartbeatMs,
+            onEvent: (event) => {
+              if (closedCard(event)) closedByRun = true;
+              events.onEvent(event);
+            },
+          });
+          await events.drain();
+          // Only a provider that failed (an error or a stall) moves the card on to the fallback.
+          const providerFailed = result.reason === "stall" || result.providerError !== null;
+          if (closedByRun || !providerFailed || model === models.at(-1)) break;
+          await session.step(finalStep(task.id, result, model));
+        }
       } catch (e) {
         // The worktree or its files failed: the attempt fails with the reason.
         const reason = e instanceof Error ? e.message : String(e);

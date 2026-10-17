@@ -203,6 +203,7 @@ async function build(ctx: Ctx, workers: number, done: () => Promise<boolean>) {
     workspacesDir: workspaces,
     gatewayUrl: base,
     hookToken: "hook-t",
+    buildModel: "vendor/primary-model",
     fallbackModel: "vendor/model",
     heartbeatMs: 60_000,
     install: false,
@@ -301,6 +302,28 @@ describe("Done when: two cards build at the same time with no lost writes", () =
       }
       const counters = await rejected(ctx.projectId);
       expect(counters.rejectedWrites ?? 0).toBe(0);
+    },
+  );
+
+  it(
+    "a provider error on the primary runs the card again on the fallback, in the same attempt",
+    { timeout: 60_000 },
+    async () => {
+      const { ctx, taskIds } = await readyCards(["CARD-01"]);
+      process.env.FAKE_OC = "429-primary";
+      delete process.env.FAKE_OC_LOG;
+      await build(ctx, 1, async () => (await node(ctx, taskIds[0]!)).column === "Done");
+      expect(await node(ctx, taskIds[0]!)).toMatchObject({ column: "Done", attempts: 0 });
+      // One Run per OpenCode run: the rate-limited primary, then the fallback that built it.
+      expect(
+        await query(
+          ctx.projectId,
+          q("MATCH", "(r:Run)", "RETURN", "r.model, r.endpoint ORDER BY r.createdAt"),
+        ),
+      ).toEqual([
+        ["vendor/primary-model", "primary"],
+        ["vendor/model", "openrouter"],
+      ]);
     },
   );
 

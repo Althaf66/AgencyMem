@@ -60,7 +60,10 @@ jobs:
       OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
       OPENROUTER_MODEL_THIN: ${{ secrets.OPENROUTER_MODEL_THIN }}
       OPENROUTER_MODEL_DEEP: ${{ secrets.OPENROUTER_MODEL_DEEP }}
-      OPENROUTER_BUILD_MODEL: ${{ secrets.OPENROUTER_BUILD_MODEL }}
+      TOKENHARBOR_API_KEY: ${{ secrets.TOKENHARBOR_API_KEY }}
+      BUILD_MODEL: ${{ secrets.BUILD_MODEL }}
+      ZEN_API_KEY: ${{ secrets.ZEN_API_KEY }}
+      ZEN_BUILD_MODEL: ${{ secrets.ZEN_BUILD_MODEL }}
       # Outside the checkout: the runner refuses a WORKSPACES_DIR inside the repository.
       WORKSPACES_DIR: ${{ github.workspace }}/../agencymem-workspaces
     steps:

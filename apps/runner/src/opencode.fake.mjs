@@ -1,6 +1,13 @@
 // A stand-in for `opencode` in opencode.test.ts. FAKE_OC picks what it does; every mode first
 // prints its arguments and the variables the runner sets, as one JSON line.
-const mode = process.env.FAKE_OC ?? "ok";
+const model = process.argv[process.argv.indexOf("--model") + 1] ?? "";
+// 429-primary: the primary provider (agencymem/...) is rate limited and the fallback commits.
+const mode =
+  process.env.FAKE_OC === "429-primary"
+    ? model.startsWith("agencymem/")
+      ? "429"
+      : "commit"
+    : (process.env.FAKE_OC ?? "ok");
 const say = (event) => process.stdout.write(`${JSON.stringify(event)}\n`);
 const step = (reason, input, output) =>
   say({ type: "step_finish", part: { reason, tokens: { input, output } } });
@@ -20,6 +27,7 @@ say({
     PORT: process.env.PORT,
     OPENCODE_DISABLE_CLAUDE_CODE: process.env.OPENCODE_DISABLE_CLAUDE_CODE,
     LLM_API_KEY: process.env.LLM_API_KEY,
+    TOKENHARBOR_API_KEY: process.env.TOKENHARBOR_API_KEY,
     AM_UI_TOKEN: process.env.AM_UI_TOKEN,
   },
 });

@@ -300,7 +300,8 @@ file in this repository.
 | `AM_AGENT_TOKEN`, `AM_UI_TOKEN`, `AM_HOOK_TOKEN`                       | Any long random strings: the runner's, the web client's and the git hook's tokens       |
 | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL_THIN`, `LLM_MODEL_DEEP`      | The OpenAI-compatible endpoint the agents call, and its thin and deep models            |
 | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL_THIN`, `OPENROUTER_MODEL_DEEP` | The fallback when the primary endpoint fails (required by the runner and the simulator) |
-| `OPENROUTER_BUILD_MODEL`                                               | The model OpenCode builds cards with                                                    |
+| `TOKENHARBOR_API_KEY`, `BUILD_MODEL`                                   | The TokenHarbor key and the model OpenCode builds cards with                            |
+| `ZEN_API_KEY`, `ZEN_BUILD_MODEL`                                       | The OpenCode Zen key and model Build falls back to                                      |
 
 With defaults (set them only to change them):
 

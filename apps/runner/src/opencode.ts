@@ -1,8 +1,8 @@
 // The OpenCode runner (technical design "Build loop and OpenCode", steps 4 and 5): one
 // `opencode run` process per card in its worktree, its JSON events read line by line, a heartbeat
-// while it runs, and a stop on lease loss, timeout or stall. The caller picks the model; Build
-// runs on the fallback only (developer decisions, 2026-10-16): the primary endpoint refuses
-// OpenCode, so a provider error is not retried on another model. It ends the run as one failed
+// while it runs, and a stop on lease loss, timeout or stall. The caller picks the model; the build
+// worker runs a card on TokenHarbor, then once on OpenCode Zen when that run ends on a provider
+// error or a stall (developer decision, 2026-10-18). A run that still fails ends as one failed
 // attempt (failureNote), and 2 failed attempts block the card (claim_task skips it).
 import { execFile, spawn } from "node:child_process";
 import { join } from "node:path";
@@ -73,9 +73,8 @@ type StepFinish = {
  * FALKORDB_URL ...) is left out, because the model can print its environment through npm.
  */
 const OPENCODE_NEEDS = new Set([
-  "LLM_BASE_URL",
-  "LLM_API_KEY",
-  "OPENROUTER_API_KEY",
+  "TOKENHARBOR_API_KEY",
+  "ZEN_API_KEY",
   "AM_AGENT_TOKEN",
   "GATEWAY_URL",
   "AM_HOOK_TOKEN",

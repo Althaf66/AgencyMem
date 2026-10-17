@@ -160,16 +160,19 @@ describe("a provider error", () => {
 
 describe("runOpenCode stops cleanly", () => {
   it("passes the keys opencode.json needs and leaves out the other AgencyMem settings", async () => {
-    process.env.LLM_API_KEY = "kept-for-opencode-json";
+    process.env.TOKENHARBOR_API_KEY = "kept-for-opencode-json";
+    process.env.LLM_API_KEY = "runner-agents-only";
     process.env.AM_UI_TOKEN = "not-for-opencode";
     const events: { env?: Record<string, string> }[] = [];
     try {
       await runOpenCode({ ...base, bin: withMode("ok"), onEvent: (e) => events.push(e as never) });
     } finally {
+      delete process.env.TOKENHARBOR_API_KEY;
       delete process.env.LLM_API_KEY;
       delete process.env.AM_UI_TOKEN;
     }
-    expect(events[0]!.env).toMatchObject({ LLM_API_KEY: "kept-for-opencode-json" });
+    expect(events[0]!.env).toMatchObject({ TOKENHARBOR_API_KEY: "kept-for-opencode-json" });
+    expect(events[0]!.env).not.toHaveProperty("LLM_API_KEY");
     expect(events[0]!.env).not.toHaveProperty("AM_UI_TOKEN");
   });
 
@@ -227,13 +230,13 @@ describe("checkOpenCodeVersion", () => {
   });
 });
 
-// The Done when check: a real OpenCode run on a test card, on the fallback model.
+// The Done when check: a real OpenCode run on a test card, on the fallback model (Zen).
 describe.runIf(process.env.OPENCODE_LIVE === "1")("Done when (live): a test card completes", () => {
   it(
     "OpenCode adds a line to the README and commits it on the card branch",
     { timeout: 600_000 },
     async () => {
-      expect(process.env.OPENROUTER_BUILD_MODEL, "OPENROUTER_BUILD_MODEL").toBeTruthy();
+      expect(process.env.ZEN_BUILD_MODEL, "ZEN_BUILD_MODEL").toBeTruthy();
       const run = promisify(execFile);
       const workspaces = mkdtempSync(join(tmpdir(), "am-ws-"));
       try {
@@ -248,7 +251,8 @@ describe.runIf(process.env.OPENCODE_LIVE === "1")("Done when (live): a test card
           wt,
           { key: "CARD-01", id: base.taskId },
           {
-            fallbackModel: process.env.OPENROUTER_BUILD_MODEL!,
+            buildModel: process.env.BUILD_MODEL ?? "unused",
+            fallbackModel: process.env.ZEN_BUILD_MODEL!,
           },
         );
         // No gateway here: a card AGENTS.md that needs no MCP tool.
@@ -269,7 +273,7 @@ describe.runIf(process.env.OPENCODE_LIVE === "1")("Done when (live): a test card
           tree: wt,
           env: { ...base.env, AM_PROJECT_ID: pid },
           bin: await opencodeBin(),
-          model: `fallback/${process.env.OPENROUTER_BUILD_MODEL}`,
+          model: `fallback/${process.env.ZEN_BUILD_MODEL}`,
           onEvent: (e) => console.log((e as { type?: string }).type), // types only, no model text
         });
 

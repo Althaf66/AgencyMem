@@ -8,8 +8,8 @@ import { join } from "node:path";
 import { CardKey, Id } from "@agencymem/contracts";
 import { insideAgencyMem, workspacesPath } from "./repo";
 
-/** `buildModel` (the primary endpoint's) is optional: Build runs on the fallback only for now. */
-export type BuildModels = { buildModel?: string; fallbackModel: string };
+/** `buildModel` runs on TokenHarbor, `fallbackModel` on OpenCode Zen (developer decision, 2026-10-18). */
+export type BuildModels = { buildModel: string; fallbackModel: string };
 
 /**
  * The card's AGENTS.md (agent-prompts.md section 11). get_task_context takes the Task id, not the
@@ -46,18 +46,16 @@ export function opencodeJson(models: BuildModels) {
   return {
     $schema: "https://opencode.ai/config.json",
     provider: {
-      ...(models.buildModel && {
-        agencymem: {
-          npm: "@ai-sdk/openai-compatible",
-          name: "AgencyMem primary endpoint",
-          options: { baseURL: "{env:LLM_BASE_URL}", apiKey: "{env:LLM_API_KEY}" },
-          models: { [models.buildModel]: { name: "Build model" } },
-        },
-      }),
+      agencymem: {
+        npm: "@ai-sdk/openai-compatible",
+        name: "TokenHarbor",
+        options: { baseURL: "https://tokenharbor.ai/v1", apiKey: "{env:TOKENHARBOR_API_KEY}" },
+        models: { [models.buildModel]: { name: "Build model" } },
+      },
       fallback: {
         npm: "@ai-sdk/openai-compatible",
-        name: "OpenRouter fallback",
-        options: { baseURL: "https://openrouter.ai/api/v1", apiKey: "{env:OPENROUTER_API_KEY}" },
+        name: "OpenCode Zen fallback",
+        options: { baseURL: "https://opencode.ai/zen/v1", apiKey: "{env:ZEN_API_KEY}" },
         models: { [models.fallbackModel]: { name: "Build model (fallback)" } },
       },
     },
