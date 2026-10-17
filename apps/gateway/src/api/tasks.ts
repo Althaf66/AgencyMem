@@ -102,11 +102,19 @@ function toItem(w: Props): ItemView {
   });
 }
 
-async function readItems(db: FalkorDB, graph: string, projectId: string): Promise<ItemView[]> {
+/** The project's WorkItems in creation order: the agent strip's, or with `all` every one (the
+ * Pipeline screen); cancelled items are never read. */
+export async function readItems(
+  db: FalkorDB,
+  graph: string,
+  projectId: string,
+  all = false,
+): Promise<ItemView[]> {
   const rows = await readQuery<{ w: { properties: Props } }>(db, graph, "read/board-items", {
     projectId,
   });
   const items = rows.map((r) => toItem(r.w.properties));
+  if (all) return items;
   const done = items
     .filter((i) => i.status === "done")
     .sort((a, b) => (b.doneAt ?? 0) - (a.doneAt ?? 0))

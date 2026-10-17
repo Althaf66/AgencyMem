@@ -24,6 +24,7 @@ export {
   setStage,
 } from "./projects";
 export { answerQuestion, writeQuestions, type QuestionWrite } from "./questions";
+export { recordRecall } from "./recall";
 export { applySchema, type SchemaName } from "./schema";
 export { seedBoardForTest } from "./test-seed";
 export { recordTestRuns, writeTests, type TestCaseWrite, type TestResult } from "./tests";

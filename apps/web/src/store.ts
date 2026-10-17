@@ -43,6 +43,7 @@ export type SliceName =
   | "docs"
   | "features"
   | "board"
+  | "items"
   | "progress"
   | "metrics"
   | "agencyMetrics";
@@ -90,6 +91,8 @@ export type AppState = {
   docs: Slice<Docs>;
   features: Slice<FeatureView[]>;
   board: Slice<Board>;
+  /** Every work item, done ones included (the Pipeline screen). */
+  items: Slice<ItemView[]>;
   progress: Slice<Progress>;
   metrics: Slice<Metrics>;
   /** Route 25 is not a snapshot (no seq), like readiness. */
@@ -118,6 +121,10 @@ export type AppState = {
   upload(files: File[]): Promise<boolean>;
   /** A node of the open project with its links (route 6). */
   node(nodeId: string): ReturnType<Api["node"]>;
+  /** Evidence reads of the open project: one commit's diff, an item's model calls, a card's tests. */
+  commitDiff(sha: string): ReturnType<Api["commitDiff"]>;
+  itemRuns(itemId: string): ReturnType<Api["itemRuns"]>;
+  testRuns(taskId: string): ReturnType<Api["testRuns"]>;
   answer(question: QuestionView, accept: boolean, text?: string): Promise<boolean>;
   decide(
     gate: GateView,
@@ -153,6 +160,7 @@ export const SLICES: SliceName[] = [
   "docs",
   "features",
   "board",
+  "items",
   "progress",
   "metrics",
 ];
@@ -221,7 +229,7 @@ function staleSlices(event: Envelope): SliceName[] {
   if (event.type === "doc.stale") return ["docs"];
   if (event.type === "task.moved" || event.type === "task.edited")
     return ["board", "progress", "metrics"];
-  if (event.type === "lease.changed") return ["board"];
+  if (event.type === "lease.changed") return ["board", "items"];
   if (event.type !== "node.written") return [];
   if (DESIGN.includes(event.data.label)) return ["docs"];
   switch (event.data.label) {
@@ -237,7 +245,7 @@ function staleSlices(event: Envelope): SliceName[] {
     case "Contradiction":
       return ["questions", "gates", "metrics"];
     case "WorkItem":
-      return ["project", "gates", "board"];
+      return ["project", "gates", "board", "items"];
     case "Gate":
       return ["project", "gates"];
     case "ReadinessReport":
@@ -323,6 +331,7 @@ export function createAppStore(api: Api): AppStore {
       docs: empty(),
       features: empty(),
       board: empty(),
+      items: empty(),
       progress: empty(),
       metrics: empty(),
       agencyMetrics: empty(),
@@ -366,6 +375,7 @@ export function createAppStore(api: Api): AppStore {
           docs: empty(),
           features: empty(),
           board: empty(),
+          items: empty(),
           progress: empty(),
           metrics: empty(),
           agencyMetrics: empty(),
@@ -426,6 +436,9 @@ export function createAppStore(api: Api): AppStore {
       node(nodeId) {
         return api.node(get().projectId ?? "", nodeId);
       },
+      commitDiff: (sha) => api.commitDiff(get().projectId ?? "", sha),
+      itemRuns: (itemId) => api.itemRuns(get().projectId ?? "", itemId),
+      testRuns: (taskId) => api.testRuns(get().projectId ?? "", taskId),
 
       async answer(question, accept, text) {
         const id = get().projectId;
@@ -586,6 +599,10 @@ async function snapshot(
       if (!r.ok) return r;
       const { seq, ...board } = r.data;
       return { ok: true, data: { seq, data: board } };
+    }
+    case "items": {
+      const r = await api.items(id);
+      return r.ok ? { ok: true, data: { seq: r.data.seq, data: r.data.items } } : r;
     }
     case "progress": {
       const r = await api.progress(id);

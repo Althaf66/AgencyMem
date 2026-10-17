@@ -62,6 +62,13 @@ export const eventData = {
     agent: Actor,
   }),
   "metrics.updated": z.object({ metric: z.string(), value: z.number() }),
+  // An agent read its context from the graph: the nodes the answer named, now RECALLED edges.
+  "context.read": z.object({
+    itemId: Id,
+    agent: AgentId,
+    tool: z.enum(["recall_context", "get_task_context"]),
+    ids: z.array(Id),
+  }),
 } as const;
 
 export const EventType = z.enum(
@@ -91,6 +98,7 @@ export const Envelope = z.discriminatedUnion("type", [
   envelope("run.step"),
   envelope("write.rejected"),
   envelope("metrics.updated"),
+  envelope("context.read"),
 ]);
 export type Envelope = z.infer<typeof Envelope>;
 

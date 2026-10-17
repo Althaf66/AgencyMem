@@ -7,6 +7,7 @@ import {
   BoardResponse,
   ChangeRequestResponse,
   ChatResponse,
+  CommitDiffResponse,
   CreateProjectResponse,
   DocResponse,
   DocumentsResponse,
@@ -17,6 +18,8 @@ import {
   GatesResponse,
   GetProjectResponse,
   GraphView,
+  ItemRunsResponse,
+  ItemsResponse,
   ListProjectsResponse,
   NodeResponse,
   PatchTaskResponse,
@@ -27,6 +30,7 @@ import {
   QuestionsResponse,
   ReadinessResponse,
   RetryItemResponse,
+  TestRunsResponse,
   UploadFilesResponse,
   type Doc,
   type Lane,
@@ -135,6 +139,13 @@ export function createApi(opts: ApiOptions) {
     backtrace: (id: string, nodeId: string) =>
       call(PathResponse, "GET", `/api/projects/${id}/backtrace/${nodeId}`),
     events: (id: string) => call(EventsResponse, "GET", `/api/projects/${id}/events`),
+    commitDiff: (id: string, sha: string) =>
+      call(CommitDiffResponse, "GET", `/api/projects/${id}/commits/${sha}/diff`),
+    items: (id: string) => call(ItemsResponse, "GET", `/api/projects/${id}/items`),
+    itemRuns: (id: string, itemId: string) =>
+      call(ItemRunsResponse, "GET", `/api/projects/${id}/items/${itemId}/runs`),
+    testRuns: (id: string, taskId: string) =>
+      call(TestRunsResponse, "GET", `/api/projects/${id}/tasks/${taskId}/test-runs`),
     changeRequest: (id: string, text: string) =>
       call(ChangeRequestResponse, "POST", `/api/projects/${id}/change-requests`, {
         body: { text },

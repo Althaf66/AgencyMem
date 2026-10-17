@@ -1,6 +1,6 @@
 // Parts every screen shares (ui.md section 1, rule 6): a slice shown as a loading skeleton, an
 // error with Retry, an empty sentence, or its data; and status chips with text, never colour alone.
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Slice } from "./store";
 
 export function SliceView<T>(props: {
@@ -82,4 +82,49 @@ export function useBusy(
     return ok;
   };
   return [locked.current === version, run];
+}
+
+/** One read the screen starts itself (route 6 and the evidence routes): its answer, its error, or
+ * null while it runs. `key` restarts it. */
+export function useRead<T>(
+  read: () => Promise<{ ok: true; data: T } | { ok: false; error: { reason: string } }>,
+  key: string,
+): { data: T | null; error: string | null } {
+  const [state, setState] = useState<{ data: T | null; error: string | null }>({
+    data: null,
+    error: null,
+  });
+  useEffect(() => {
+    let live = true;
+    setState({ data: null, error: null });
+    void read().then((r) => {
+      if (live)
+        setState(r.ok ? { data: r.data, error: null } : { data: null, error: r.error.reason });
+    });
+    return () => {
+      live = false;
+    };
+    // `read` is a new function each render; `key` names what it reads.
+  }, [key]);
+  return state;
+}
+
+/** A dropdown whose body mounts the first time it opens, so its reads start only when asked. */
+export function Disclosure(props: {
+  className?: string;
+  summary: ReactNode;
+  open?: boolean;
+  children: () => ReactNode;
+}) {
+  const [shown, setShown] = useState(!!props.open);
+  return (
+    <details
+      className={props.className}
+      open={props.open}
+      onToggle={(e) => e.currentTarget.open && setShown(true)}
+    >
+      <summary>{props.summary}</summary>
+      {shown && props.children()}
+    </details>
+  );
 }

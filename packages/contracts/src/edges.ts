@@ -30,5 +30,6 @@ export const EdgeType = z.enum([
   "GUARDS", // Gate → WorkItem or Task it blocks
   "REPORTED_IN", // Defect → bug_report Episode
   "FIXES", // fix Task → Defect
+  "RECALLED", // WorkItem or Task → a node its recall_context or get_task_context answer named
 ]);
 export type EdgeType = z.infer<typeof EdgeType>;

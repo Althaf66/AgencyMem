@@ -7,7 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 import { graphHash, type GraphViewName } from "../shell/router";
 import type { AppState, AppStore, GraphData } from "../store";
 import { SliceView } from "../ui";
-import type { Layout } from "./Canvas";
+import type { Layout, Pulse } from "./Canvas";
 import { highlight, visible } from "./layout";
 import { NodeDrawer } from "./NodeDrawer";
 
@@ -35,13 +35,17 @@ export type PanelState = Pick<AppState, "graph" | "projectId" | "node" | "loadGr
 /** How far back a node.written event still pulses its node (ms). */
 const PULSE_WINDOW = 3000;
 
-/** The nodes recent node.written events named, each with the event's time. */
-function pulses(feed: AppState["feed"]): Map<string, number> {
+/** The nodes recent events named: written (node.written) or read by an agent (context.read). */
+function pulses(feed: AppState["feed"]): Map<string, Pulse> {
   const since = Date.now() - PULSE_WINDOW;
-  const out = new Map<string, number>();
+  const out = new Map<string, Pulse>();
   for (const e of feed) {
-    if (e.type !== "node.written" || e.at < since) continue;
-    for (const id of [e.data.id, ...(e.data.ids ?? [])]) out.set(id, e.at);
+    if (e.at < since) continue;
+    if (e.type === "node.written") {
+      for (const id of [e.data.id, ...(e.data.ids ?? [])]) out.set(id, { at: e.at, read: false });
+    } else if (e.type === "context.read") {
+      for (const id of e.data.ids) out.set(id, { at: e.at, read: true });
+    }
   }
   return out;
 }

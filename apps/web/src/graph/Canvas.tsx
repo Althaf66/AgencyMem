@@ -2,7 +2,7 @@
 // set of d3 forces; switching it swaps the forces, reheats for 1.5 seconds, then freezes. The path
 // highlighter lights the path a view returned and fades the rest to 15%. Hover shows a node's
 // label, title and provenance and lights its neighbours; the legend hides a group; a node a fresh
-// node.written event names pulses. Browser only: GraphPanel
+// node.written (violet) or context.read (cyan) event names pulses. Browser only: GraphPanel
 // loads this module after mount, so server-side tests never import the canvas library.
 import { forceRadial, forceX, forceY } from "d3-force";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -27,6 +27,8 @@ import {
 } from "./layout";
 
 export type Layout = "Network" | "Flow" | "Orbit";
+/** A node an event just named: written (violet ring) or read by an agent (cyan ring). */
+export type Pulse = { at: number; read: boolean };
 
 type Base = GraphView["nodes"][number] & {
   deg: number;
@@ -142,8 +144,7 @@ export default function Canvas(props: {
   onSelect: (id: string) => void;
   onFocus: (id: string) => void;
   height?: number;
-  /** Node id to the time a node.written event named it. */
-  pulse?: Map<string, number>;
+  pulse?: Map<string, Pulse>;
 }) {
   const { lit, layout, focus, reverse, pulse } = props;
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -226,6 +227,15 @@ export default function Canvas(props: {
   }, [graph, focus, reverse]);
 
   const ring1 = data.nodes.filter((n) => n.hop === 1).length;
+  // While a pulse runs the canvas keeps drawing frames; one render after it ends lets it pause.
+  const newest = Math.max(0, ...[...(pulse?.values() ?? [])].map((p) => p.at));
+  const pulsing = Date.now() - newest < PULSE_MS;
+  const [, rerender] = useState(0);
+  useEffect(() => {
+    if (!pulsing) return;
+    const t = setTimeout(() => rerender((n) => n + 1), PULSE_MS - (Date.now() - newest) + 50);
+    return () => clearTimeout(t);
+  }, [newest, pulsing]);
   // The hovered node and its neighbours stay bright; the rest fade (when no path is lit).
   const near = useMemo(() => {
     if (!hover) return null;
@@ -290,6 +300,7 @@ export default function Canvas(props: {
         backgroundColor={STAGE.bg}
         graphData={data}
         cooldownTime={1500}
+        autoPauseRedraw={!pulsing}
         onEngineStop={() => {
           if (!fit.current) return;
           fit.current = false;
@@ -303,12 +314,12 @@ export default function Canvas(props: {
           const on = lit.nodes.has(n.id);
           const color = colorOf(n);
           ctx.globalAlpha = hasPath && !on ? 0.15 : !hasPath && near && !near.has(n.id) ? 0.2 : 1;
-          const at = pulse?.get(n.id);
-          const age = at === undefined ? PULSE_MS : Date.now() - at;
+          const hit = pulse?.get(n.id);
+          const age = hit === undefined ? PULSE_MS : Date.now() - hit.at;
           if (age < PULSE_MS) {
             // A real write just named this node: an expanding ring that fades out.
             const t = age / PULSE_MS;
-            ctx.strokeStyle = rgba(STAGE.accent, 1 - t);
+            ctx.strokeStyle = rgba(hit?.read ? STAGE.read : STAGE.accent, 1 - t);
             ctx.lineWidth = 2 / scale;
             ctx.beginPath();
             ctx.arc(n.x ?? 0, n.y ?? 0, r + 4 + t * 18, 0, 2 * Math.PI);

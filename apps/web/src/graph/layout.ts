@@ -103,7 +103,8 @@ export const GROUP_COLOR: Record<string, string> = {
   Delivery: "#4ade80",
 };
 export const STAGE = {
-  bg: "#07080a",
+  bg: "#05060a",
+  read: "#22d3ee",
   label: "#e8e9ec",
   muted: "#6b6f76",
   accent: "#8b85ff",

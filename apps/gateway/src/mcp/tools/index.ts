@@ -11,6 +11,7 @@ import { heartbeatTool } from "./heartbeat";
 import { readQueryTool } from "./read-query";
 import { recordChangeRequestTool } from "./record-change-request";
 import { recallContextTool } from "./recall-context";
+import { recorded } from "./recalled";
 import { reportDefectTool } from "./report-defect";
 import { submitTestRunTool } from "./submit-test-run";
 import { writeCardsTool } from "./write-cards";
@@ -30,11 +31,11 @@ type Handler<K extends ToolName> = (ctx: ToolCtx, input: ToolInput<K>) => Promis
 export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   claim_item: claimItemTool,
   claim_task: claimTaskTool,
-  get_task_context: getTaskContextTool,
+  get_task_context: recorded("get_task_context", getTaskContextTool, (i) => i.taskId),
   heartbeat: heartbeatTool,
   complete_item: completeItemTool,
   complete_task: completeTaskTool,
-  recall_context: recallContextTool,
+  recall_context: recorded("recall_context", recallContextTool, (i) => i.itemId),
   write_handoff: writeHandoffTool,
   write_fact: writeFactTool,
   write_question: writeQuestionTool,

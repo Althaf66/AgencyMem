@@ -26,6 +26,7 @@ function stubApi(seq = { value: 5 }, history: Envelope[] = []) {
     doc: (_id: string, doc: string) => ok("doc", { doc, sections: [], designVersion: 0 }),
     features: () => ok("features", { features: [] }),
     board: () => ok("board", { columns: [], lanes: [], cards: [], items: [] }),
+    items: () => ok("items", { items: [] }),
     progress: () => ok("progress", { stage: "build", gates: [], lanes: [] }),
     events: () => Promise.resolve({ ok: true as const, data: { events: history } }),
     patchTask: vi.fn(),
@@ -72,6 +73,7 @@ describe("store", () => {
       "documents",
       "features",
       "gates",
+      "items",
       "metrics",
       "progress",
       "project",
@@ -160,6 +162,7 @@ describe("store", () => {
       "documents",
       "features",
       "gates",
+      "items",
       "metrics",
       "progress",
       "project",
@@ -283,7 +286,7 @@ describe("board", () => {
     seq.value = 8;
     store.getState().receive(event(8, "lease.changed", { itemId: "T1", reason: "cancel" }));
     await tick();
-    expect(calls).toEqual(["board"]);
+    expect(calls.sort()).toEqual(["board", "items"]);
   });
 
   it("edits a card with the version it shows; an old version says so and reloads the board", async () => {

@@ -3,6 +3,11 @@ import type { z } from "zod";
 import {
   AgencyMetrics,
   AnswerBody,
+  CommitDiffResponse,
+  EventsResponse,
+  ItemRunsResponse,
+  ItemsResponse,
+  TestRunsResponse,
   BoardResponse,
   CaseStudy,
   ClaimItemOutput,
@@ -687,6 +692,7 @@ const eventFixtures: Record<EventType, unknown> = {
     agent: "human:ana",
   },
   "metrics.updated": { metric: "rejectedWrites", value: 3 },
+  "context.read": { itemId: ID, agent: "planner", tool: "recall_context", ids: [ID2] },
 };
 
 /** REST bodies and replies: [name, schema, fixture]. */
@@ -906,6 +912,69 @@ const restFixtures: [string, z.ZodType, unknown][] = [
   ["RetryItemBody", RetryItemBody, {}],
   ["RetryItemResponse", RetryItemResponse, { item: { ...workItem, status: "open", attempts: 0 } }],
   ["RunStepResponse", RunStepResponse, {}],
+  [
+    "EventsResponse",
+    EventsResponse,
+    {
+      events: [
+        {
+          projectId: ID,
+          seq: 2,
+          type: "metrics.updated",
+          at: NOW,
+          data: { metric: "m", value: 1 },
+        },
+      ],
+    },
+  ],
+  [
+    "CommitDiffResponse",
+    CommitDiffResponse,
+    {
+      sha: "a".repeat(40),
+      files: [{ path: "a.ts", patch: "diff --git a/a.ts b/a.ts" }],
+      truncated: false,
+    },
+  ],
+  ["ItemsResponse", ItemsResponse, { items: [], seq: 1 }],
+  [
+    "ItemRunsResponse",
+    ItemRunsResponse,
+    {
+      runs: [
+        {
+          step: "think",
+          agent: "planner",
+          model: "m",
+          endpoint: "primary",
+          tokensIn: 1,
+          tokensOut: 2,
+          ms: 3,
+          cost: 0,
+          createdAt: NOW,
+        },
+      ],
+    },
+  ],
+  [
+    "TestRunsResponse",
+    TestRunsResponse,
+    {
+      runs: [
+        {
+          id: ID,
+          sha: "a".repeat(40),
+          passed: false,
+          durationMs: 5,
+          ranAt: NOW,
+          scope: "card",
+          error: "Timed out",
+          testCase: "AC-01-1",
+          file: "tests/e2e/CARD-01/AC-01-1.spec.ts",
+        },
+      ],
+    },
+  ],
   ["ErrorBody", ErrorBody, { error: rejection }],
 ];
 

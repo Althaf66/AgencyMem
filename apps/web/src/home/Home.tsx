@@ -136,6 +136,14 @@ export function feedLine(e: Envelope, projectId: string): Line | null {
         meta: at,
         href: null,
       };
+    case "context.read":
+      return {
+        icon: Brain,
+        tone: "info",
+        text: `${e.data.agent} read ${e.data.ids.length} nodes from the graph`,
+        meta: `${at} · ${e.data.tool}`,
+        href: `#/p/${projectId}/pipeline`,
+      };
   }
 }
 

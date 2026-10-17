@@ -419,6 +419,44 @@ export const RetryItemResponse = z.object({ item: WorkItem });
 // restart empties it).
 export const EventsResponse = z.object({ events: z.array(Envelope) });
 export type EventsResponse = z.infer<typeof EventsResponse>;
+// GET /api/projects/:id/commits/:sha/diff: one commit of the project's repo, file by file.
+export const CommitDiffResponse = z.object({
+  sha: Sha,
+  files: z.array(z.object({ path: z.string(), patch: z.string() })),
+  truncated: z.boolean(), // the patch was longer than the route sends
+});
+export type CommitDiffResponse = z.infer<typeof CommitDiffResponse>;
+// GET /api/projects/:id/items: every WorkItem of the project, oldest first (the Pipeline screen).
+export const ItemsResponse = z.object({ items: z.array(ItemView), seq: Seq });
+export type ItemsResponse = z.infer<typeof ItemsResponse>;
+// GET /api/projects/:id/items/:itemId/runs: the model calls (Run nodes) of a WorkItem or Task.
+export const RunView = z.object({
+  step: z.string(),
+  agent: AgentId,
+  model: z.string(),
+  endpoint: z.string().nullable(),
+  tokensIn: Count,
+  tokensOut: Count,
+  ms: Count,
+  cost: z.number().nonnegative(),
+  createdAt: EpochMs,
+});
+export const ItemRunsResponse = z.object({ runs: z.array(RunView) });
+export type ItemRunsResponse = z.infer<typeof ItemRunsResponse>;
+// GET /api/projects/:id/tasks/:taskId/test-runs: the card's test runs, newest first.
+export const TestRunView = z.object({
+  id: Id,
+  sha: Sha,
+  passed: z.boolean(),
+  durationMs: Count,
+  ranAt: EpochMs,
+  scope: z.enum(["card", "e2e"]),
+  error: z.string().nullable(),
+  testCase: z.string(),
+  file: z.string(),
+});
+export const TestRunsResponse = z.object({ runs: z.array(TestRunView) });
+export type TestRunsResponse = z.infer<typeof TestRunsResponse>;
 
 // Agent token route
 

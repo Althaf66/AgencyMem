@@ -17,12 +17,15 @@ import type {
 import type { Api } from "./api";
 import { BoardView } from "./board/Board";
 import { CardDrawer } from "./board/CardDrawer";
+import { CardStoryView } from "./card/CardStory";
 import { DocsView } from "./docs/Docs";
 import { GatesView } from "./gates/Gates";
 import { GraphPanelView } from "./graph/GraphPanel";
 import { HealthView } from "./health/Health";
 import { HomeView, feedLine, nextStep } from "./home/Home";
 import { FilesView } from "./intake/Files";
+import { lineClass } from "./pipeline/Evidence";
+import { PHASES, PipelineView, phaseState } from "./pipeline/Pipeline";
 import { ProjectsView } from "./projects/Projects";
 import { QuestionnaireView, SourcePair } from "./questionnaire/Questionnaire";
 import { ChangeRequestButton, StageStepper } from "./shell/Shell";
@@ -827,5 +830,98 @@ describe("home", () => {
         "P",
       )?.text,
     ).toBe("source guard refused write_fact: No source.");
+  });
+});
+
+describe("pipeline", () => {
+  const item = (over: Partial<ItemView>): ItemView => ({
+    id: "01JA00000000000000000000W1",
+    kind: "intake",
+    agent: "intake",
+    status: "done",
+    leaseOwner: null,
+    leaseUntil: null,
+    attempts: 0,
+    lastStep: "47 facts from kickoff-notes.pdf",
+    doneAt: 1,
+    ...over,
+  });
+
+  it("puts each work item under its phase, closed, so nothing is read until it opens", () => {
+    const html = renderToString(
+      <PipelineView
+        s={state({
+          project: ready({ id: "P", stage: "planning" } as ProjectInfo),
+          items: ready([
+            item({}),
+            item({
+              id: "01JA00000000000000000000W2",
+              kind: "planner",
+              agent: "planner",
+              status: "claimed",
+              lastStep: null,
+            }),
+          ]),
+          board: ready(boardOf([cardView()])),
+        })}
+      />,
+    );
+    const intake = html.indexOf("<h3>Intake</h3>");
+    const planning = html.indexOf("<h3>Planning</h3>");
+    expect(html.indexOf("47 facts from kickoff-notes.pdf")).toBeGreaterThan(intake);
+    expect(html.indexOf("47 facts from kickoff-notes.pdf")).toBeLessThan(planning);
+    expect(html.indexOf(">planner<")).toBeGreaterThan(planning);
+    expect(html).not.toContain("Read from the graph"); // the evidence mounts on open
+    expect(html).toContain('href="#/p/P/card/CARD-01"');
+  });
+
+  it("marks phases done, now and later from the project's stage", () => {
+    const [intake, , , , planning, build] = PHASES;
+    expect(phaseState(intake!, "planning")).toBe("done");
+    expect(phaseState(planning!, "planning")).toBe("now");
+    expect(phaseState(build!, "planning")).toBe("later");
+  });
+});
+
+describe("card story", () => {
+  it("tells the card from requirement to launch, with each commit as a dropdown", () => {
+    const html = renderToString(
+      <CardStoryView
+        cardKey="CARD-01"
+        s={state({
+          board: ready(
+            boardOf([
+              cardView({
+                commits: [
+                  { sha: "a".repeat(40), message: "feat: seed", committedAt: 1, linked: true },
+                ],
+                mergedSha: "b".repeat(40),
+              }),
+            ]),
+          ),
+        })}
+      />,
+    );
+    expect(html).toContain("Builds REQ-01");
+    expect(html).toContain("Context the build run read from the graph");
+    expect(html).toContain("Commits · 1");
+    expect(html).toContain("feat: seed");
+    expect(html).toContain("Merged into main at");
+    expect(html).toContain("bbbbbbb");
+  });
+
+  it("says so when the card is not on the board", () => {
+    const html = renderToString(
+      <CardStoryView cardKey="CARD-09" s={state({ board: ready(boardOf([cardView()])) })} />,
+    );
+    expect(html).toContain("No card CARD-09 in this project.");
+  });
+
+  it("colours a removed line that starts with --- as removed inside a hunk", () => {
+    expect(lineClass("--- a/x.sql", false)).toBe("meta");
+    expect(lineClass("@@ -1 +1 @@", false)).toBe("hunk");
+    expect(lineClass("--- insert doctors", true)).toBe("del");
+    expect(lineClass("+++x", true)).toBe("add");
+    expect(lineClass(" same", true)).toBe("");
   });
 });

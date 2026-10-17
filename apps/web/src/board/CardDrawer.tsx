@@ -3,7 +3,7 @@
 // and what the card is linked to: requirement, dependencies, commits, note and run log.
 import { useState } from "react";
 import { Lane, type CardView } from "@agencymem/contracts";
-import { graphHash } from "../shell/router";
+import { cardHash, graphHash } from "../shell/router";
 import type { AppState } from "../store";
 import { useBusy } from "../ui";
 
@@ -64,6 +64,7 @@ export function CardDrawer(props: { s: AppState; card: CardView; close: () => vo
         <strong>{card.title}</strong>
         {/* The card's path to the client's words (task 3.10). */}
         <a href={graphHash(s.projectId ?? "", "why", card.id)}>Why</a>
+        <a href={cardHash(s.projectId ?? "", card.key)}>Story</a>
         <button type="button" onClick={props.close}>
           Close
         </button>

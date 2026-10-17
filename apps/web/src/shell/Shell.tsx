@@ -10,6 +10,7 @@ import {
   Network,
   ShieldCheck,
   SquareKanban,
+  Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { useStore } from "zustand";
@@ -183,6 +184,7 @@ export function Shell(props: { store: AppStore; route: Route; children: ReactNod
           <Brand />
           <span className="eyebrow">Overview</span>
           {nav("home", "Home", House)}
+          {nav("pipeline", "Pipeline", Workflow)}
           {nav("graph", "Graph", Network)}
           <span className="eyebrow">Discover</span>
           {nav("files", "Files", FileUp)}

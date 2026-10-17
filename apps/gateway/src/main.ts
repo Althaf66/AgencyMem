@@ -127,7 +127,7 @@ export function createGateway(
     queryRouter({ db, events }),
     tasksRouter({ db, events }),
     metricsRouter({ db, events }),
-    evidenceRouter({ db, events }),
+    evidenceRouter({ db, events, workspacesDir: required(cfg.WORKSPACES_DIR, "WORKSPACES_DIR") }),
     notFound,
   );
   app.use("/hooks", requireToken(hook), express.json(), hooksRouter({ db, events }), notFound);
