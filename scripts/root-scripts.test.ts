@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
@@ -22,15 +21,4 @@ describe("root scripts", () => {
   ])("has %s", (name) => {
     expect(pkg.scripts[name]).toBeTruthy();
   });
-
-  it.each([["test:isolation", "6.3"]])(
-    "stub %s names the task that replaces it (%s)",
-    (name, task) => {
-      const cmd = pkg.scripts[name] ?? "";
-      expect(cmd).toMatch(/^tsx scripts\/stub\.ts /);
-      const run = spawnSync("pnpm", ["exec", ...cmd.split(" ")], { encoding: "utf8", shell: true });
-      expect(run.status).toBe(0);
-      expect(run.stdout).toContain(`not implemented until task ${task}`);
-    },
-  );
 });

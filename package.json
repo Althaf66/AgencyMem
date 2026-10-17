@@ -19,7 +19,7 @@
     "sim:run": "tsx --env-file-if-exists=.env apps/simulator/src/main.ts",
     "test:load": "vitest run tests/load",
     "test:restart": "vitest run tests/restart",
-    "test:isolation": "tsx scripts/stub.ts test:isolation 6.3",
+    "test:isolation": "vitest run tests/isolation",
     "eval:discovery": "tsx --env-file-if-exists=.env tests/discovery-eval/score.ts",
     "fixtures:build": "tsx scripts/build-fixtures.ts"
   },
