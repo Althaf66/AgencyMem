@@ -68,13 +68,11 @@ function Sources(props: { project: string; cards: CardView[]; open: string }) {
           <a key={card.key} {...row(card.key)}>
             <span className="src-head">
               <span className="src-key">{card.key}</span>
-              {state === "building" ? (
+              {state === "building" && (
                 <span className="chip accent live-chip">
                   <Radio className="icon" aria-hidden="true" />
                   building
                 </span>
-              ) : (
-                <span className={`chip ${state === "merged" ? "ok" : "warn"}`}>{state}</span>
               )}
             </span>
             <span className="src-sub">{sub(card, state)}</span>

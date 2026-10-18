@@ -6,7 +6,7 @@ Nine AI agents share one memory: a FalkorDB graph. They turn agency's client not
 questions, a proposal, design documents, a Kanban board and working code. A card closes only on a
 real commit and a passing Playwright test.
 
-<!-- Demo GIF goes here -->
+![AgencyMem](data/AgencyMem.png)
 
 ## The problem
 
@@ -40,7 +40,7 @@ Built for the [WeMakeDevs x FalkorDB hackathon](https://www.wemakedevs.org/hacka
 
 ## Demo video
 
-_Link to be added after recording (it shows the four proof moments)._
+[Watch the demo on YouTube](https://youtu.be/8JYtuF0E1RI) 
 
 ## Architecture
 
@@ -67,33 +67,79 @@ _Link to be added after recording (it shows the four proof moments)._
 
 ## Setup
 
-**Prerequisites:** Node.js 22.13+, Docker, git, and an OpenAI-compatible LLM key.
+### Prerequisites
+
+| Tool    | Version | Used for                                    |
+| ------- | ------- | ------------------------------------------- |
+| Node.js | 22.13+  | Every app (gateway, runner, web, simulator) |
+| Docker  | Any     | FalkorDB                                    |
+| git     | Any     | The client repositories the agents build in |
+| LLM key | —       | An OpenAI-compatible endpoint               |
+
+### 1. Clone and install
 
 ```sh
-git clone https://github.com/Althaf66/AgencyMem.git && cd AgencyMem
-corepack enable                        # provides the pinned pnpm 11.28.0
-pnpm i
-npm install -g opencode-ai@1.18.32     # build workers run OpenCode
-npx playwright install chromium        # the Test agent runs Playwright
-cp .env.example .env                   # fill in the required keys below
-docker compose up -d                   # FalkorDB on port 6380
-pnpm seed                              # registry and agency graphs
-pnpm dev                               # gateway :4000, runner, web :5173
+git clone https://github.com/Althaf66/AgencyMem.git
+cd AgencyMem
+corepack enable                      # provides the pinned pnpm 11.28.0
+pnpm install
 ```
 
-Open **http://localhost:5173**, create a project and upload notes (PDF, DOCX, TXT or MD). Or run
-`pnpm sim:run` to watch three synthetic projects run end to end with a simulated client.
+### 2. Install the agent tools
 
-| Required in `.env`                                                     | What it is                                    |
-| ---------------------------------------------------------------------- | --------------------------------------------- |
-| `AM_AGENT_TOKEN`, `AM_UI_TOKEN`, `AM_HOOK_TOKEN`                       | Any long random strings                       |
-| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL_THIN`, `LLM_MODEL_DEEP`      | The OpenAI-compatible endpoint and its models |
-| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL_THIN`, `OPENROUTER_MODEL_DEEP` | Fallback when the primary endpoint fails      |
-| `TOKENHARBOR_API_KEY`, `BUILD_MODEL`, `ZEN_API_KEY`, `ZEN_BUILD_MODEL` | The models OpenCode builds cards with         |
+```sh
+npm install -g opencode-ai@1.18.32   # build workers run OpenCode
+npx playwright install chromium      # the Test agent runs Playwright
+```
 
-`WORKSPACES_DIR` (default `../agencymem-workspaces`) holds the client repos and must sit outside
-this repository. Every other setting has a default: see
-[`packages/contracts/src/config.ts`](packages/contracts/src/config.ts).
+### 3. Configure `.env`
+
+```sh
+cp .env.example .env
+```
+
+Fill in the keys below. Every other setting has a default (see
+[`packages/contracts/src/config.ts`](packages/contracts/src/config.ts)).
+
+| Variable                                                               | What it is                                           |
+| ---------------------------------------------------------------------- | ---------------------------------------------------- |
+| `AM_AGENT_TOKEN`, `AM_UI_TOKEN`, `AM_HOOK_TOKEN`                       | Any long random strings                              |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL_THIN`, `LLM_MODEL_DEEP`      | The OpenAI-compatible endpoint and its models        |
+| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL_THIN`, `OPENROUTER_MODEL_DEEP` | The fallback when the primary endpoint fails         |
+| `TOKENHARBOR_API_KEY`, `BUILD_MODEL`, `ZEN_API_KEY`, `ZEN_BUILD_MODEL` | The models OpenCode builds cards with (and fallback) |
+
+> [!NOTE]
+> `WORKSPACES_DIR` (default `../agencymem-workspaces`) holds the client repositories the agents
+> build in. It must sit **outside** this repository.
+
+### 4. Start FalkorDB and seed it
+
+```sh
+docker compose up -d                 # FalkorDB on localhost:6380
+pnpm seed                            # creates the registry and agency graphs
+```
+
+### 5. Run AgencyMem
+
+```sh
+pnpm dev
+```
+
+| Service | Address               |
+| ------- | --------------------- |
+| Web app | http://localhost:5173 |
+| Gateway | http://localhost:4000 |
+| Runner  | Background worker     |
+
+### 6. Try it
+
+- **Your own project:** open **http://localhost:5173**, create a project and upload client notes
+  (PDF, DOCX, TXT or MD).
+- **A simulated client:** run `pnpm sim:run` to watch three synthetic projects run end to end.
+
+> [!TIP]
+> If cards are picked up by something you did not start, an earlier `pnpm dev` may still be
+> running. Check that nothing else is listening on port 4000 before you start.
 
 ## Graph model:
 
@@ -365,18 +411,13 @@ pnpm list:cypher                   # regenerate the query list below
 
 </details>
 
+## AI tool disclosure
+
+- **Claude** Helps to write code and docs.
+
 ## Future work
 
 The Curator agent and the agency graph's Lesson nodes are in the code, so a closed project could
 leave anonymous lessons for the next estimate. The demo stops at launch; that loop is next.
 
-## Synthetic data
 
-All demo data is synthetic: the clinics, notes and client persona in `apps/simulator/fixtures/`
-are made up.
-
-## AI tool disclosure
-
-- **Claude Code** (Anthropic) wrote AgencyMem's code, tests and specs.
-- **OpenCode** runs inside AgencyMem as the build worker, through its MCP tools.
-- **Agent models** are called through an OpenAI-compatible endpoint with an OpenRouter fallback.
