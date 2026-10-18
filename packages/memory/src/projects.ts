@@ -7,7 +7,7 @@ import {
   type RejectionCounter,
   type Stage,
 } from "@agencymem/contracts";
-import { REGISTRY_GRAPH, clientGraphName, type FalkorDB } from "@agencymem/graph";
+import { AGENCY_GRAPH, REGISTRY_GRAPH, clientGraphName, type FalkorDB } from "@agencymem/graph";
 import { writeQuery } from "@agencymem/graph/write";
 import { ulid } from "ulid";
 import type { Ctx } from "./ctx";
@@ -111,6 +111,26 @@ export async function closeProject(
     now: input.now,
   });
   return { features, closed: closed.length > 0 };
+}
+
+/**
+ * Deletes a project from all three graphs: its client-graph nodes, its agency traces (case study,
+ * estimate records, and the Lessons that name only it), then the registry Project. The registry
+ * goes last, so a crash part way leaves a project that can still be found and deleted again.
+ * Returns false when the registry had no such project.
+ */
+export async function deleteProject(
+  db: FalkorDB,
+  input: { projectId: string; graph: string },
+): Promise<boolean> {
+  await writeQuery(db, input.graph, "write/delete-project-nodes", { projectId: input.projectId });
+  await writeQuery(db, AGENCY_GRAPH, "write/delete-project-agency", {
+    projectIds: [input.projectId],
+  });
+  const rows = await writeQuery(db, REGISTRY_GRAPH, "write/delete-project", {
+    projectId: input.projectId,
+  });
+  return rows.length > 0;
 }
 
 /**

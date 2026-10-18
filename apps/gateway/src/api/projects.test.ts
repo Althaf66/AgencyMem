@@ -1,6 +1,8 @@
 // The base REST routes through the real gateway against the real FalkorDB from docker-compose.yml.
 // No mocks.
 import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -9,6 +11,7 @@ import { ulid } from "ulid";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { loadConfig, type Envelope, type ProjectInfo } from "@agencymem/contracts";
 import {
+  AGENCY_GRAPH,
   REGISTRY_GRAPH,
   close,
   connect,
@@ -16,7 +19,14 @@ import {
   readQuery,
   type FalkorDB,
 } from "@agencymem/graph";
-import { openItem, deleteTestClient } from "@agencymem/memory";
+import {
+  deleteTestAgency,
+  deleteTestClient,
+  openItem,
+  writeCaseStudy,
+  type Ctx,
+} from "@agencymem/memory";
+import { projectDirOf } from "./evidence";
 import { createEvents } from "../events/bus";
 import { createGateway } from "../main";
 
@@ -31,6 +41,7 @@ let server: Server;
 let base: string;
 const events = createEvents();
 const graphs = new Set<string>();
+const projectIds: string[] = [];
 const clients: Client[] = [];
 
 beforeAll(async () => {
@@ -43,6 +54,7 @@ afterAll(async () => {
   await Promise.allSettled(clients.map((c) => c.close()));
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
+  await deleteTestAgency(db, projectIds);
   for (const graph of graphs) await deleteTestClient(db, graph);
   await close();
 });
@@ -62,7 +74,10 @@ async function api(method: string, path: string, body?: unknown, headers = {}) {
 async function create(clientName: string, projectName = "Booking") {
   const res = await api("POST", "/api/projects", { clientName, projectName, mode: "demo" }, actor);
   const project = (res.body as { project?: ProjectInfo }).project;
-  if (project) graphs.add(`client_${project.clientId}`);
+  if (project) {
+    graphs.add(`client_${project.clientId}`);
+    projectIds.push(project.id);
+  }
   return { ...res, project: project! };
 }
 
@@ -233,5 +248,80 @@ describe("POST /api/query", () => {
       ],
       ["metrics.updated", { metric: "rejectedQueries", value: 1 }],
     ]);
+  });
+});
+
+describe("DELETE /api/projects/:id", () => {
+  const cfg = loadConfig({ ...TOKENS, FALKORDB_URL }, "gateway");
+  const nodes = async (graph: string, projectId: string) =>
+    (await readQuery<{ label: string }>(db, graph, "read/graph-nodes", { projectId, limit: 500 }))
+      .length;
+  const lesson = async (ids: string[]) =>
+    (
+      await readQuery<{ projectIds: string[] }>(db, AGENCY_GRAPH, "read/similar-lessons", {
+        featureKinds: ["auth"],
+      })
+    ).find((l) => ids.some((id) => l.projectIds.includes(id)));
+
+  /** A project with a work item, a case study whose Lesson it shares, an upload and a workspace. */
+  async function full(clientName: string) {
+    const { project } = await create(clientName);
+    const ctx: Ctx = { db, graph: `client_${project.clientId}`, projectId: project.id };
+    await openItem(ctx, { kind: "discovery", createdBy: "human:test", now: Date.now() });
+    await writeCaseStudy(db, {
+      projectId: project.id,
+      metrics: {
+        estimateError: 0,
+        questions: 0,
+        contradictions: 0,
+        changeRequests: 0,
+        cardsReopened: 0,
+        cards: 0,
+        firstPassCards: 0,
+        clarityBand: "high",
+      },
+      lessonsLearned: "l",
+      records: [{ featureKind: "auth", clarityBand: "high", estimate: 2, raw: 2, actual: 2 }],
+      lessons: [{ featureKind: "auth", clarityBand: "high", text: "Logins ran to plan." }],
+      createdBy: "curator",
+      now: Date.now(),
+    });
+    const uploads = join(cfg.UPLOADS_DIR!, project.id);
+    const workspace = projectDirOf(cfg.WORKSPACES_DIR!, project.id);
+    for (const dir of [uploads, workspace]) {
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, "f.txt"), "x");
+    }
+    return { project, ctx, uploads, workspace };
+  }
+
+  it("removes the project from every graph and folder, and leaves the client's other project", async () => {
+    const clientName = `test-client-${randomUUID()}`;
+    const one = await full(clientName);
+    const two = await full(clientName);
+    expect(one.ctx.graph).toBe(two.ctx.graph);
+    expect(await nodes(one.ctx.graph, one.project.id)).toBeGreaterThan(0);
+
+    const res = await api("DELETE", `/api/projects/${one.project.id}`, undefined, actor);
+    expect(res).toEqual({ status: 200, body: { deleted: one.project.id } });
+
+    expect(await nodes(one.ctx.graph, one.project.id)).toBe(0);
+    expect((await api("GET", `/api/projects/${one.project.id}`)).status).toBe(404);
+    expect(existsSync(one.uploads)).toBe(false);
+    expect(existsSync(one.workspace)).toBe(false);
+    // The shared Lesson keeps the other project only; that project is untouched.
+    const shared = await lesson([one.project.id, two.project.id]);
+    expect(shared?.projectIds).toContain(two.project.id);
+    expect(shared?.projectIds).not.toContain(one.project.id);
+    expect(await nodes(two.ctx.graph, two.project.id)).toBeGreaterThan(0);
+    expect(existsSync(two.workspace)).toBe(true);
+    expect((await api("GET", `/api/projects/${two.project.id}`)).status).toBe(200);
+  });
+
+  it("needs X-AM-Actor, and answers 404 for a project already deleted", async () => {
+    const { project } = await create(`test-client-${randomUUID()}`);
+    expect((await api("DELETE", `/api/projects/${project.id}`)).status).toBe(400);
+    expect((await api("DELETE", `/api/projects/${project.id}`, undefined, actor)).status).toBe(200);
+    expect((await api("DELETE", `/api/projects/${project.id}`, undefined, actor)).status).toBe(404);
   });
 });

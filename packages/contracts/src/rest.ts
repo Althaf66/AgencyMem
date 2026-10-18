@@ -257,6 +257,8 @@ export const CreateProjectResponse = z.object({ project: ProjectInfo });
 export const ListProjectsResponse = z.object({ projects: z.array(ProjectInfo) });
 // 3 GET /api/projects/:id (S)
 export const GetProjectResponse = z.object({ project: ProjectInfo, seq: Seq });
+// DELETE /api/projects/:id: the project and everything it wrote, from every graph and folder
+export const DeleteProjectResponse = z.object({ deleted: Id });
 // 4 POST /api/projects/:id/files (multipart field `files`)
 export const UPLOAD_RULES = {
   field: "files",

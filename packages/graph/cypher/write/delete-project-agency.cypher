@@ -1,5 +1,5 @@
-// Test cleanup only (agency graph): removes the given test projects' CaseStudies and EstimateRecords,
-// and the Lessons that name only those projects. A Lesson that also names another project keeps
+// A project delete (route DELETE /api/projects/:id) and test cleanup (agency graph): removes the given
+// projects' CaseStudies and EstimateRecords, and the Lessons that name only those projects. A Lesson that also names another project keeps
 // its other ids; its ratio and n are not recomputed and its text is not restored.
 OPTIONAL MATCH (x)
 WHERE (x:CaseStudy OR x:EstimateRecord) AND x.projectId IN $projectIds

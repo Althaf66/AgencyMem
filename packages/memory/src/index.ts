@@ -19,6 +19,7 @@ export {
   closeProject,
   countRejection,
   createProject,
+  deleteProject,
   deleteTestClient,
   setStage,
 } from "./projects";

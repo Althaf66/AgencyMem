@@ -1,7 +1,8 @@
-// The Projects screen (ui.md section 5): every project, and a form to create one.
+// The Projects screen (ui.md section 5): every project, a form to create one, and a delete that
+// asks for the project's name first.
 import { useState } from "react";
 import { useStore } from "zustand";
-import type { Mode } from "@agencymem/contracts";
+import type { Mode, ProjectInfo } from "@agencymem/contracts";
 import type { AppState, AppStore } from "../store";
 import { SliceView } from "../ui";
 
@@ -44,6 +45,43 @@ function NewProject({ s }: { s: AppState }) {
   );
 }
 
+/** Delete, then the name typed in full before the delete goes out (it removes everything). */
+export function DeleteProject({ s, project }: { s: AppState; project: ProjectInfo }) {
+  const [asking, setAsking] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (!asking) {
+    return (
+      <button type="button" onClick={() => setAsking(true)}>
+        Delete
+      </button>
+    );
+  }
+  return (
+    <form
+      className="delete-project"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setBusy(true);
+        void s.deleteProject(project.id).then((ok) => ok || setBusy(false));
+      }}
+    >
+      <input
+        aria-label={`Type ${project.name} to delete it`}
+        placeholder={`Type "${project.name}" to delete`}
+        value={typed}
+        onChange={(e) => setTyped(e.target.value)}
+      />
+      <button type="submit" className="danger" disabled={typed !== project.name || busy}>
+        Delete for good
+      </button>
+      <button type="button" onClick={() => setAsking(false)}>
+        Cancel
+      </button>
+    </form>
+  );
+}
+
 export function ProjectsView({ s }: { s: AppState }) {
   return (
     <section className="screen">
@@ -67,6 +105,7 @@ export function ProjectsView({ s }: { s: AppState }) {
                 <th>mode</th>
                 <th>stage</th>
                 <th>created</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -79,6 +118,9 @@ export function ProjectsView({ s }: { s: AppState }) {
                   <td>{p.mode}</td>
                   <td>{p.stage}</td>
                   <td className="muted">{new Date(p.createdAt).toLocaleDateString()}</td>
+                  <td>
+                    <DeleteProject s={s} project={p} />
+                  </td>
                 </tr>
               ))}
             </tbody>

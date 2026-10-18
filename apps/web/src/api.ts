@@ -11,6 +11,7 @@ import {
   ChatResponse,
   CommitDiffResponse,
   CreateProjectResponse,
+  DeleteProjectResponse,
   DocResponse,
   DocumentsResponse,
   ErrorBody,
@@ -99,6 +100,7 @@ export function createApi(opts: ApiOptions) {
     listProjects: () => call(ListProjectsResponse, "GET", "/api/projects"),
     createProject: (body: { clientName: string; projectName: string; mode: Mode }) =>
       call(CreateProjectResponse, "POST", "/api/projects", { body }),
+    deleteProject: (id: string) => call(DeleteProjectResponse, "DELETE", `/api/projects/${id}`),
     project: (id: string) => call(GetProjectResponse, "GET", `/api/projects/${id}`),
     documents: (id: string) => call(DocumentsResponse, "GET", `/api/projects/${id}/documents`),
     upload: (id: string, files: File[]) => {

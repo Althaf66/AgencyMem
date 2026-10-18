@@ -116,6 +116,8 @@ export type AppState = {
     projectName: string;
     mode: Mode;
   }): Promise<ProjectInfo | null>;
+  /** Deletes a project and everything it wrote; false after a rejection (a toast). */
+  deleteProject(projectId: string): Promise<boolean>;
   /** Opens a project: loads every slice. */
   open(projectId: string): Promise<void>;
   load(slice: SliceName): Promise<void>;
@@ -365,6 +367,17 @@ export function createAppStore(api: Api): AppStore {
         }
         await get().loadProjects();
         return result.data.project;
+      },
+
+      async deleteProject(projectId) {
+        const result = await api.deleteProject(projectId);
+        if (!result.ok) {
+          get().toast(result.error.reason);
+          return false;
+        }
+        if (get().projectId === projectId) location.hash = "#/";
+        await get().loadProjects();
+        return true;
       },
 
       async open(projectId) {

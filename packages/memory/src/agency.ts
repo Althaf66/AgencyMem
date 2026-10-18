@@ -50,6 +50,6 @@ export async function writeCaseStudy(
 /** Test cleanup only: removes test projects' case studies, records and their own Lessons. */
 export async function deleteTestAgency(db: FalkorDB, projectIds: string[]): Promise<void> {
   if (projectIds.length) {
-    await writeQuery(db, AGENCY_GRAPH, "write/delete-test-agency", { projectIds });
+    await writeQuery(db, AGENCY_GRAPH, "write/delete-project-agency", { projectIds });
   }
 }

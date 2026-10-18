@@ -104,6 +104,20 @@ describe("screen states", () => {
     expect(error).toContain("Retry");
   });
 
+  it("offers Delete on each project row", () => {
+    const project = {
+      id: "01JA0000000000000000000001",
+      name: "Landing site",
+      clientName: "Olive & Ember",
+      mode: "live",
+      stage: "launch",
+      createdAt: 1,
+    } as ProjectInfo;
+    const html = renderToString(<ProjectsView s={state({ projects: ready([project]) })} />);
+    expect(html).toContain("Landing site");
+    expect(html).toMatch(/<button[^>]*>Delete<\/button>/);
+  });
+
   it("says what to do when a screen is empty", () => {
     expect(renderToString(<ProjectsView s={state({ projects: ready([]) })} />)).toContain(
       "No projects yet.",
