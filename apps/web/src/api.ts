@@ -4,6 +4,7 @@
 import {
   AgencyMetrics,
   AnswerResponse,
+  AskResponse,
   BoardResponse,
   CardFileResponse,
   CardFilesResponse,
@@ -121,6 +122,8 @@ export function createApi(opts: ApiOptions) {
     doc: (id: string, doc: Doc) => call(DocResponse, "GET", `/api/projects/${id}/docs/${doc}`),
     features: (id: string) => call(FeaturesResponse, "GET", `/api/projects/${id}/features`),
     memory: (id: string) => call(MemoryResponse, "GET", `/api/projects/${id}/memory`),
+    ask: (id: string, text: string) =>
+      call(AskResponse, "POST", `/api/projects/${id}/ask`, { body: { text } }),
     chat: (project: string, body: { text: string; docSectionId?: string }) =>
       call(ChatResponse, "POST", "/api/chat", { body, project }),
     board: (id: string) => call(BoardResponse, "GET", `/api/projects/${id}/board`),

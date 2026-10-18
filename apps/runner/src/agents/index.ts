@@ -3,6 +3,7 @@
 import type { Agent } from "../agent";
 import { architect } from "./architect/agent";
 import { curator } from "./curator/agent";
+import { ask } from "./discovery/ask";
 import { discovery } from "./discovery/agent";
 import { intake } from "./intake/agent";
 import { planner } from "./planner/agent";
@@ -12,6 +13,7 @@ import { changeRequest } from "./proposal/change-request";
 export const AGENTS: Agent<unknown>[] = [
   intake,
   discovery,
+  ask,
   proposal,
   changeRequest,
   architect,

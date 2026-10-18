@@ -426,13 +426,14 @@ export const RetryItemResponse = z.object({ item: WorkItem });
 // GET /api/projects/:id/memory (S): the client's turns in time order and every Fact with its
 // validity, so the Memory screen shows what the project knew after each turn.
 export const MemoryTurn = z.object({
-  kind: z.enum(["document", "question", "answer", "change_request"]),
+  kind: z.enum(["document", "question", "answer", "change_request", "ask", "reply"]),
   id: Id,
   text: z.string(),
   at: EpochMs,
-  refId: Id.nullable(), // an answer's Question
+  refId: Id.nullable(), // an answer's Question, a reply's ask
   facts: Count, // Facts sourced from this turn
   ended: Count, // Facts this change request ended
+  sourceIds: z.array(Id), // the Facts a reply cites
 });
 export type MemoryTurn = z.infer<typeof MemoryTurn>;
 export const MemoryResponse = z.object({
@@ -443,6 +444,9 @@ export const MemoryResponse = z.object({
   seq: Seq,
 });
 export type MemoryResponse = z.infer<typeof MemoryResponse>;
+// POST /api/projects/:id/ask: a question about the project, answered by the Discovery agent
+export const AskBody = z.object({ text: z.string().trim().min(1).max(1000) });
+export const AskResponse = z.object({ episodeId: Id, workItemId: Id });
 
 // Evidence routes (UI token): what the agents did, for the Home feed, Pipeline and card story.
 

@@ -47,6 +47,7 @@ export const WorkItemKind = z.enum([
   "merge",
   "launch",
   "curator",
+  "ask", // a person's question on the Memory screen, answered by Discovery
 ]);
 export type WorkItemKind = z.infer<typeof WorkItemKind>;
 
@@ -68,7 +69,7 @@ export type GateKey = z.infer<typeof GateKey>;
 export const GateStatus = z.enum(["waiting", "approved", "rejected"]);
 export type GateStatus = z.infer<typeof GateStatus>;
 
-export const EpisodeKind = z.enum(["file_chunk", "answer", "human_edit", "change_request"]);
+export const EpisodeKind = z.enum(["file_chunk", "answer", "human_edit", "change_request", "ask"]);
 export type EpisodeKind = z.infer<typeof EpisodeKind>;
 
 export const QuestionKind = z.enum(["contradiction", "open", "unclear"]);

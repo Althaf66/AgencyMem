@@ -1691,6 +1691,14 @@ h4 {
   position: sticky;
   top: 16px;
 }
+.memory-ask {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.memory-ask label {
+  font-weight: 600;
+}
 .memory-turn {
   display: grid;
   gap: 4px;

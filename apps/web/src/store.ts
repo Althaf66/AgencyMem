@@ -128,6 +128,8 @@ export type AppState = {
   node(nodeId: string): ReturnType<Api["node"]>;
   /** The Memory screen: the client's turns and every fact with its validity. */
   memory(): ReturnType<Api["memory"]>;
+  /** A question about the project for the Discovery agent; false (and a toast) when refused. */
+  ask(text: string): Promise<boolean>;
   /** Evidence reads of the open project: one commit's diff, an item's model calls, a card's tests. */
   commitDiff(sha: string): ReturnType<Api["commitDiff"]>;
   itemRuns(itemId: string): ReturnType<Api["itemRuns"]>;
@@ -515,6 +517,14 @@ export function createAppStore(api: Api): AppStore {
         if (!id) return false;
         const result = await api.retry(id, item.id);
         return result.ok || rejected(result.error, "board");
+      },
+
+      async ask(text) {
+        const id = get().projectId;
+        if (!id) return false;
+        const result = await api.ask(id, text);
+        if (!result.ok) get().toast(result.error.reason);
+        return result.ok;
       },
 
       async changeRequest(text) {

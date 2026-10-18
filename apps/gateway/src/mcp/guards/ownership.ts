@@ -19,7 +19,7 @@ export const OWNS: Record<AgentId, NodeLabel[]> = {
 /** The work item kinds each agent claims. */
 export const CLAIMS: Record<AgentId, WorkItemKind[]> = {
   intake: ["intake", "intake_answer"],
-  discovery: ["discovery"],
+  discovery: ["discovery", "ask"],
   proposal: ["proposal", "change_request"],
   architect: ["architect", "architect_revise"],
   planner: ["planner", "replan"],

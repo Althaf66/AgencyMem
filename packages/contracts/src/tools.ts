@@ -126,6 +126,13 @@ export const Context = z.object({
   changeRequest: z
     .object({ id: Id, text: z.string(), episodeId: Id, status: ChangeRequestStatus })
     .optional(),
+  // An ask item: the person's question and the project's earlier questions with their answers.
+  ask: z
+    .object({
+      question: z.string(),
+      earlier: z.array(z.object({ question: z.string(), answer: z.string(), at: EpochMs })),
+    })
+    .optional(),
   requirements: z
     .array(
       z.object({

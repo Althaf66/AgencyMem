@@ -14,3 +14,10 @@ export const DiscoveryQuestion = z.object({
 });
 export const DiscoveryOutput = z.object({ questions: z.array(DiscoveryQuestion).max(20) });
 export type DiscoveryOutput = z.infer<typeof DiscoveryOutput>;
+
+// The ask kind's JSON: a short answer to the person, and the current facts it rests on.
+export const AskOutput = z.object({
+  answer: text(1500),
+  factIds: z.array(z.string()).max(12),
+});
+export type AskOutput = z.infer<typeof AskOutput>;

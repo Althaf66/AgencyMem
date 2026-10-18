@@ -382,6 +382,27 @@ export async function recallContextTool(
     });
   }
 
+  // An ask item: the person's question, the earlier asks with their answers (the thread), and what
+  // the project knows: current facts, requirements, features and design.
+  if (item.kind === "ask" && item.subjectId) {
+    const [asked] = await readQuery<{ n: { properties: { text: string } } }>(
+      ctx.db,
+      graph,
+      "read/node",
+      { id: item.subjectId },
+    );
+    context.ask = {
+      question: asked?.n.properties.text ?? "",
+      earlier: await readQuery<Ctx["ask"]["earlier"][number]>(ctx.db, graph, "read/ask-history", {
+        projectId,
+        itemId: item.id,
+      }),
+    };
+    context.facts = await currentFacts();
+    Object.assign(context, await currentProduct());
+    context.design = await readDesign(ctx.db, graph, projectId);
+  }
+
   // A merge item reads its card: the runner merges card/<key>.
   if (item.kind === "merge" && item.subjectId) {
     context.tasks = await readQuery<Ctx["tasks"][number]>(ctx.db, graph, "read/task", {

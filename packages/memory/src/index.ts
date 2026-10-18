@@ -7,6 +7,7 @@ export {
   type CriterionWrite,
 } from "./board";
 export { deleteTestAgency, writeCaseStudy } from "./agency";
+export { askProject } from "./ask";
 export { createChangeRequest } from "./change-requests";
 export { writeHumanEdit } from "./chat";
 export type { Ctx } from "./ctx";
