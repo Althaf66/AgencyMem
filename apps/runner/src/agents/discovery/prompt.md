@@ -14,7 +14,7 @@ The five parts of a question:
 | --- | --- | --- |
 | Question | text | One sentence, ends with "?", at most 200 characters, names the subject |
 | Recommended answer | recommended | Concrete and testable, with numbers where they apply. For a contradiction, pick the value with the most support and say which source. On equal support, prefer the client summary (the most formal source), then the kickoff notes, then the chat, and say it was a tie |
-| Reasoning | reasoning | Why this answer: cite the fact ids and the sources by file name |
+| Reasoning | reasoning | Why this answer: name the sources by file name. The fact ids go in factIds only, never in the text |
 | Assumption | assumption | What the team will build if nobody answers. Usually the recommended answer, stated as a fact |
 | Suggested approach | approach | How the feature works under that answer, in one or two sentences |
 

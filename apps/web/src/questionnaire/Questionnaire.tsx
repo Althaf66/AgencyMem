@@ -14,6 +14,23 @@ const GROUPS: { kind: QuestionKind; title: string }[] = [
   { kind: "unclear", title: "Unclear points" },
 ];
 
+const ULID = "[0-9A-HJKMNP-TV-Z]{26}";
+// "kickoff-notes.pdf (fact 01M5…)", "facts 01A… and 01B…" or a bare id: the graph links the facts,
+// so the reader needs the file name, not the id.
+const IDS = new RegExp(
+  String.raw`\(?\b(?:[Ff]acts?:?\s+)?${ULID}(?:\s*(?:,|and|&)\s*(?:[Ff]acts?\s+)?${ULID})*\)?`,
+  "g",
+);
+
+/** A question part as the person reads it: without the fact ids a model wrote into the text. */
+export const withoutIds = (text: string) =>
+  text
+    .replace(IDS, "")
+    .replace(/\(\s*\)/g, "")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
 const where = (src: QuestionView["sources"][number]) =>
   [
     src.documentName ?? "answer",
@@ -58,15 +75,15 @@ function QuestionCard({ q, s }: { q: QuestionView; s: AppState }) {
         </details>
         <dl className="parts">
           <dt>Recommended</dt>
-          <dd>{q.recommended}</dd>
+          <dd>{withoutIds(q.recommended)}</dd>
           <dt>Reasoning</dt>
-          <dd>{q.reasoning}</dd>
+          <dd>{withoutIds(q.reasoning)}</dd>
           <dt>Assumption</dt>
           <dd>
-            {q.assumption.text} <Chip status={q.assumption.status} />
+            {withoutIds(q.assumption.text)} <Chip status={q.assumption.status} />
           </dd>
           <dt>Approach</dt>
-          <dd>{q.approach}</dd>
+          <dd>{withoutIds(q.approach)}</dd>
           {q.answer && (
             <>
               <dt>Answer</dt>
