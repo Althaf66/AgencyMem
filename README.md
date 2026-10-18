@@ -6,7 +6,7 @@ Nine AI agents share one memory: a FalkorDB graph. They turn agency's client not
 questions, a proposal, design documents, a Kanban board and working code. A card closes only on a
 real commit and a passing Playwright test.
 
-![AgencyMem](data/AgencyMem.png)
+![AgencyMem](AgencyMem.png)
 
 ## The problem
 
