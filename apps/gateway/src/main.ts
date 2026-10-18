@@ -13,6 +13,7 @@ import { changeRequestsRouter } from "./api/change-requests";
 import { docsRouter } from "./api/docs";
 import { evidenceRouter } from "./api/evidence";
 import { featuresRouter } from "./api/features";
+import { memoryRouter } from "./api/memory";
 import { filesRouter } from "./api/files";
 import { gatesRouter } from "./api/gates";
 import { graphRouter } from "./api/graph";
@@ -126,6 +127,7 @@ export function createGateway(
     questionsRouter({ db, events }),
     gatesRouter({ db, events }),
     featuresRouter({ db, events }),
+    memoryRouter({ db, events }),
     changeRequestsRouter({ db, events }),
     closeRouter({ db, events }),
     docsRouter({ db, events }),

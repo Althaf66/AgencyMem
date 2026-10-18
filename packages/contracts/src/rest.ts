@@ -423,6 +423,27 @@ export const CloseProjectResponse = z.object({ project: ProjectInfo, workItemId:
 export const RetryItemBody = z.object({});
 export const RetryItemResponse = z.object({ item: WorkItem });
 
+// GET /api/projects/:id/memory (S): the client's turns in time order and every Fact with its
+// validity, so the Memory screen shows what the project knew after each turn.
+export const MemoryTurn = z.object({
+  kind: z.enum(["document", "question", "answer", "change_request"]),
+  id: Id,
+  text: z.string(),
+  at: EpochMs,
+  refId: Id.nullable(), // an answer's Question
+  facts: Count, // Facts sourced from this turn
+  ended: Count, // Facts this change request ended
+});
+export type MemoryTurn = z.infer<typeof MemoryTurn>;
+export const MemoryResponse = z.object({
+  turns: z.array(MemoryTurn),
+  facts: z.array(
+    z.object({ id: Id, statement: z.string(), validFrom: EpochMs, validTo: EpochMs.nullable() }),
+  ),
+  seq: Seq,
+});
+export type MemoryResponse = z.infer<typeof MemoryResponse>;
+
 // Evidence routes (UI token): what the agents did, for the Home feed, Pipeline and card story.
 
 // GET /api/projects/:id/events: the gateway's replay buffer, oldest first (in memory: a gateway

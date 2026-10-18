@@ -24,6 +24,7 @@ import {
   ItemRunsResponse,
   ItemsResponse,
   ListProjectsResponse,
+  MemoryResponse,
   NodeResponse,
   PatchTaskResponse,
   PathResponse,
@@ -119,6 +120,7 @@ export function createApi(opts: ApiOptions) {
       call(GateDecisionResponse, "POST", `/api/gates/${gateId}/decision`, { body, project }),
     doc: (id: string, doc: Doc) => call(DocResponse, "GET", `/api/projects/${id}/docs/${doc}`),
     features: (id: string) => call(FeaturesResponse, "GET", `/api/projects/${id}/features`),
+    memory: (id: string) => call(MemoryResponse, "GET", `/api/projects/${id}/memory`),
     chat: (project: string, body: { text: string; docSectionId?: string }) =>
       call(ChatResponse, "POST", "/api/chat", { body, project }),
     board: (id: string) => call(BoardResponse, "GET", `/api/projects/${id}/board`),

@@ -1680,6 +1680,34 @@ h4 {
   text-transform: uppercase;
   color: var(--faint);
 }
+/* The Memory screen: the turns on the left, what the project knew after the picked one beside it. */
+.memory-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 16px;
+  align-items: start;
+}
+.memory-grid > .panel {
+  position: sticky;
+  top: 16px;
+}
+.memory-turn {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+@media (max-width: 900px) {
+  .memory-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .memory-grid > .panel {
+    position: static;
+  }
+}
 .evidence-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

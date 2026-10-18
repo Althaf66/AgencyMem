@@ -8,6 +8,7 @@ import { GraphPanel } from "./graph/GraphPanel";
 import { Health } from "./health/Health";
 import { Home } from "./home/Home";
 import { Files } from "./intake/Files";
+import { Memory } from "./memory/Memory";
 import { Pipeline } from "./pipeline/Pipeline";
 import { PreviewScreen } from "./preview/Preview";
 import { Projects } from "./projects/Projects";
@@ -36,6 +37,7 @@ export function App({ store }: { store: AppStore }) {
       {route.screen === "board" && <Board store={store} />}
       {route.screen === "files" && <Files store={store} />}
       {route.screen === "questions" && <Questionnaire store={store} />}
+      {route.screen === "memory" && <Memory store={store} />}
       {route.screen === "gates" && <Gates store={store} />}
       {route.screen === "health" && <Health store={store} />}
       {route.screen === "docs" && <Docs store={store} doc={route.doc} />}

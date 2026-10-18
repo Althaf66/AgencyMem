@@ -126,6 +126,8 @@ export type AppState = {
   upload(files: File[]): Promise<boolean>;
   /** A node of the open project with its links (route 6). */
   node(nodeId: string): ReturnType<Api["node"]>;
+  /** The Memory screen: the client's turns and every fact with its validity. */
+  memory(): ReturnType<Api["memory"]>;
   /** Evidence reads of the open project: one commit's diff, an item's model calls, a card's tests. */
   commitDiff(sha: string): ReturnType<Api["commitDiff"]>;
   itemRuns(itemId: string): ReturnType<Api["itemRuns"]>;
@@ -456,6 +458,7 @@ export function createAppStore(api: Api): AppStore {
       node(nodeId) {
         return api.node(get().projectId ?? "", nodeId);
       },
+      memory: () => api.memory(get().projectId ?? ""),
       commitDiff: (sha) => api.commitDiff(get().projectId ?? "", sha),
       itemRuns: (itemId) => api.itemRuns(get().projectId ?? "", itemId),
       testRuns: (taskId) => api.testRuns(get().projectId ?? "", taskId),

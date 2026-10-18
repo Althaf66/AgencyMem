@@ -7,6 +7,7 @@ import {
   Code2,
   FileText,
   FileUp,
+  History,
   House,
   MessageCircleQuestion,
   Monitor,
@@ -269,6 +270,7 @@ export function Shell(props: { store: AppStore; route: Route; children: ReactNod
           <span className="eyebrow">Discover</span>
           {nav("files", "Files", FileUp)}
           {nav("questions", "Questions", MessageCircleQuestion)}
+          {nav("memory", "Memory", History)}
           {nav("docs", "Docs", FileText, "docs/prd")}
           {nav("gates", "Gates", ShieldCheck)}
           <span className="eyebrow">Deliver</span>

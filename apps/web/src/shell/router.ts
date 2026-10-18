@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Doc } from "@agencymem/contracts";
 
 export type Screen =
-  "home" | "pipeline" | "preview" | "board" | "files" | "questions" | "gates" | "health";
+  "home" | "pipeline" | "preview" | "board" | "files" | "questions" | "memory" | "gates" | "health";
 export type GraphViewName = "all" | "why" | "impact" | "read";
 export const GRAPH_VIEWS: GraphViewName[] = ["all", "why", "impact", "read"];
 export type Route =
@@ -25,6 +25,7 @@ const SCREENS: Screen[] = [
   "board",
   "files",
   "questions",
+  "memory",
   "gates",
   "health",
 ];
