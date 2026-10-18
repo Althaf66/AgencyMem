@@ -1,5 +1,6 @@
-// The gate panel (ui.md section 5, Gates): each gate with its status and who decided it. A button
-// that cannot be used shows why (`blockedBy`), never a silent grey button.
+// The gate panel (ui.md section 5, Gates): each gate with its status and who decided it, and the
+// newest launch readiness report. A button that cannot be used shows why (`blockedBy`), never a
+// silent grey button.
 import { useState } from "react";
 import { useStore } from "zustand";
 import type { GateKey, GateView } from "@agencymem/contracts";
@@ -10,13 +11,11 @@ const NAMES: Record<GateKey, string> = {
   G1: "Answers",
   G2: "Proposal",
   G3: "Documents",
-  G5: "Deploy",
-  G6: "Fix",
 };
-// stage-machine.md section 5: G1 and G5 cannot be rejected.
-const REJECTABLE: GateKey[] = ["G2", "G3", "G6"];
+// stage-machine.md section 5: G1 cannot be rejected.
+const REJECTABLE: GateKey[] = ["G2", "G3"];
 
-/** G5's five readiness checks with pass or fail and how many nodes fail each (ui.md, Gates). */
+/** The four readiness checks with pass or fail and how many nodes fail each (ui.md, Gates). */
 function Checks({ report }: { report: NonNullable<Readiness> }) {
   return (
     <ul className="checks">
@@ -36,27 +35,11 @@ function Checks({ report }: { report: NonNullable<Readiness> }) {
 export function GateRow({ gate, s }: { gate: GateView; s: AppState }) {
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
-  // G5 (T23): the environment, and for a failed report "Approve anyway" with a reason.
-  const [environment, setEnvironment] = useState("");
-  const [override, setOverride] = useState(false);
-  const deploy = gate.key === "G5";
-  const report = deploy ? s.readiness.data : null;
-  const failed = report !== null && !report.passed;
-  // What the G5 form still needs, said next to the button like blockedBy.
-  const deployBlocks = deploy
-    ? [
-        ...(environment.trim() ? [] : ["needs an environment"]),
-        ...(failed && !(override && reason.trim())
-          ? ["a failed report needs Approve anyway and a reason"]
-          : []),
-      ]
-    : [];
-  const deployReady = deployBlocks.length === 0;
   const [busy, run] = useBusy(gate.version);
   const waiting = gate.status === "waiting";
   // Never a silent grey button (ui.md section 5): say why even when the gateway gave no reason.
   const blockedBy = gate.canDecide
-    ? deployBlocks
+    ? []
     : gate.blockedBy.length
       ? gate.blockedBy
       : ["not decidable yet"];
@@ -71,38 +54,6 @@ export function GateRow({ gate, s }: { gate: GateView; s: AppState }) {
         )}
         {gate.reason && <span className="muted">{`"${gate.reason}"`}</span>}
       </div>
-      {report && <Checks report={report} />}
-      {waiting && deploy && (
-        <div className="deploy">
-          <input
-            name="environment"
-            required
-            maxLength={40}
-            value={environment}
-            placeholder="Environment, for example demo"
-            onChange={(e) => setEnvironment(e.target.value)}
-          />
-          {failed && (
-            <label>
-              <input
-                type="checkbox"
-                checked={override}
-                onChange={(e) => setOverride(e.target.checked)}
-              />{" "}
-              Approve anyway
-            </label>
-          )}
-          {failed && override && (
-            <textarea
-              required
-              maxLength={300}
-              value={reason}
-              placeholder="Why deploy with a failed check?"
-              onChange={(e) => setReason(e.target.value)}
-            />
-          )}
-        </div>
-      )}
       {waiting && (
         <div className="gate-actions">
           {blockedBy.length > 0 && (
@@ -111,17 +62,8 @@ export function GateRow({ gate, s }: { gate: GateView; s: AppState }) {
           <button
             type="button"
             className="primary"
-            disabled={!gate.canDecide || busy || !deployReady}
-            onClick={() =>
-              void run(() =>
-                deploy
-                  ? s.decide(gate, "approve", failed ? reason.trim() : undefined, {
-                      environment: environment.trim(),
-                      override: failed,
-                    })
-                  : s.decide(gate, "approve"),
-              )
-            }
+            disabled={!gate.canDecide || busy}
+            onClick={() => void run(() => s.decide(gate, "approve"))}
           >
             Approve
           </button>
@@ -178,6 +120,17 @@ export function GatesView({ s }: { s: AppState }) {
           </ul>
         )}
       </SliceView>
+      <h3>Launch readiness</h3>
+      {s.readiness.data ? (
+        <>
+          <p className="muted">
+            {`${s.readiness.data.passed ? "Passed" : s.readiness.data.override ? "Failed, closed anyway" : "Failed"} · ${time(s.readiness.data.createdAt)}`}
+          </p>
+          <Checks report={s.readiness.data} />
+        </>
+      ) : (
+        <p className="muted">No readiness report yet. Launch writes one after the full e2e run.</p>
+      )}
     </section>
   );
 }

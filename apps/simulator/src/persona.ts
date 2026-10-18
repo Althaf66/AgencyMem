@@ -6,7 +6,6 @@ import { join } from "node:path";
 import {
   AnswerResponse,
   BoardResponse,
-  BugReportResponse,
   ChangeRequestResponse,
   CloseProjectResponse,
   CreateProjectResponse,
@@ -32,18 +31,10 @@ const FILES = ["kickoff-notes.pdf", "client-summary.docx", "whatsapp-chat.txt"];
 
 type Decision = Omit<z.input<typeof GateDecisionBody>, "version">;
 
-/** `decided` counts this persona's earlier decisions on the gate; `reportPassed` is for G5. */
-export function gateDecision(
-  key: GateKey,
-  decided: number,
-  reportPassed: boolean | null,
-): Decision {
+/** `decided` counts this persona's earlier decisions on the gate. */
+export function gateDecision(key: GateKey, decided: number): Decision {
   if (key === "G2" && decided === 0)
     return { decision: "reject", reason: "estimate too high, cut scope" };
-  if (key === "G5")
-    return reportPassed
-      ? { decision: "approve", environment: "demo" }
-      : { decision: "approve", environment: "demo", override: true, reason: "demo run" };
   return { decision: "approve" };
 }
 
@@ -138,7 +129,7 @@ export type ProjectRun = {
   save: (projectId: string, patch: { crsSent?: number; actuals?: unknown }) => Promise<void>;
 };
 
-/** Runs one demo project to closed (or, for the live demo, until G5 is decidable). */
+/** Runs one demo project to closed (or, for the live demo, until Launch has written its report). */
 export async function runProject(run: ProjectRun): Promise<string> {
   const { gw, llm, set, sim, liveDemo } = run;
   const dir = join(run.fixtures, set);
@@ -165,7 +156,6 @@ export async function runProject(run: ProjectRun): Promise<string> {
   const decided = new Map<string, number>(); // gate key -> this persona's decisions so far
   const crTarget = liveDemo ? 0 : sim.changeRequests;
   let crsSent = 0;
-  let bugSent = false;
   let closed = false;
   let stage = project.stage;
 
@@ -189,29 +179,12 @@ export async function runProject(run: ProjectRun): Promise<string> {
 
       for (const g of (await api(GatesResponse, `/api/projects/${id}/gates`)).gates) {
         if (g.status !== "waiting" || !g.canDecide) continue;
-        if (liveDemo && g.key === "G5") {
-          console.log(`[${set}] G5 is ready; the presenter takes over`);
-          return id;
-        }
-        const passed =
-          g.key === "G5"
-            ? ((await api(ReadinessResponse, `/api/projects/${id}/readiness`)).report?.passed ??
-              false)
-            : null;
-        const d = gateDecision(g.key, decided.get(g.key) ?? 0, passed);
+        const d = gateDecision(g.key, decided.get(g.key) ?? 0);
         await api(GateDecisionResponse, `/api/gates/${g.id}/decision`, {
           json: { version: g.version, ...d },
         });
         decided.set(g.key, (decided.get(g.key) ?? 0) + 1);
         console.log(`[${set}] ${g.key} ${d.decision}`);
-      }
-
-      if (decided.has("G5") && !bugSent) {
-        await api(BugReportResponse, `/api/projects/${id}/bug-reports`, {
-          json: { text: truth.defect.text },
-        });
-        bugSent = true;
-        console.log(`[${set}] bug reported`);
       }
 
       if (!closed) {
@@ -229,7 +202,16 @@ export async function runProject(run: ProjectRun): Promise<string> {
           console.log(`[${set}] change request ${crsSent + 1} of ${crTarget}`);
         }
 
-        if (!closed && cards.some((c) => c.kind === "fix" && c.column === "Done")) {
+        // T28: close once Launch wrote its report; a run still checking answers 409, tried again.
+        const report =
+          stage === "launch"
+            ? (await api(ReadinessResponse, `/api/projects/${id}/readiness`)).report
+            : null;
+        if (report && liveDemo) {
+          console.log(`[${set}] launch is ready; the presenter takes over`);
+          return id;
+        }
+        if (report) {
           const { features } = await api(FeaturesResponse, `/api/projects/${id}/features`);
           const actuals = actualHours(
             features.map((f) => ({
@@ -239,7 +221,10 @@ export async function runProject(run: ProjectRun): Promise<string> {
             })),
             sim,
           );
-          await api(CloseProjectResponse, `/api/projects/${id}/close`, { json: { actuals } });
+          const override = report.passed ? {} : { override: true, reason: "demo run" };
+          await api(CloseProjectResponse, `/api/projects/${id}/close`, {
+            json: { actuals, ...override },
+          });
           await run.save(id, { actuals });
           closed = true;
           console.log(`[${set}] close sent with ${actuals.length} actuals`);

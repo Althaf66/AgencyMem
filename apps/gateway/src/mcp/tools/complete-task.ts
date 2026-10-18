@@ -179,13 +179,5 @@ export async function completeTaskTool(
       summary: `merge item open for ${done.key}`,
     });
   }
-  if (done.fixed) {
-    ctx.events.emit(projectId, "node.written", {
-      label: "Defect",
-      id: done.fixed.id,
-      version: done.fixed.version,
-      summary: `Defect fixed by ${done.key}`,
-    });
-  }
   return ok({ task: { id: input.taskId, key: done.key, column: done.to, version: done.version } });
 }

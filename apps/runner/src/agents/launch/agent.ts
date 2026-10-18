@@ -1,6 +1,6 @@
-// The Launch agent (agent-prompts.md section 10, rule-based, no model): the four graph checks come
-// from recall_context, the drift check from git log here; write_handoff stores all five as the
-// ReadinessReport that G5 reads (T22).
+// The Launch agent (agent-prompts.md section 10, rule-based, no model): the three graph checks come
+// from recall_context, the drift check from git log here; write_handoff stores all four as the
+// ReadinessReport that the close reads (route 29).
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";

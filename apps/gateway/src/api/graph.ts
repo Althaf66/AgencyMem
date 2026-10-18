@@ -1,10 +1,8 @@
 // Routes 16, 17 and 18 of contracts.md section 8: the graph panel's nodes (all, or around a focus),
 // the why path of any node and the impact path of a Fact, each as a GraphView (ui.md graph panel).
-// Route 19 (backtrace) runs from a Defect to the client's words (task 5.3).
 import express, { type Request, type Response, type Router } from "express";
 import { GraphQuery, GraphView, Id, PathResponse, type Rejection } from "@agencymem/contracts";
 import { readQuery, type FalkorDB } from "@agencymem/graph";
-import { setBacktraceMs } from "@agencymem/memory";
 import type { Events } from "../events/bus";
 import { rejectAndCount, tenancy } from "../mcp/guards";
 import { pathProject, personActor, sendError } from "./http";
@@ -156,8 +154,6 @@ export function graphRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
       id: req.params.nodeId as string,
     });
     const ms = Math.round(performance.now() - t0);
-    // The health panel shows the last backtrace time (approved decision 5).
-    if (query === "read/backtrace") await setBacktraceMs(s.db, s.projectId, ms);
     const { nodes, links } = row!;
     res.json(PathResponse.parse({ path: view([row!, ...nodes.flat()], links.flat()), ms }));
   }
@@ -171,9 +167,6 @@ export function graphRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
   // The Read view: what a WorkItem or Task read from the graph (its RECALLED edges).
   router.get("/projects/:id/recalled/:nodeId", (req, res) =>
     path(req, res, "GET /api/projects/:id/recalled/:nodeId", "read/recalled"),
-  );
-  router.get("/projects/:id/backtrace/:nodeId", (req, res) =>
-    path(req, res, "GET /api/projects/:id/backtrace/:defectId", "read/backtrace", "Defect"),
   );
 
   return router;

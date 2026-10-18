@@ -13,7 +13,6 @@ export const OWNS: Record<AgentId, NodeLabel[]> = {
   test: ["TestCase", "TestRun"],
   launch: ["ReadinessReport"], // C8
   build: [],
-  maintenance: ["Defect", "Task"], // Task: fix cards
   curator: ["CaseStudy", "Lesson", "EstimateRecord"],
 };
 
@@ -27,14 +26,13 @@ export const CLAIMS: Record<AgentId, WorkItemKind[]> = {
   test: ["write_tests", "test_run", "e2e"],
   launch: ["launch"],
   build: ["merge"],
-  maintenance: ["maintenance"],
   curator: ["curator"],
 };
 
 /**
  * The labels each tool with an ownership guard writes, as the ownership table names them
- * (contracts.md section 7). Side effects the table does not list are left out: propose_fix also
- * writes the fix card's criteria and gate G6, record_change_request also flags cards and sections.
+ * (contracts.md section 7). Side effects the table does not list are left out: record_change_request also
+ * flags cards and sections.
  */
 export const TOOL_WRITES: Partial<Record<ToolName, NodeLabel[]>> = {
   write_handoff: [], // plus ReadinessReport when a report is sent
@@ -46,8 +44,6 @@ export const TOOL_WRITES: Partial<Record<ToolName, NodeLabel[]>> = {
   write_cards: ["Task", "AcceptanceCriterion"],
   write_tests: ["TestCase"],
   submit_test_run: ["TestRun"],
-  report_defect: ["Defect"],
-  propose_fix: ["Task"],
   write_case_study: ["CaseStudy", "EstimateRecord", "Lesson"],
 };
 
@@ -66,8 +62,6 @@ export const TOOL_KINDS: Partial<Record<ToolName, WorkItemKind[]>> = {
   write_cards: ["planner", "replan"],
   write_tests: ["write_tests"],
   submit_test_run: ["test_run", "e2e"],
-  report_defect: ["maintenance"],
-  propose_fix: ["maintenance"],
   write_case_study: ["curator"],
 };
 

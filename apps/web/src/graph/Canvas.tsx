@@ -49,7 +49,7 @@ const rgba = (hex: string, a: number) => {
   return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},${a})`;
 };
 function colorOf(n: Base): string {
-  if (n.label === "Defect" || n.state === "failing") return STAGE.danger;
+  if (n.state === "failing") return STAGE.danger;
   if (n.state === "ended") return STAGE.muted;
   return GROUP_COLOR[n.group] ?? STAGE.muted;
 }

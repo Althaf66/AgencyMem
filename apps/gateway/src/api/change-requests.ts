@@ -11,7 +11,7 @@ import { MISSING_ACTOR, parseBody, pathProject, personActor, sendError } from ".
 
 const TOOL = "POST /api/projects/:id/change-requests";
 // stage-machine.md section 7: from G2 approval until the project closes.
-export const OPEN_STAGES: Stage[] = ["design", "planning", "build", "e2e", "launch", "maintenance"];
+export const OPEN_STAGES: Stage[] = ["design", "planning", "build", "e2e", "launch"];
 
 /**
  * C1: writes the ChangeRequest FROM its change_request Episode and runs the stage machine, which

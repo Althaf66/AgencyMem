@@ -91,7 +91,7 @@ function initialize(headers: Record<string, string>) {
 }
 
 describe("tools/list (Done when: an MCP inspector lists the tools)", () => {
-  it("lists all 21 tools with input and output schemas to an agent session", async () => {
+  it("lists all 19 tools with input and output schemas to an agent session", async () => {
     const client = await mcpClient(agentHeaders());
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([...ToolName.options].sort());
@@ -102,10 +102,10 @@ describe("tools/list (Done when: an MCP inspector lists the tools)", () => {
     }
   });
 
-  it("lists the same 21 tools to a UI session, which needs only X-AM-Project", async () => {
+  it("lists the same 19 tools to a UI session, which needs only X-AM-Project", async () => {
     const client = await mcpClient({ "X-AM-Token": "ui-t", "X-AM-Project": projectId });
     const { tools } = await client.listTools();
-    expect(tools).toHaveLength(21);
+    expect(tools).toHaveLength(19);
   });
 });
 

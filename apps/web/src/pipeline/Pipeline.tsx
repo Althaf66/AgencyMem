@@ -14,7 +14,7 @@ import {
   PencilRuler,
   Rocket,
   Search,
-  Wrench,
+  BookOpen,
   type LucideIcon,
 } from "lucide-react";
 import type { GateKey, ItemView, Stage, WorkItemKind } from "@agencymem/contracts";
@@ -60,12 +60,12 @@ export const PHASES: Phase[] = [
     cards: true,
   },
   { name: "Test", icon: FlaskConical, kinds: ["test_run", "e2e"], stages: ["e2e"] },
-  { name: "Launch", icon: Rocket, kinds: ["launch"], stages: ["launch"], gate: "G5", launch: true },
+  { name: "Launch", icon: Rocket, kinds: ["launch"], stages: ["launch"], launch: true },
   {
-    name: "Maintenance",
-    icon: Wrench,
-    kinds: ["maintenance", "curator"],
-    stages: ["maintenance", "case_study", "closed"],
+    name: "Case study",
+    icon: BookOpen,
+    kinds: ["curator"],
+    stages: ["case_study", "closed"],
   },
 ];
 
@@ -78,7 +78,6 @@ const ORDER: Stage[] = [
   "build",
   "e2e",
   "launch",
-  "maintenance",
   "case_study",
   "closed",
 ];

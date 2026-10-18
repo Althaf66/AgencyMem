@@ -99,7 +99,6 @@ export const GateView = z.object({
   reason: z.string().nullable(),
   canDecide: z.boolean(),
   blockedBy: z.array(z.string()),
-  task: z.object({ id: Id, key: CardKey, title: z.string() }).nullable(), // G6 only
 });
 export type GateView = z.infer<typeof GateView>;
 
@@ -136,7 +135,6 @@ export const CardView = z.object({
       testCaseCount: Count,
     }),
   ),
-  gate: z.object({ id: Id, key: GateKey, status: GateStatus }).nullable(),
   mergedSha: Sha.nullable(),
 });
 export type CardView = z.infer<typeof CardView>;
@@ -163,7 +161,6 @@ export const ProgressView = z.object({
   lanes: z.array(z.object({ lane: Lane, done: Count, total: Count })),
   coverage: Ratio, // requirements with a passing run
   openAssumptions: Count,
-  openDefects: Count,
   seq: Seq,
 });
 export type ProgressView = z.infer<typeof ProgressView>;
@@ -219,7 +216,6 @@ export const ProjectMetrics = z.object({
         .nullable(),
     }),
   ),
-  backtraceMs: z.number().nullable(),
   seq: Seq,
 });
 export type ProjectMetrics = z.infer<typeof ProjectMetrics>;
@@ -313,8 +309,6 @@ export const GateDecisionBody = z.object({
   version: Version,
   decision: z.enum(["approve", "reject"]),
   reason: text(300).optional(),
-  environment: text(40).optional(),
-  override: z.boolean().optional(),
 });
 export const GateDecisionResponse = z.object({ gate: GateView, opened: Opened });
 // 12 GET /api/projects/:id/board (S)
@@ -343,7 +337,7 @@ export const PatchTaskResponse = z.object({ task: CardView });
 // 14 GET /api/projects/:id/progress (S): ProgressView
 // 15 GET /api/projects/:id/progress/:metric
 export const ProgressMetric = z.union([
-  z.enum(["coverage", "openAssumptions", "openDefects"]),
+  z.enum(["coverage", "openAssumptions"]),
   z.templateLiteral(["lane:", Lane]),
 ]);
 export const ProgressMetricResponse = z.object({
@@ -358,7 +352,7 @@ export const GraphQuery = z.object({
   depth: z.coerce.number().int().min(1).max(3).default(2),
   limit: z.coerce.number().int().min(1).max(500).optional(),
 });
-// 16 replies with GraphView. 17 why, 18 impact and 19 backtrace reply with PathResponse
+// 16 replies with GraphView. 17 why and 18 impact reply with PathResponse
 // 20 GET /api/projects/:id/docs/:doc (S)
 export const DocResponse = z.object({
   doc: Doc,
@@ -415,12 +409,12 @@ export const ReadinessResponse = z.object({
     .nullable(),
 });
 export type ReadinessResponse = z.infer<typeof ReadinessResponse>;
-// 28 POST /api/projects/:id/bug-reports
-export const BugReportBody = z.object({ text: z.string().min(1).max(2000) });
-export const BugReportResponse = z.object({ episodeId: Id, workItemId: Id });
 // 29 POST /api/projects/:id/close
 export const CloseProjectBody = z.object({
   actuals: z.array(z.object({ featureId: Id, actualHours: z.number().nonnegative() })),
+  /** A failed readiness report closes only with override and a reason. */
+  override: z.boolean().optional(),
+  reason: text(300).optional(),
 });
 export const CloseProjectResponse = z.object({ project: ProjectInfo, workItemId: Id });
 // 31 POST /api/items/:id/retry (with X-AM-Project)

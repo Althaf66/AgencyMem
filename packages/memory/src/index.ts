@@ -20,7 +20,6 @@ export {
   countRejection,
   createProject,
   deleteTestClient,
-  setBacktraceMs,
   setStage,
 } from "./projects";
 export { answerQuestion, writeQuestions, type QuestionWrite } from "./questions";
@@ -28,8 +27,6 @@ export { recordRecall } from "./recall";
 export { applySchema, type SchemaName } from "./schema";
 export { seedBoardForTest } from "./test-seed";
 export { recordTestRuns, writeTests, type TestCaseWrite, type TestResult } from "./tests";
-export { approveDeploy, rejectFix } from "./gates";
-export { proposeFix, reportDefect, writeBugReport } from "./defects";
 export { writeVersioned, type PropValue } from "./versioned";
 export {
   claimItem,
@@ -47,4 +44,5 @@ export {
   type RenewResult,
 } from "./workboard";
 export { writeRun } from "./runs";
+export { migrateScopeCut } from "./migrate";
 export { recordCommit, type RecordedCommit } from "./code-changes";

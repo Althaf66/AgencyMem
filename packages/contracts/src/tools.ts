@@ -25,7 +25,6 @@ import {
   ChangeRequestStatus,
   ClarityBand,
   Column,
-  DefectSeverity,
   DesignLabel,
   Doc,
   EpisodeKind,
@@ -234,7 +233,6 @@ export const Context = z.object({
       }),
     )
     .optional(),
-  defect: z.object({ reportEpisodeId: Id, text: z.string() }).optional(),
   readiness: z.array(ReadinessCheck).optional(), // launch only
   metrics: CaseMetrics.optional(), // curator only
 });
@@ -565,7 +563,6 @@ export const GetTaskContextOutput = z.object({
     z.object({ sha: Sha, message: z.string(), files: z.array(z.string()), committedAt: EpochMs }),
   ),
   episodes: z.array(Excerpt),
-  defect: z.object({ title: z.string(), report: z.string() }).nullable(), // fix cards only
   conventions: z.object({ testIdRule: z.string(), stack: z.string() }),
   truncated: z.boolean(),
   chars: Count,
@@ -582,27 +579,6 @@ export const CompleteTaskInput = z.object({
 export const CompleteTaskOutput = z.object({
   task: z.object({ id: Id, key: CardKey, column: Column, version: Version }),
 });
-
-// report_defect
-
-export const ReportDefectInput = z.object({
-  itemId: Id,
-  title: text(120),
-  severity: DefectSeverity,
-  codeChangeId: Id,
-  reportEpisodeId: Id,
-  reasoning: text(600),
-});
-export const ReportDefectOutput = z.object({ defectId: Id });
-
-// propose_fix
-
-export const ProposeFixInput = z.object({
-  itemId: Id,
-  defectId: Id,
-  card: CardInput.omit({ version: true }),
-});
-export const ProposeFixOutput = z.object({ taskId: Id, gateId: Id });
 
 // write_case_study
 
@@ -642,7 +618,7 @@ export const ReadQueryOutput = z.object({
   truncated: z.boolean(),
 });
 
-/** All 21 MCP tools: name → input and output schema. */
+/** All 19 MCP tools: name → input and output schema. */
 export const tools = {
   claim_item: { input: ClaimItemInput, output: ClaimItemOutput },
   heartbeat: { input: HeartbeatInput, output: HeartbeatOutput },
@@ -661,8 +637,6 @@ export const tools = {
   claim_task: { input: ClaimTaskInput, output: ClaimTaskOutput },
   get_task_context: { input: GetTaskContextInput, output: GetTaskContextOutput },
   complete_task: { input: CompleteTaskInput, output: CompleteTaskOutput },
-  report_defect: { input: ReportDefectInput, output: ReportDefectOutput },
-  propose_fix: { input: ProposeFixInput, output: ProposeFixOutput },
   write_case_study: { input: WriteCaseStudyInput, output: WriteCaseStudyOutput },
   read_query: { input: ReadQueryInput, output: ReadQueryOutput },
 } as const;

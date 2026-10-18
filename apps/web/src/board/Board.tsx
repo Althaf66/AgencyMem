@@ -40,7 +40,6 @@ function ProgressHeader({ s, progress }: { s: AppState; progress: Progress }) {
       <div className="row">
         {number("coverage", `Coverage ${progress.coverage.covered}/${progress.coverage.total}`)}
         {number("openAssumptions", `Open assumptions ${progress.openAssumptions}`)}
-        {number("openDefects", `Open defects ${progress.openDefects}`)}
       </div>
       {list && (
         <div className="metric-list">
@@ -120,9 +119,6 @@ function CardFace(props: { card: CardView; now: number; onOpen: () => void }) {
             </span>
           ))}
         {card.blocked && <span className="chip danger">Blocked</span>}
-        {card.gate && card.gate.status !== "approved" && (
-          <span className="chip warn">{`${card.gate.key} ${card.gate.status}`}</span>
-        )}
         {card.mergedSha && <span className="chip ok">merged</span>}
       </span>
     </button>

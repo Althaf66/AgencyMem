@@ -4,27 +4,17 @@ import { client, crsDue, gateDecision } from "./persona";
 
 describe("gateDecision", () => {
   it("rejects the first G2 and approves the revision", () => {
-    expect(gateDecision("G2", 0, null)).toEqual({
+    expect(gateDecision("G2", 0)).toEqual({
       decision: "reject",
       reason: "estimate too high, cut scope",
     });
-    expect(gateDecision("G2", 1, null)).toEqual({ decision: "approve" });
+    expect(gateDecision("G2", 1)).toEqual({ decision: "approve" });
   });
 
-  it("approves G1, G3 and G6", () => {
-    for (const key of ["G1", "G3", "G6"] as const) {
-      expect(gateDecision(key, 0, null)).toEqual({ decision: "approve" });
+  it("approves G1 and G3", () => {
+    for (const key of ["G1", "G3"] as const) {
+      expect(gateDecision(key, 0)).toEqual({ decision: "approve" });
     }
-  });
-
-  it("approves G5 in demo, with an override when the report failed", () => {
-    expect(gateDecision("G5", 0, true)).toEqual({ decision: "approve", environment: "demo" });
-    expect(gateDecision("G5", 0, false)).toEqual({
-      decision: "approve",
-      environment: "demo",
-      override: true,
-      reason: "demo run",
-    });
   });
 });
 

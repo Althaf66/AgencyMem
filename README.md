@@ -4,25 +4,23 @@ AgencyMem helps the delivery lead of a small software agency turn client meeting
 approved plan, a live Kanban board and tested code. Every result traces back to the client's
 words, and each finished project makes the next estimate more accurate.
 
-Ten agents share one memory: a FalkorDB graph that only one gateway may touch. Meeting notes
+Nine agents share one memory: a FalkorDB graph that only one gateway may touch. Meeting notes
 become sourced facts; facts become questions, a proposal, design documents and cards; OpenCode
 builds each card through MCP; and the gateway closes a card only on the evidence of a real commit
 and a passing Playwright test.
 
-Five proof moments carry the demo:
+Four proof moments carry the demo:
 
 1. **A contradiction question with its sources.** Discovery shows the two lines from two different
    client files that disagree.
 2. **A change request flags only the linked cards.** One superseded fact moves exactly the cards
    and document sections built on it to Rework.
 3. **A card is rejected without evidence.** No commit, or a failing test, and the card cannot close.
-4. **A defect backtrace.** A bug traces back through the commit, the card and the requirement to
-   the client's words.
-5. **A lesson reused in the next estimate.** Project 2's estimate links to a lesson from project 1.
+4. **A lesson reused in the next estimate.** Project 2's estimate links to a lesson from project 1.
 
 ## Tracks
 
-- **Track 02 (Agent Memory and Coordination)**, primary: ten agents and up to two OpenCode workers
+- **Track 02 (Agent Memory and Coordination)**, primary: nine agents and up to two OpenCode workers
   claim, lease and hand off work on one shared graph, behind guards that reject stale, foreign or
   unproven writes.
 - **Track 03 (Company Brain)**, secondary: every project leaves anonymous lessons in the agency
@@ -30,7 +28,7 @@ Five proof moments carry the demo:
 
 ## Demo video
 
-_Link to be added after recording (it shows the five proof moments)._
+_Link to be added after recording (it shows the four proof moments)._
 
 ## Architecture
 
@@ -41,7 +39,7 @@ client, the simulator and git hooks reach the graph only through the gateway.
 | App              | Job                                                                                                                                                            | May import                       |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
 | `apps/gateway`   | Express 5 + `ws` on one server: the MCP endpoint (`/mcp`), the REST API (`/api`), live events (`/ws`), the git hook receiver (`/hooks/commit`) and every guard | contracts, graph, memory, ingest |
-| `apps/runner`    | The loops of the 8 model agents, the rule-based Launch agent, and 1 or 2 OpenCode build workers                                                                | contracts, llm                   |
+| `apps/runner`    | The loops of the 7 model agents, the rule-based Launch agent, and 1 or 2 OpenCode build workers                                                                | contracts, llm                   |
 | `apps/web`       | Vite + React: board, graph panel, questionnaire, documents, gates and the health panel. It draws only gateway events                                           | contracts                        |
 | `apps/simulator` | Demo mode: synthetic notes, the client persona, gate decisions and actual hours                                                                                | contracts, llm                   |
 
@@ -63,10 +61,11 @@ lease, evidence**. A rejection is counted on the project and sent as a `write.re
 Every write is one Cypher query, so a claim, a version check or a lease can never half-apply.
 
 A project moves through intake, discovery, proposal, design, planning, build, e2e, launch,
-maintenance, case_study (the Curator writes the lessons) and closed, with five human gates (G1 questions answered, G2 proposal, G3 design, G5
-launch, G6 fix). Build workers run `opencode run` in a git worktree per card; OpenCode reads its
-card through the gateway's MCP tools, commits, and a post-commit hook records the commit in the
-graph; the Test agent runs the card's Playwright specs on that commit.
+case_study (the Curator writes the lessons) and closed, with three human gates (G1 questions
+answered, G2 proposal, G3 design). After launch writes its readiness report, the lead closes the
+project with the actual hours of each feature. Build workers run `opencode run` in a git worktree
+per card; OpenCode reads its card through the gateway's MCP tools, commits, and a post-commit hook
+records the commit in the graph; the Test agent runs the card's Playwright specs on that commit.
 
 Every MCP tool, REST body, WebSocket event and setting is a zod schema in
 [`packages/contracts/src/`](packages/contracts/src/).
@@ -90,10 +89,10 @@ Every node has `id` (ULID), `projectId`, `createdBy`, `createdAt` and `version`.
 | Knowledge | Entity, Fact (`validFrom`, `validTo`), Contradiction, Question, Assumption                                            |
 | Product   | Requirement, Feature (`featureKind`), Estimate (`rawHours`, `hours`, `lessonIds`), AcceptanceCriterion, ChangeRequest |
 | Design    | Decision, Component, Screen, DataEntity, Endpoint, Risk, DocSection                                                   |
-| Delivery  | Gate, WorkItem, Task (the card), TestCase, TestRun, CodeChange, Defect, Deployment, Run, ReadinessReport              |
+| Delivery  | Gate, WorkItem, Task (the card), TestCase, TestRun, CodeChange, Run, ReadinessReport                                  |
 
 Edges point from the derived node to its source. The impact query follows them backward (what a
-fact touches); the backtrace follows them forward (where a defect came from).
+fact touches); the why query follows them forward (where a node came from).
 
 | Edge            | From → To                                        |
 | --------------- | ------------------------------------------------ |
@@ -118,13 +117,9 @@ fact touches); the backtrace follows them forward (where a defect came from).
 | VERIFIES        | TestCase → AcceptanceCriterion                   |
 | RUNS            | TestRun → TestCase                               |
 | FOR_TASK        | CodeChange → Task                                |
-| CAUSED_BY       | Defect → CodeChange                              |
 | FROM            | ChangeRequest → change-request Episode           |
 | ENDS            | ChangeRequest → old Fact                         |
 | FLAGGED_BY      | Task or DocSection → ChangeRequest               |
-| GUARDS          | Gate → the WorkItem or Task it blocks            |
-| REPORTED_IN     | Defect → the bug-report Episode                  |
-| FIXES           | fix Task → Defect                                |
 | RECALLED        | WorkItem or Task → a node its context read named |
 
 Edges cannot cross graphs: an Estimate stores the ids of the agency Lessons it used, and
@@ -135,7 +130,7 @@ label's properties are in [`packages/contracts/src/nodes.ts`](packages/contracts
 
 <!-- cypher:start -->
 
-112 files under `packages/graph/cypher/`. Generated by `pnpm list:cypher`; do not edit by hand.
+108 files under `packages/graph/cypher/`. Generated by `pnpm list:cypher`; do not edit by hand.
 
 ### The six queries that carry the product
 
@@ -143,7 +138,7 @@ label's properties are in [`packages/contracts/src/nodes.ts`](packages/contracts
 - [`write/write-versioned`](packages/graph/cypher/write/write-versioned.cypher): Versioned write (technical design "Key Cypher queries").
 - [`write/supersede-fact`](packages/graph/cypher/write/supersede-fact.cypher): record_change_request, write 1 (technical design "supersede-fact.cypher"): all or nothing.
 - [`read/impact`](packages/graph/cypher/read/impact.cypher): What a fact touches (technical design "Key Cypher queries", impact.cypher): every node derived from it, following the source edges backward.
-- [`read/backtrace`](packages/graph/cypher/read/backtrace.cypher): Route 19 (technical design, backtrace.cypher): from a Defect forward along CAUSED_BY, FOR_TASK, IMPLEMENTS, DERIVED_FROM and SOURCED_FROM to the client's Episodes: Defect -> CodeChange -> Task -> Requirement -> Fact -> Episode.
+- [`read/why`](packages/graph/cypher/read/why.cypher): Route 17 (why): from one node along the source edges forward to the Episodes it comes from (technical design "Edges": they point from the derived node to its source).
 - [`read/evidence`](packages/graph/cypher/read/evidence.cypher): What the evidence guard needs to close a card (complete_task, contracts.md section 7): the card's build commits (not the Test agent's spec commits, which get no test run), its TestCases with their criterion keys and every run of each, and the commits that still have an open or claimed test_run item.
 
 ### Schema
@@ -155,9 +150,8 @@ label's properties are in [`packages/contracts/src/nodes.ts`](packages/contracts
 ### Read queries
 
 - [`read/answer-context`](packages/graph/cypher/read/answer-context.cypher): What an intake_answer item reads (agent-prompts.md section 2): the answer Episode, the Question it answers, and the facts that Question is raised on (through its Contradiction for a contradiction), each with its episodes and, once superseded, the fact that replaced it.
-- [`read/backtrace`](packages/graph/cypher/read/backtrace.cypher): Route 19 (technical design, backtrace.cypher): from a Defect forward along CAUSED_BY, FOR_TASK, IMPLEMENTS, DERIVED_FROM and SOURCED_FROM to the client's Episodes: Defect -> CodeChange -> Task -> Requirement -> Fact -> Episode.
 - [`read/board-items`](packages/graph/cypher/read/board-items.cypher): Route 12, the agent strip: the project's WorkItems that are open, claimed or blocked, and the done ones newest first (the gateway keeps five).
-- [`read/board`](packages/graph/cypher/read/board.cypher): Route 12: the project's cards with what a card face and its drawer show (CardView): the requirement, dependencies, the CRs that flagged it, its commits, its criteria with their TestCases, a fix card's G6, and the TestRuns of those TestCases (the gateway works out the test status).
+- [`read/board`](packages/graph/cypher/read/board.cypher): Route 12: the project's cards with what a card face and its drawer show (CardView): the requirement, dependencies, the CRs that flagged it, its commits, its criteria with their TestCases, and the TestRuns of those TestCases (the gateway works out the test status).
 - [`read/case-metrics`](packages/graph/cypher/read/case-metrics.cypher): The inputs of a project's CaseMetrics (contracts.md section 5; recall_context for curator, and routes 24 and 25 in task 5.6): the counts, each current Feature's estimate and actual hours, and each card with its reopened count, its build commits (not the Test agent's spec commits) and the card-scope runs of its TestCases.
 - [`read/case-study`](packages/graph/cypher/read/case-study.cypher): write_case_study is one per project: the project's CaseStudy, if any, with its EstimateRecords and the Lessons that name the project (agency graph).
 - [`read/change-request`](packages/graph/cypher/read/change-request.cypher): One ChangeRequest with the episode it comes FROM (recall_context for a change_request item).
@@ -177,7 +171,7 @@ label's properties are in [`packages/contracts/src/nodes.ts`](packages/contracts
 - [`read/evidence`](packages/graph/cypher/read/evidence.cypher): What the evidence guard needs to close a card (complete_task, contracts.md section 7): the card's build commits (not the Test agent's spec commits, which get no test run), its TestCases with their criterion keys and every run of each, and the commits that still have an open or claimed test_run item.
 - [`read/features`](packages/graph/cypher/read/features.cypher): The project's current Features, each with its requirement keys and its Estimate (recall_context for proposal, route 26).
 - [`read/flagged-rework`](packages/graph/cypher/read/flagged-rework.cypher): The cards a ChangeRequest flagged that are in Rework: the cards a replan item updates.
-- [`read/gates`](packages/graph/cypher/read/gates.cypher): The project's Gates for route 10, with what their rules read (stage-machine.md section 5): G1 is decidable when a discovery item is done and no Question is open; G2 when a proposal item is done and none is open or claimed; G3 when an architect item is done and no architect or architect_revise item is open or claimed; G5 when the newest launch item is done and a ReadinessReport exists (T22), with whether the newest report passed (task 5.2).
+- [`read/gates`](packages/graph/cypher/read/gates.cypher): The project's Gates for route 10, with what their rules read (stage-machine.md section 5): G1 is decidable when a discovery item is done and no Question is open; G2 when a proposal item is done and none is open or claimed; G3 when an architect item is done and no architect or architect_revise item is open or claimed.
 - [`read/graph-focus`](packages/graph/cypher/read/graph-focus.cypher): Route 16 with a focus: the nodes up to $depth hops from it, either direction.
 - [`read/graph-links`](packages/graph/cypher/read/graph-links.cypher): Route 16: every edge between the nodes it returns.
 - [`read/graph-nodes`](packages/graph/cypher/read/graph-nodes.cypher): Route 16 without a focus: the project's nodes in creation (ULID) order, up to $limit.
@@ -186,29 +180,28 @@ label's properties are in [`packages/contracts/src/nodes.ts`](packages/contracts
 - [`read/impact`](packages/graph/cypher/read/impact.cypher): What a fact touches (technical design "Key Cypher queries", impact.cypher): every node derived from it, following the source edges backward.
 - [`read/indexes`](packages/graph/cypher/read/indexes.cypher): The indexes of one graph: one row per label with its indexed properties.
 - [`read/item-runs`](packages/graph/cypher/read/item-runs.cypher): The Run records of one work item or card, oldest first.
+- [`read/migrate-readiness`](packages/graph/cypher/read/migrate-readiness.cypher): One-time migration (`pnpm migrate:scope-cut`, client graph): the ReadinessReports that still carry the removed open_defects check.
 - [`read/node-links`](packages/graph/cypher/read/node-links.cypher): Route 6: one node with its label, and every edge to or from it with the other node's label and the properties its title is made from (api/nodes.ts).
 - [`read/node`](packages/graph/cypher/read/node.cypher): Any node by id, with its label: the facts the tenancy and lease guards need.
-- [`read/open-fixes`](packages/graph/cypher/read/open-fixes.cypher): Route 29 (T28's condition): the fix cards that are neither Done nor rejected at their G6.
 - [`read/product-versions`](packages/graph/cypher/read/product-versions.cypher): The current product and design versions of a project (contracts.md section 4): the highest productVersion among current Features and the highest designVersion among DocSections and design nodes, or 0. Design nodes count too, because a revision may write nodes only (task 3.4).
 - [`read/progress-assumptions`](packages/graph/cypher/read/progress-assumptions.cypher): Route 15, metric openAssumptions.
 - [`read/progress-coverage`](packages/graph/cypher/read/progress-coverage.cypher): Route 15, metric coverage: the current requirements with a passing TestRun (the numerator).
-- [`read/progress-defects`](packages/graph/cypher/read/progress-defects.cypher): Route 15, metric openDefects.
 - [`read/progress-lane`](packages/graph/cypher/read/progress-lane.cypher): Route 15, metric lane:<Lane>: the cards of one lane.
-- [`read/progress`](packages/graph/cypher/read/progress.cypher): Route 14, the progress header: done and total cards per lane, current requirements with a passing TestRun (coverage), open Assumptions and open Defects.
+- [`read/progress`](packages/graph/cypher/read/progress.cypher): Route 14, the progress header: done and total cards per lane, current requirements with a passing TestRun (coverage) and open Assumptions.
 - [`read/project-graph`](packages/graph/cypher/read/project-graph.cypher): The client graph of a project.
 - [`read/project-info`](packages/graph/cypher/read/project-info.cypher): A Project and its client's name, from the registry graph (ProjectInfo).
 - [`read/project`](packages/graph/cypher/read/project.cypher): One Project node from the registry graph.
 - [`read/projects`](packages/graph/cypher/read/projects.cypher): Every Project in the registry graph, with its client.
 - [`read/questions`](packages/graph/cypher/read/questions.cypher): The project's Questions for route 8 (QuestionView): each with its Assumption, its Contradiction, its answer Episode (task 2.7), and the Episode behind each of its facts (through the Contradiction for a contradiction).
 - [`read/readiness-report`](packages/graph/cypher/read/readiness-report.cypher): Route 27: the project's newest ReadinessReport (C8), or no row.
-- [`read/readiness`](packages/graph/cypher/read/readiness.cypher): Three of the Launch agent's checks (agent-prompts.md section 10): the cards not Done, the open Assumptions, the open or fixing Defects, with their ids, and the totals their details name.
+- [`read/readiness`](packages/graph/cypher/read/readiness.cypher): Two of the Launch agent's checks (agent-prompts.md section 10): the cards not Done and the open Assumptions, with their ids, and the totals their details name.
 - [`read/recalled`](packages/graph/cypher/read/recalled.cypher): The Read view: one WorkItem or Task and every node it read (its RECALLED edges), as one path.
 - [`read/requirements`](packages/graph/cypher/read/requirements.cypher): The project's current Requirements with the facts they derive from (recall_context, proposal).
 - [`read/run-costs`](packages/graph/cypher/read/run-costs.cypher): Route 24 and the cost check (task 6.5): one project's model calls (Run nodes) by agent and model, with their tokens and the cost each Run recorded.
 - [`read/similar-lessons`](packages/graph/cypher/read/similar-lessons.cypher): Lessons for the Proposal agent (agent-prompts.md section 4) and route 26, from the agency graph: every Lesson of the given featureKinds in any clarityBand, so the runner can fall back from (featureKind, clarityBand) to featureKind alone (C3).
 - [`read/stage-state`](packages/graph/cypher/read/stage-state.cypher): What the stage machine reads from a client graph (stage-machine.md section 1): the project's Gates, the open or claimed intake and intake_answer items (T3, T6, T7), the processed Documents (T3), and the processed Documents and answer Episodes that never got their item (startup repair of T2 and T5).
 - [`read/task-claim`](packages/graph/cypher/read/task-claim.cypher): Why a named card could not be claimed: its column, attempts and lease, and the keys of the cards it depends on that are not Done.
-- [`read/task-context`](packages/graph/cypher/read/task-context.cypher): Everything a build run needs for one card (get_task_context, contracts.md section 7): the card, its requirement and current facts, criteria, design nodes, TestCases, CodeChanges, the source episodes with their document names, and the defect of a fix card.
+- [`read/task-context`](packages/graph/cypher/read/task-context.cypher): Everything a build run needs for one card (get_task_context, contracts.md section 7): the card, its requirement and current facts, criteria, design nodes, TestCases, CodeChanges, the source episodes with their document names.
 - [`read/task-test-runs`](packages/graph/cypher/read/task-test-runs.cypher): A card's test runs, newest first: TestRun -RUNS-> TestCase -VERIFIES-> criterion of the Task.
 - [`read/task`](packages/graph/cypher/read/task.cypher): One Task (or, with $taskId null, every Task: the e2e run) with what recall_context's `tasks` group holds: its requirement, the design nodes it uses, the cards it depends on, its criteria and the TestCases that verify them.
 - [`read/tasks`](packages/graph/cypher/read/tasks.cypher): The project's Tasks with their column, version and the cards they depend on: write_cards refuses a key that exists (create), a card that is not in Rework or an old version (update), and a cycle.
@@ -217,14 +210,11 @@ label's properties are in [`packages/contracts/src/nodes.ts`](packages/contracts
 ### Write queries (sent only by packages/memory)
 
 - [`write/answer-question`](packages/graph/cypher/write/answer-question.cypher): Answers one open Question in one query (stage-machine.md T5): the answer Episode ANSWERS the Question, the Question is answered, its Assumption confirmed (accepted) or rejected (own answer) and RESOLVED_BY the Episode, and its Contradiction, if any, resolved.
-- [`write/approve-deploy`](packages/graph/cypher/write/approve-deploy.cypher): T23: approves a waiting G5 at the version the person saw and records the Deployment, in one query (stage-machine.md section 5).
-- [`write/backtrace-ms`](packages/graph/cypher/write/backtrace-ms.cypher): Route 19: keeps the last backtrace query time on the Project, which the health panel shows (task 5.6, approved decision 5).
-- [`write/bug-report`](packages/graph/cypher/write/bug-report.cypher): Route 28 (stage-machine.md T24): the bug_report Episode with the person's words, which the maintenance item reads and the Defect is REPORTED_IN.
 - [`write/cancel-items`](packages/graph/cypher/write/cancel-items.cypher): Cancels the project's open and claimed WorkItems of the given kinds (stage-machine.md T30: a card left Done during e2e or launch).
 - [`write/case-study`](packages/graph/cypher/write/case-study.cypher): write_case_study (contracts.md section 7), agency graph, one query: 1. Each Lesson MERGEs on (featureKind, clarityBand): its text becomes this project's, version + 1, and the projectId joins projectIds.
 - [`write/claim-item`](packages/graph/cypher/write/claim-item.cypher): Claims the oldest open WorkItem of the given kinds (or the given item) whose lease is empty or ended.
 - [`write/claim-task`](packages/graph/cypher/write/claim-task.cypher): Claims a build card (contracts.md claim_task, C1): a Ready card, or an In progress or Testing card whose lease ended, under 2 attempts, with every card it depends on Done.
-- [`write/close-project`](packages/graph/cypher/write/close-project.cypher): Route 29 (T28): closedAt on the registry Project, once, while it is in maintenance.
+- [`write/close-project`](packages/graph/cypher/write/close-project.cypher): Route 29 (T28): closedAt on the registry Project, once, while it is in launch.
 - [`write/complete-item`](packages/graph/cypher/write/complete-item.cypher): Completes a WorkItem whose live lease the caller holds.
 - [`write/complete-merge`](packages/graph/cypher/write/complete-merge.cypher): Completes a merge WorkItem whose live lease the caller holds, with its result (contracts.md section 7, complete_item).
 - [`write/complete-task`](packages/graph/cypher/write/complete-task.cypher): Ends a build run on a card (complete_task, contracts.md section 7).
@@ -238,15 +228,16 @@ label's properties are in [`packages/contracts/src/nodes.ts`](packages/contracts
 - [`write/expire-task-leases`](packages/graph/cypher/write/expire-task-leases.cypher): Frees the cards of a project whose build lease ended (contracts.md section 10): an In progress or Testing card goes back to Ready with one more attempt, so the board shows the recovery after a runner stops.
 - [`write/feature-actuals`](packages/graph/cypher/write/feature-actuals.cypher): Route 29 (T28): the actual hours of each current Feature, version + 1, in one query.
 - [`write/flag-impact`](packages/graph/cypher/write/flag-impact.cypher): record_change_request, write 2 (technical design "impact.flag"): every node the old facts touch, by the edges of read/impact.cypher.
+- [`write/migrate-fix-items`](packages/graph/cypher/write/migrate-fix-items.cypher): One-time migration (`pnpm migrate:scope-cut`, client graph), step 1: the criteria of every fix card and the work items about one, before the cards themselves go in step 2.
+- [`write/migrate-scope-cut`](packages/graph/cypher/write/migrate-scope-cut.cypher): One-time migration (`pnpm migrate:scope-cut`, client graph), step 2: every node of the removed maintenance phase (Defects, Deployments, G5 and G6, maintenance items, bug reports, fix cards).
+- [`write/migrate-stage`](packages/graph/cypher/write/migrate-stage.cypher): One-time migration (`pnpm migrate:scope-cut`, registry graph): G5 and maintenance were removed, so a project left in maintenance goes back to launch, where the close now runs (T28).
 - [`write/open-item`](packages/graph/cypher/write/open-item.cypher): Opens one WorkItem, unless an open or claimed item of the same kind and subject already exists (stage-machine.md section 1, rule 2).
+- [`write/override-readiness`](packages/graph/cypher/write/override-readiness.cypher): Route 29 (T28): a close over a failed readiness report keeps that it was overridden, and why, on the newest ReadinessReport.
 - [`write/patch-task`](packages/graph/cypher/write/patch-task.cypher): Route 13, a person's edit of a card (stage-machine.md section 6, H1 to H6) in one query.
-- [`write/propose-fix`](packages/graph/cypher/write/propose-fix.cypher): propose_fix (contracts.md section 7) in one query: a fix Task in Backlog that IMPLEMENTS its Requirement, USES its design nodes, HAS_CRITERION its new AcceptanceCriteria and DEPENDS_ON its cards; FIXES the Defect (now fixing); and a Gate G6 (waiting) that GUARDS it.
 - [`write/record-commit`](packages/graph/cypher/write/record-commit.cypher): Records one commit from the post-commit hook (contracts.md section 9).
 - [`write/record-recall`](packages/graph/cypher/write/record-recall.cypher): recall_context and get_task_context: the item gets one RECALLED edge to each node its answer named, by id or by key; a second recall moves the edge's `at`.
-- [`write/reject-fix`](packages/graph/cypher/write/reject-fix.cypher): T27 (stage-machine.md): rejects a waiting G6 at the version the person saw, in one query.
 - [`write/renew-lease`](packages/graph/cypher/write/renew-lease.cypher): Renews a lease that the caller holds and that has not ended, on a WorkItem or a Task (a card).
 - [`write/reopen-gate`](packages/graph/cypher/write/reopen-gate.cypher): Sets a rejected Gate back to waiting (stage-machine.md T8: the revision after a G2 rejection is done).
-- [`write/report-defect`](packages/graph/cypher/write/report-defect.cypher): report_defect (contracts.md section 7): a Defect (status open) CAUSED_BY the CodeChange and REPORTED_IN the bug_report Episode, in one query.
 - [`write/retry-item`](packages/graph/cypher/write/retry-item.cypher): Route 31: a blocked WorkItem back to open with attempts 0 (stage-machine.md section 3).
 - [`write/set-stage`](packages/graph/cypher/write/set-stage.cypher): Moves a Project to another stage, only from the stage the caller saw (stage-machine.md section 1, rule 2), so a repeated or late effect changes nothing.
 - [`write/submit-test-run`](packages/graph/cypher/write/submit-test-run.cypher): One TestRun per result (submit_test_run, contracts.md section 7), each RUNS its TestCase and carries the commit's sha.
@@ -326,6 +317,7 @@ pnpm sim:run --set A --live-demo  # one new project for the live demo; stops bef
 pnpm pre-run                    # the pre-run: sim:run on an empty graph, the curve check, then a backup
 pnpm backup --name rehearsal    # FalkorDB data, workspaces, uploads and sim-state to ../agencymem-backups/
 pnpm restore rehearsal          # put a backup back (stop the runner and simulator first)
+pnpm migrate:scope-cut          # once, for data from before G5 and maintenance were removed
 pnpm cost:report --project <id> # tokens and cost of one project, by agent and model
 ```
 
@@ -361,7 +353,7 @@ formula is in [`apps/simulator/src/actual-hours.ts`](apps/simulator/src/actual-h
 FalkorDB is the only store of project state. The board, documents, guards and traces are all
 views of graph nodes: remove the graph and the board has no cards, the documents have no sections,
 the guards have nothing to check a claim, version or source against, and no change request,
-backtrace or lesson can be traced.
+why path or lesson can be traced.
 
 ## Synthetic data
 

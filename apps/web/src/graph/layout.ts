@@ -7,7 +7,7 @@ type Link = GraphView["links"][number];
 export const linkKey = (l: Pick<Link, "source" | "type" | "target">) =>
   `${l.source}|${l.type}|${l.target}`;
 
-/** The one path highlighter: the nodes and links a why, impact or backtrace view returned. */
+/** The one path highlighter: the nodes and links a why, impact or read view returned. */
 export function highlight(path: GraphView | null): { nodes: Set<string>; links: Set<string> } {
   return {
     nodes: new Set(path?.nodes.map((n) => n.id)),
@@ -23,7 +23,7 @@ export function merge(a: GraphView, b: GraphView): GraphView {
 }
 
 /** Hidden until the "Delivery details" toggle is on. */
-const DELIVERY_DETAILS = ["Gate", "WorkItem", "Run", "Deployment", "ReadinessReport"];
+const DELIVERY_DETAILS = ["Gate", "WorkItem", "Run", "ReadinessReport"];
 
 /** The nodes to draw, and the links between them. `keep` (the focus and the path) always shows. */
 export function visible(
@@ -48,7 +48,6 @@ const FLOW = [
   ["Task"],
   ["AcceptanceCriterion", "TestCase", "TestRun"],
   ["CodeChange"],
-  ["Defect"],
 ];
 export const FLOW_COLUMNS = FLOW.length;
 /** Column labels, upper case as the stage draws them; the last one holds labels outside the trace. */
@@ -62,7 +61,6 @@ export const FLOW_NAMES = [
   "TASKS",
   "TESTS",
   "CODE",
-  "DEFECTS",
   "OTHER",
 ];
 /** A label's Flow column; labels outside the trace (gates, work items) go after the last one. */
@@ -116,7 +114,7 @@ export type Shape = "ring" | "dot" | "diamond" | "circle" | "square" | "task" | 
 const SHAPES: [Shape, string[]][] = [
   ["ring", ["Document", "Episode"]],
   ["dot", ["Entity", "Fact"]],
-  ["diamond", ["Contradiction", "Question", "Assumption", "Defect"]],
+  ["diamond", ["Contradiction", "Question", "Assumption"]],
   ["square", ["Decision", "Component", "Screen", "DataEntity", "Endpoint", "Risk", "DocSection"]],
   ["square", ["AcceptanceCriterion", "TestCase", "TestRun"]],
   ["task", ["Task"]],

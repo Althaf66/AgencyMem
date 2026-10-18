@@ -7,7 +7,6 @@ import { WebSocketServer } from "ws";
 import { loadConfig, type Config, type ErrorBody, type HealthResponse } from "@agencymem/contracts";
 import { connect, isReachable } from "@agencymem/graph";
 import pkg from "../package.json" with { type: "json" };
-import { bugReportsRouter } from "./api/bug-reports";
 import { closeRouter } from "./api/close";
 import { codeRouter } from "./api/code";
 import { changeRequestsRouter } from "./api/change-requests";
@@ -122,7 +121,6 @@ export function createGateway(
     gatesRouter({ db, events }),
     featuresRouter({ db, events }),
     changeRequestsRouter({ db, events }),
-    bugReportsRouter({ db, events }),
     closeRouter({ db, events }),
     docsRouter({ db, events }),
     nodesRouter({ db, events }),

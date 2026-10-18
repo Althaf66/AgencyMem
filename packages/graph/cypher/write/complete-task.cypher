@@ -15,9 +15,6 @@ WHERE $outcome = 'failed' OR newer = 0
 OPTIONAL MATCH (e:WorkItem {projectId: $projectId, kind: 'merge', subjectId: $taskId})
 WHERE e.status IN ['open', 'claimed']
 WITH t, fromColumn, count(e) AS openMerge
-// A fix card that closes fixes its Defect (approved decision 7).
-OPTIONAL MATCH (t)-[:FIXES]->(fd:Defect)
-WITH t, fromColumn, openMerge, fd
 SET t.version = t.version + 1, t.leaseOwner = null, t.leaseUntil = null,
   t.column = CASE WHEN $outcome = 'done' THEN 'Done' ELSE 'Ready' END,
   t.attempts = t.attempts + CASE WHEN $outcome = 'failed' THEN 1 ELSE 0 END,
@@ -27,12 +24,9 @@ SET t.version = t.version + 1, t.leaseOwner = null, t.leaseUntil = null,
     WHEN $outcome = 'done' AND (t.note STARTS WITH 'Rejected by evidence guard:'
       OR t.note STARTS WITH 'Tests failed:' OR t.note STARTS WITH 'Merge conflict:') THEN null
     ELSE t.note END
-FOREACH (x IN CASE WHEN $outcome = 'done' AND fd IS NOT NULL THEN [fd] ELSE [] END |
-  SET x.status = 'fixed', x.version = x.version + 1)
 FOREACH (x IN CASE WHEN $outcome = 'done' AND openMerge = 0 THEN [1] ELSE [] END |
   CREATE (:WorkItem {id: $itemId, projectId: $projectId, kind: 'merge', status: 'open',
     subjectId: $taskId, outputIds: [], attempts: 0, createdBy: $createdBy, createdAt: $now,
     version: 1}))
 RETURN t.key AS key, fromColumn, t.column AS toColumn, t.version AS version,
-  CASE WHEN $outcome = 'done' THEN fd.id ELSE null END AS fixedDefectId, fd.version AS defectVersion,
   CASE WHEN $outcome = 'done' AND openMerge = 0 THEN $itemId ELSE null END AS mergeItemId

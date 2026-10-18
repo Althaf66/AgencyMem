@@ -9,8 +9,7 @@
 // planner item is done, and the build Tasks in Backlog with no write_tests item. For T16: the build
 // Tasks past Backlog and Rework. For T20 and T30: the build Tasks, those Done with a mergedSha, and
 // the change_request, replan and write_tests items open or claimed. For T21's repair: the newest e2e
-// item's status. For T24's repair: the bug_report Episodes with no maintenance item. For T26's:
-// the fix cards whose G6 is approved but which got no write_tests item since.
+// item's status.
 OPTIONAL MATCH (cr:ChangeRequest {projectId: $projectId})
 OPTIONAL MATCH (ci:WorkItem {projectId: $projectId, kind: 'change_request', subjectId: cr.id})
 WITH cr, count(ci) AS items, sum(CASE WHEN ci.status = 'done' THEN 1 ELSE 0 END) AS done
@@ -43,94 +42,82 @@ OPTIONAL MATCH (hw:WorkItem {projectId: $projectId, kind: 'architect_revise', su
 WITH changeRequests, he, count(hw) AS editItems
 WITH changeRequests, collect(CASE WHEN he IS NOT NULL AND editItems = 0
   THEN {episodeId: he.id, text: he.text, createdBy: he.createdBy} END) AS unopenedEdits
-OPTIONAL MATCH (be:Episode {projectId: $projectId, kind: 'bug_report'})
-OPTIONAL MATCH (bw:WorkItem {projectId: $projectId, kind: 'maintenance', subjectId: be.id})
-WITH changeRequests, unopenedEdits, be, count(bw) AS bugItems
-WITH changeRequests, unopenedEdits, collect(CASE WHEN be IS NOT NULL AND bugItems = 0
-  THEN {episodeId: be.id, createdBy: be.createdBy} END) AS unopenedBugs
-OPTIONAL MATCH (fg:Gate {projectId: $projectId, key: 'G6', status: 'approved'})-[:GUARDS]->(fx:Task)
-WHERE fx.column IN ['Backlog', 'Rework']
-OPTIONAL MATCH (fxw:WorkItem {projectId: $projectId, kind: 'write_tests', subjectId: fx.id})
-WHERE fxw.createdAt >= fg.decidedAt
-WITH changeRequests, unopenedEdits, unopenedBugs, fg, fx, count(fxw) AS fixItems
-WITH changeRequests, unopenedEdits, unopenedBugs, collect(CASE WHEN fx IS NOT NULL AND fixItems = 0
-  THEN {taskId: fx.id, createdBy: fg.decidedBy} END) AS approvedFixes
 OPTIONAL MATCH (g:Gate {projectId: $projectId})
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes,
+WITH changeRequests, unopenedEdits,
   collect(CASE WHEN g IS NULL THEN null ELSE {key: g.key, status: g.status, reason: g.reason,
     decidedAt: g.decidedAt, decidedBy: g.decidedBy} END) AS gates
 OPTIONAL MATCH (pr:WorkItem {projectId: $projectId, kind: 'proposal'})
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, max(pr.createdAt) AS lastAt,
+WITH changeRequests, unopenedEdits, gates, max(pr.createdAt) AS lastAt,
   sum(CASE WHEN pr.status IN ['open', 'claimed'] THEN 1 ELSE 0 END) AS openProposal
 OPTIONAL MATCH (lp:WorkItem {projectId: $projectId, kind: 'proposal', createdAt: lastAt})
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal,
+WITH changeRequests, unopenedEdits, gates, openProposal,
   collect(CASE WHEN lp IS NULL THEN null ELSE {createdAt: lp.createdAt, doneAt: lp.doneAt} END)[0]
     AS lastProposal
 OPTIONAL MATCH (ar:WorkItem {projectId: $projectId, kind: 'architect_revise'})
 WHERE ar.subjectId IS NULL
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, max(ar.createdAt) AS revAt
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, max(ar.createdAt) AS revAt
 OPTIONAL MATCH (lr:WorkItem {projectId: $projectId, kind: 'architect_revise', createdAt: revAt})
 WHERE lr.subjectId IS NULL
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal,
   collect(CASE WHEN lr IS NULL THEN null ELSE {createdAt: lr.createdAt, doneAt: lr.doneAt} END)[0]
     AS lastRevision
 OPTIONAL MATCH (pw:WorkItem {projectId: $projectId, kind: 'planner', status: 'done'})
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision,
   count(pw) > 0 AS plannerDone
 OPTIONAL MATCH (t:Task {projectId: $projectId, kind: 'build', column: 'Backlog'})
 OPTIONAL MATCH (tw:WorkItem {projectId: $projectId, kind: 'write_tests', subjectId: t.id})
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision, plannerDone, t,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone, t,
   count(tw) AS testItems
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision, plannerDone,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone,
   collect(CASE WHEN t IS NOT NULL AND testItems = 0 THEN {taskId: t.id} END) AS untestedCards
 OPTIONAL MATCH (rt:Task {projectId: $projectId, kind: 'build'})
 WHERE NOT rt.column IN ['Backlog', 'Rework']
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision, plannerDone,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone,
   untestedCards, count(rt) AS readyCards
 OPTIONAL MATCH (bt:Task {projectId: $projectId, kind: 'build'})
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision, plannerDone,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone,
   untestedCards, readyCards, count(bt) AS buildTotal,
   sum(CASE WHEN bt.column = 'Done' AND bt.mergedSha IS NOT NULL THEN 1 ELSE 0 END) AS buildMerged
 OPTIONAL MATCH (bw:WorkItem {projectId: $projectId})
 WHERE bw.kind IN ['change_request', 'replan', 'write_tests'] AND bw.status IN ['open', 'claimed']
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision, plannerDone,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone,
   untestedCards, readyCards, buildTotal, buildMerged, count(bw) AS buildBlockers
 OPTIONAL MATCH (ee:WorkItem {projectId: $projectId, kind: 'e2e'})
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision, plannerDone,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone,
   untestedCards, readyCards, buildTotal, buildMerged, buildBlockers, max(ee.createdAt) AS e2eAt
 OPTIONAL MATCH (le:WorkItem {projectId: $projectId, kind: 'e2e', createdAt: e2eAt})
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision, plannerDone,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision, plannerDone,
   untestedCards, readyCards, buildTotal, buildMerged, buildBlockers, collect(le.status)[0] AS lastE2e
 OPTIONAL MATCH (i:WorkItem {projectId: $projectId, kind: 'intake'})
 WHERE i.status IN ['open', 'claimed']
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision,
   plannerDone, untestedCards, readyCards, buildTotal, buildMerged, buildBlockers, lastE2e,
   count(i) AS openIntake
 OPTIONAL MATCH (ia:WorkItem {projectId: $projectId, kind: 'intake_answer'})
 WHERE ia.status IN ['open', 'claimed']
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision,
   plannerDone, untestedCards, readyCards, buildTotal, buildMerged, buildBlockers, lastE2e,
   openIntake,
   count(ia) AS openIntakeAnswer
 OPTIONAL MATCH (e:Episode {projectId: $projectId, kind: 'answer'})
 OPTIONAL MATCH (we:WorkItem {projectId: $projectId, kind: 'intake_answer', subjectId: e.id})
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision,
   plannerDone, untestedCards, readyCards, buildTotal, buildMerged, buildBlockers, lastE2e,
   openIntake,
   openIntakeAnswer, e,
   count(we) AS answerItems
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision,
   plannerDone, untestedCards, readyCards, buildTotal, buildMerged, buildBlockers, lastE2e,
   openIntake, openIntakeAnswer,
   collect(CASE WHEN e IS NOT NULL AND answerItems = 0
     THEN {episodeId: e.id, createdBy: e.createdBy} END) AS unopenedAnswers
 OPTIONAL MATCH (d:Document {projectId: $projectId, status: 'processed'})
 OPTIONAL MATCH (w:WorkItem {projectId: $projectId, kind: 'intake', subjectId: d.id})
-WITH changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision,
+WITH changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision,
   plannerDone, untestedCards, readyCards, buildTotal, buildMerged, buildBlockers, lastE2e,
   openIntake, openIntakeAnswer,
   unopenedAnswers, d, count(w) AS items
-RETURN changeRequests, unopenedEdits, unopenedBugs, approvedFixes, gates, openProposal, lastProposal, lastRevision,
+RETURN changeRequests, unopenedEdits, gates, openProposal, lastProposal, lastRevision,
   plannerDone, untestedCards, readyCards, buildTotal, buildMerged, buildBlockers, lastE2e,
   openIntake, openIntakeAnswer,
   unopenedAnswers, count(d) AS processedDocuments,

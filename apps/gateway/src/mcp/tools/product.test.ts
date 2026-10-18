@@ -64,7 +64,7 @@ async function setup({ g1 = true } = {}) {
   const ctx: Ctx = { db, graph: `client_${client.id}`, projectId: project.id };
   graphs.add(ctx.graph);
   const gates = await createGates(ctx, {
-    keys: ["G1", "G2", "G3", "G5"],
+    keys: ["G1", "G2", "G3"],
     createdBy: "human:test",
     now,
   });

@@ -9,16 +9,14 @@ OPTIONAL MATCH (c:Contradiction {projectId: $projectId})
 WITH questions, count(c) AS contradictions
 OPTIONAL MATCH (cr:ChangeRequest {projectId: $projectId})
 WITH questions, contradictions, count(cr) AS changeRequests
-OPTIONAL MATCH (d:Defect {projectId: $projectId})
-WITH questions, contradictions, changeRequests, count(d) AS defects
 OPTIONAL MATCH (x:Feature {projectId: $projectId})<-[:FOR]-(e:Estimate)
 WHERE x.validTo IS NULL
-WITH questions, contradictions, changeRequests, defects,
+WITH questions, contradictions, changeRequests,
   collect(CASE WHEN x IS NULL THEN null ELSE {hours: e.hours, actual: x.actualHours} END)
     AS features
 OPTIONAL MATCH (t:Task {projectId: $projectId})
-WITH questions, contradictions, changeRequests, defects, features, t
-RETURN questions, contradictions, changeRequests, defects, features,
+WITH questions, contradictions, changeRequests, features, t
+RETURN questions, contradictions, changeRequests, features,
   collect(CASE WHEN t IS NULL THEN null ELSE {
     reopened: coalesce(t.reopened, 0),
     commits: [(cc:CodeChange)-[:FOR_TASK]->(t) WHERE cc.author <> 'agencymem-test' |

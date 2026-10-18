@@ -26,12 +26,9 @@ const git = async (cwd: string, ...args: string[]) =>
     })
   ).stdout.trim();
 
-const graphChecks: ReadinessCheck[] = [
-  "cards_done",
-  "coverage",
-  "open_assumptions",
-  "open_defects",
-].map((name) => ({ name, passed: true, detail: "none", nodeIds: [] }) as ReadinessCheck);
+const graphChecks: ReadinessCheck[] = ["cards_done", "coverage", "open_assumptions"].map(
+  (name) => ({ name, passed: true, detail: "none", nodeIds: [] }) as ReadinessCheck,
+);
 
 function launch(changes: { id: string; sha: string; linked: boolean }[]) {
   const recall = {
@@ -45,7 +42,7 @@ function launch(changes: { id: string; sha: string; linked: boolean }[]) {
 }
 const drift = (call: ReturnType<typeof launch>["call"]) =>
   (call.mock.calls[0] as unknown as [string, { report: { checks: ReadinessCheck[] } }])[1].report
-    .checks[4]!;
+    .checks[3]!;
 
 describe("launchJob", { timeout: 30_000 }, () => {
   it("fails drift on a commit on main with no CodeChange, skipping the root and merge commits", async () => {
@@ -66,7 +63,7 @@ describe("launchJob", { timeout: 30_000 }, () => {
 
     const recorded = launch([{ id: "CC1", sha: card, linked: true }]);
     const { summary } = await recorded.run();
-    expect(summary).toBe("Readiness: 4 of 5 checks passed");
+    expect(summary).toBe("Readiness: 3 of 4 checks passed");
     const check = drift(recorded.call);
     expect(check).toMatchObject({ name: "drift", passed: false, nodeIds: [] });
     expect(check.detail).toContain(stray.slice(0, 7));

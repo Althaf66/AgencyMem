@@ -32,8 +32,6 @@ type Row = {
   buildBlockers: number;
   lastE2e: unknown;
   unopenedEdits: { episodeId: unknown; text: unknown; createdBy: unknown }[];
-  unopenedBugs: { episodeId: unknown; createdBy: unknown }[];
-  approvedFixes: { taskId: unknown; createdBy: unknown }[];
   changeRequests: (Omit<StageState["changeRequests"][number], "id" | "status" | "createdBy"> & {
     id: unknown;
     status: unknown;
@@ -92,7 +90,6 @@ export async function readStageState(
     openIntakeAnswer: state?.openIntakeAnswer ?? 0,
     g2: gate("G2"),
     g3: gate("G3"),
-    g5: gates.find((g) => g.key === "G5")?.status ?? null,
     closedAt: project.closedAt ?? null,
     curatorDone: (curator?.done ?? 0) > 0,
     openProposal: state?.openProposal ?? 0,
@@ -100,14 +97,6 @@ export async function readStageState(
       episodeId: Id.parse(e.episodeId),
       text: String(e.text),
       createdBy: Actor.parse(e.createdBy),
-    })),
-    unopenedBugs: (state?.unopenedBugs ?? []).map((b) => ({
-      episodeId: Id.parse(b.episodeId),
-      createdBy: Actor.parse(b.createdBy),
-    })),
-    approvedFixes: (state?.approvedFixes ?? []).map((f) => ({
-      taskId: Id.parse(f.taskId),
-      createdBy: Actor.parse(f.createdBy),
     })),
     changeRequests: (state?.changeRequests ?? []).map((cr) => ({
       ...cr,

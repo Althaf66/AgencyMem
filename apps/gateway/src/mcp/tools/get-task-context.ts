@@ -39,7 +39,6 @@ type Row = {
     createdAt: number;
   }[];
   documents: { id: string; name: string }[];
-  defects: { title: string; report: string }[];
 };
 
 /** The sample app's rules a build run must follow (sample-app.md sections 1 and 8). */
@@ -155,7 +154,6 @@ export async function getTaskContextTool(
           lineEnd: e.lineEnd,
           excerpt: e.text,
         })),
-        defect: row.defects[0] ?? null,
         conventions: CONVENTIONS,
         truncated: false,
         chars: 0,

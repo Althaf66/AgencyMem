@@ -12,7 +12,6 @@ const metrics = {
   contradictions: 2,
   changeRequests: 1,
   cardsReopened: 1,
-  defects: 1,
   cards: 4,
   firstPassCards: 3,
   clarityBand: "medium",

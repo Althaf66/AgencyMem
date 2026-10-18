@@ -4,8 +4,8 @@ import { Doc } from "@agencymem/contracts";
 
 export type Screen =
   "home" | "pipeline" | "preview" | "board" | "files" | "questions" | "gates" | "health";
-export type GraphViewName = "all" | "why" | "impact" | "backtrace" | "read";
-export const GRAPH_VIEWS: GraphViewName[] = ["all", "why", "impact", "backtrace", "read"];
+export type GraphViewName = "all" | "why" | "impact" | "read";
+export const GRAPH_VIEWS: GraphViewName[] = ["all", "why", "impact", "read"];
 export type Route =
   | { screen: "projects" }
   | { screen: Screen; projectId: string }

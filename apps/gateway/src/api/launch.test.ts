@@ -1,5 +1,5 @@
 // Task 5.2, Done when: the report shows pass or fail for each check. The Launch agent's item, the
-// readiness report (route 27) and G5 with its Deployment (T22, T23), through the real gateway
+// readiness report (route 27) and the close it allows (route 29, T28), through the real gateway
 // against the real FalkorDB from docker-compose.yml. No mocks.
 import { randomUUID } from "node:crypto";
 import type { Server } from "node:http";
@@ -7,16 +7,11 @@ import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import {
-  loadConfig,
-  type Envelope,
-  type GateView,
-  type ReadinessCheck,
-} from "@agencymem/contracts";
+import { loadConfig, type ReadinessCheck } from "@agencymem/contracts";
 import { REGISTRY_GRAPH, close, connect, readQuery, type FalkorDB } from "@agencymem/graph";
 import {
-  approveDeploy,
   cancelItems,
+  deleteTestAgency,
   createGates,
   createProject,
   deleteTestClient,
@@ -41,6 +36,7 @@ let server: Server;
 let base: string;
 const events = createEvents();
 const graphs = new Set<string>();
+const projectIds: string[] = [];
 const clients: Client[] = [];
 
 beforeAll(async () => {
@@ -53,6 +49,7 @@ afterAll(async () => {
   await Promise.allSettled(clients.map((c) => c.close()));
   server.closeAllConnections();
   await new Promise((resolve) => server.close(resolve));
+  await deleteTestAgency(db, projectIds);
   for (const graph of graphs) await deleteTestClient(db, graph);
   await close();
 });
@@ -83,8 +80,9 @@ async function launching(allDone: boolean) {
   });
   const ctx: Ctx = { db, graph: `client_${client.id}`, projectId: project.id };
   graphs.add(ctx.graph);
+  projectIds.push(project.id);
   await setStage(db, project.id, "intake", "launch");
-  await createGates(ctx, { keys: ["G1", "G2", "G3", "G5"], createdBy: "human:test", now });
+  await createGates(ctx, { keys: ["G1", "G2", "G3"], createdBy: "human:test", now });
   const { episodeIds } = await writeDocument(ctx, {
     name: "notes.pdf",
     mime: "application/pdf",
@@ -215,18 +213,15 @@ const ui = (projectId: string) => ({
   "Content-Type": "application/json",
 });
 
-async function g5(projectId: string): Promise<GateView> {
-  const res = await fetch(`${base}/api/projects/${projectId}/gates`, { headers: ui(projectId) });
-  const { gates } = (await res.json()) as { gates: GateView[] };
-  return gates.find((g) => g.key === "G5")!;
-}
-
-async function decide(projectId: string, body: Record<string, unknown>) {
-  const gate = await g5(projectId);
-  const res = await fetch(`${base}/api/gates/${gate.id}/decision`, {
+/** Route 29 with FEAT-01's actual hours and `body` (override, reason). */
+async function closeProject(ctx: Ctx, body: Record<string, unknown> = {}) {
+  const [feature] = await readQuery<{ id: string }>(db, ctx.graph, "read/features", {
+    projectId: ctx.projectId,
+  });
+  const res = await fetch(`${base}/api/projects/${ctx.projectId}/close`, {
     method: "POST",
-    headers: ui(projectId),
-    body: JSON.stringify({ version: gate.version, decision: "approve", ...body }),
+    headers: ui(ctx.projectId),
+    body: JSON.stringify({ actuals: [{ featureId: feature!.id, actualHours: 5 }], ...body }),
   });
   return { status: res.status, body: (await res.json()) as Record<string, unknown> };
 }
@@ -258,7 +253,7 @@ const drift: ReadinessCheck = {
   nodeIds: [],
 };
 
-/** The Launch agent's run: recall the four checks, hand off all five, complete the item. */
+/** The Launch agent's run: recall the three checks, hand off all four, complete the item. */
 async function runLaunch(projectId: string, itemId: string) {
   const launch = await session(projectId, "launch", "launch-1");
   await call(launch, "claim_item", { kinds: ["launch"] });
@@ -275,17 +270,15 @@ async function runLaunch(projectId: string, itemId: string) {
 }
 
 describe("the Launch agent's readiness report (task 5.2)", () => {
-  it("recalls the four graph checks, and route 27 shows pass or fail for each of the five", async () => {
+  it("recalls the three graph checks, and route 27 shows pass or fail for each of the four", async () => {
     const { ctx, itemId } = await launching(false);
     expect(await readiness(ctx.projectId)).toEqual({ report: null });
-    expect((await g5(ctx.projectId)).blockedBy).toEqual(["Launch is still checking"]);
 
     const checks = await runLaunch(ctx.projectId, itemId);
     expect(checks.map((c) => [c.name, c.passed])).toEqual([
       ["cards_done", false],
       ["coverage", true],
       ["open_assumptions", true],
-      ["open_defects", true],
     ]);
     expect(checks[0]).toMatchObject({ detail: "1 of 2 cards are not Done" });
     expect(checks[0]!.nodeIds).toHaveLength(1);
@@ -296,83 +289,52 @@ describe("the Launch agent's readiness report (task 5.2)", () => {
       ["cards_done", false],
       ["coverage", true],
       ["open_assumptions", true],
-      ["open_defects", true],
       ["drift", true],
     ]);
   });
+});
 
-  it("G5: a failed report needs environment, override and a reason; the approval records a Deployment and starts maintenance", async () => {
-    const { ctx, itemId } = await launching(false);
-    await runLaunch(ctx.projectId, itemId);
-    expect(await g5(ctx.projectId)).toMatchObject({ canDecide: true, blockedBy: [] });
-
-    expect((await decide(ctx.projectId, {})).status).toBe(400); // no environment
-    expect((await decide(ctx.projectId, { environment: "demo" })).status).toBe(400); // no override
-    expect((await decide(ctx.projectId, { environment: "demo", override: true })).status).toBe(400); // no reason
-
-    const sent: Envelope[] = [];
-    const off = events.on((e) => e.projectId === ctx.projectId && sent.push(e));
-    const done = await decide(ctx.projectId, {
-      environment: "demo",
-      override: true,
-      reason: "demo run",
-    });
-    off();
-    expect(done.status).toBe(200);
-    expect(done.body.gate).toMatchObject({ key: "G5", status: "approved", reason: "demo run" });
-    const deployment = sent.find(
-      (e) => e.type === "node.written" && (e.data as { label: string }).label === "Deployment",
-    );
-    expect(await props(ctx, (deployment!.data as { id: string }).id)).toMatchObject({
-      environment: "demo",
-      deployedBy: "human:lead",
-    });
-    expect((await readiness(ctx.projectId)).report).toMatchObject({ override: true });
-    expect(await stage(ctx.projectId)).toBe("maintenance");
+describe("closing from launch (route 29, T28)", () => {
+  it("refuses while Launch is still checking", async () => {
+    const { ctx } = await launching(true);
+    const res = await closeProject(ctx);
+    expect(res.status).toBe(409);
+    expect(res.body.error).toMatchObject({ reason: "Launch is still checking." });
+    expect(await stage(ctx.projectId)).toBe("launch");
   });
 
-  it("G5: a passing report is approved with the environment alone", async () => {
+  it("a failed report needs override and a reason, which the report keeps", async () => {
+    const { ctx, itemId } = await launching(false);
+    await runLaunch(ctx.projectId, itemId);
+    expect((await closeProject(ctx)).status).toBe(400);
+    expect((await closeProject(ctx, { override: true })).status).toBe(400); // no reason
+    const done = await closeProject(ctx, { override: true, reason: "demo run" });
+    expect(done.status).toBe(200);
+    expect(done.body.project).toMatchObject({ stage: "case_study" });
+    expect((await readiness(ctx.projectId)).report).toMatchObject({ override: true });
+  });
+
+  it("a passing report closes with the actual hours alone", async () => {
     const { ctx, itemId } = await launching(true);
     const checks = await runLaunch(ctx.projectId, itemId);
     expect(checks.every((c) => c.passed)).toBe(true);
-    expect((await readiness(ctx.projectId)).report).toMatchObject({ passed: true });
-    const done = await decide(ctx.projectId, { environment: "demo" });
+    const done = await closeProject(ctx);
     expect(done.status).toBe(200);
-    expect(await stage(ctx.projectId)).toBe("maintenance");
+    expect(await stage(ctx.projectId)).toBe("case_study");
+    expect((await readiness(ctx.projectId)).report).toMatchObject({ override: false });
   });
 
-  it("G5: a report whose launch item T30 cancelled no longer counts", async () => {
+  it("a report whose launch item T30 cancelled no longer counts", async () => {
     const { ctx, itemId } = await launching(true);
     await runLaunch(ctx.projectId, itemId);
     // A card left Done: T30 cancelled the run, and a new launch item has not finished.
     await openItem(ctx, { kind: "launch", createdBy: "test", now: Date.now() + 1 });
-    expect((await g5(ctx.projectId)).blockedBy).toEqual(["Launch is still checking"]);
+    expect((await closeProject(ctx)).body.error).toMatchObject({
+      reason: "Launch is still checking.",
+    });
     await cancelItems(ctx, { kinds: ["launch"] });
-    expect(await g5(ctx.projectId)).toMatchObject({
-      canDecide: false,
-      blockedBy: ["No readiness report"],
+    expect((await closeProject(ctx)).body.error).toMatchObject({
+      reason: "There is no readiness report yet.",
     });
-  });
-
-  it("approveDeploy writes nothing at an old version or on a decided gate (one query)", async () => {
-    const { ctx, itemId } = await launching(true);
-    await runLaunch(ctx.projectId, itemId);
-    const gate = await g5(ctx.projectId);
-    const input = {
-      gateId: gate.id,
-      environment: "demo",
-      override: false,
-      reason: null,
-      actor: "human:lead" as const,
-      now: Date.now(),
-    };
-    expect(await approveDeploy(ctx, { ...input, version: gate.version + 1 })).toBeNull();
-    expect(await approveDeploy(ctx, { ...input, version: gate.version })).not.toBeNull();
-    expect(await approveDeploy(ctx, { ...input, version: gate.version + 1 })).toBeNull(); // approved
-    const nodes = await readQuery<{ label: string }>(db, ctx.graph, "read/graph-nodes", {
-      projectId: ctx.projectId,
-      limit: 500,
-    });
-    expect(nodes.filter((n) => n.label === "Deployment")).toHaveLength(1);
   });
 });

@@ -134,12 +134,7 @@ export type AppState = {
   /** Reads (GET), starts (POST) or stops (DELETE) the preview. */
   previewAction(method: "GET" | "POST" | "DELETE"): Promise<void>;
   answer(question: QuestionView, accept: boolean, text?: string): Promise<boolean>;
-  decide(
-    gate: GateView,
-    decision: "approve" | "reject",
-    reason?: string,
-    deploy?: { environment: string; override: boolean },
-  ): Promise<boolean>;
+  decide(gate: GateView, decision: "approve" | "reject", reason?: string): Promise<boolean>;
   /** Route 21: the reply line saying where the text went, or null after a rejection (a toast). */
   chat(text: string, docSectionId?: string): Promise<string | null>;
   /** Route 13 with the version the card shows; false after a rejection (a toast). */
@@ -150,7 +145,7 @@ export type AppState = {
   changeRequest(text: string): Promise<string | null>;
   /** Route 15: the nodes behind one number of the progress header. */
   progressList(metric: string): Promise<MetricNode[] | null>;
-  /** Routes 16 to 19: the graph, with the path of a why, impact or backtrace view lit. */
+  /** Routes 16 to 18: the graph, with the path of a why or impact view lit. */
   loadGraph(view: GraphViewName, focus: string | null): Promise<void>;
   toast(text: string): void;
   dismiss(id: number): void;
@@ -192,7 +187,7 @@ const DESIGN = [
 const TOAST_MS = 6000;
 /** The events the graph panel follows (ui.md graph panel, Data and interactions). */
 const GRAPH_EVENTS = ["node.written", "node.ended", "task.moved"];
-const PATHS = { why: "why", impact: "impact", backtrace: "backtrace", read: "recalled" } as const;
+const PATHS = { why: "why", impact: "impact", read: "recalled" } as const;
 const RUN_LOG = 50;
 const FEED = 300;
 const NO_PREVIEW: PreviewView = { status: "stopped", url: null, log: [] };
@@ -472,15 +467,10 @@ export function createAppStore(api: Api): AppStore {
         return result.ok || rejected(result.error, "questions");
       },
 
-      async decide(gate, decision, reason, deploy) {
+      async decide(gate, decision, reason) {
         const id = get().projectId;
         if (!id) return false;
-        const result = await api.decide(id, gate.id, {
-          version: gate.version,
-          decision,
-          reason,
-          ...deploy,
-        });
+        const result = await api.decide(id, gate.id, { version: gate.version, decision, reason });
         return result.ok || rejected(result.error, "gates");
       },
 

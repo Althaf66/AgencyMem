@@ -71,7 +71,7 @@ async function setup({ stage = "build" as Stage, board = true } = {}) {
   });
   const ctx: Ctx = { db, graph: `client_${client.id}`, projectId: project.id };
   graphs.add(ctx.graph);
-  await createGates(ctx, { keys: ["G1", "G2", "G3", "G5"], createdBy: "human:test", now });
+  await createGates(ctx, { keys: ["G1", "G2", "G3"], createdBy: "human:test", now });
   if (stage !== "intake") await setStage(db, project.id, "intake", stage);
   const { episodeIds } = await writeDocument(ctx, {
     name: "kickoff-notes.pdf",

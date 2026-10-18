@@ -23,13 +23,9 @@ export const EdgeType = z.enum([
   "VERIFIES", // TestCase → AcceptanceCriterion
   "RUNS", // TestRun → TestCase
   "FOR_TASK", // CodeChange → Task
-  "CAUSED_BY", // Defect → CodeChange
   "FROM", // ChangeRequest → change-request Episode
   "ENDS", // ChangeRequest → old Fact
   "FLAGGED_BY", // Task or DocSection → ChangeRequest
-  "GUARDS", // Gate → WorkItem or Task it blocks
-  "REPORTED_IN", // Defect → bug_report Episode
-  "FIXES", // fix Task → Defect
   "RECALLED", // WorkItem or Task → a node its recall_context or get_task_context answer named
 ]);
 export type EdgeType = z.infer<typeof EdgeType>;

@@ -43,7 +43,7 @@ describe("the README's Cypher list", () => {
       "write-versioned",
       "supersede-fact",
       "impact",
-      "backtrace",
+      "why",
       "evidence",
     ]) {
       expect(block.indexOf(`/${name}.cypher)`)).toBeLessThan(block.indexOf("### Schema"));

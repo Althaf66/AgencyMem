@@ -65,8 +65,6 @@ const TOOL_INFO: Record<ToolName, { description: string; task: string }> = {
     description: "Close a card once its tests pass on the latest commit.",
     task: "4.10",
   },
-  report_defect: { description: "Record a defect caused by a commit.", task: "5.3" },
-  propose_fix: { description: "Propose a fix card that waits for gate G6.", task: "5.3" },
   write_case_study: {
     description: "Write the case study, estimate records and lessons.",
     task: "5.4",
@@ -104,7 +102,7 @@ export type ToolDeps = {
 };
 
 /**
- * An MCP server for one session, with all 21 tools, so tools/list returns every tool to every
+ * An MCP server for one session, with all 19 tools, so tools/list returns every tool to every
  * session. Calls run: input schema, then (UI session) ownership, then the tool's own guards, its
  * write and its events, then the output schema.
  */

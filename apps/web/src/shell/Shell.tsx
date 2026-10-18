@@ -30,7 +30,6 @@ const GATE_AFTER: Partial<Record<Stage, GateKey>> = {
   discovery: "G1",
   proposal: "G2",
   design: "G3",
-  launch: "G5",
 };
 
 /** The ten stages of the life cycle; `closed` only marks the end (stage-machine.md section 2). */
@@ -82,7 +81,7 @@ function ActorField() {
 }
 
 /** stage-machine.md section 7: change requests from G2 approval until the project closes. */
-const CR_STAGES: readonly Stage[] = ["design", "planning", "build", "e2e", "launch", "maintenance"];
+const CR_STAGES: readonly Stage[] = ["design", "planning", "build", "e2e", "launch"];
 
 /** The top bar's "Change request" button and its dialog (route 22). */
 export function ChangeRequestButton({ s }: { s: AppState }) {

@@ -37,8 +37,6 @@ type BoardRow = {
   crs: [string, string, number][];
   commits: { sha: string; message: string; committedAt: number; linked: boolean }[];
   criteria: CardView["criteria"];
-  /** A fix card's G6 (task 5.3). */
-  gate: CardView["gate"];
   runs: { passed: boolean; ranAt: number }[];
 };
 
@@ -77,7 +75,6 @@ function toCard(row: BoardRow): CardView {
     requirementKey: row.requirementKey,
     dependsOn: row.dependsOn,
     criteria: [...row.criteria].sort((a, b) => a.key.localeCompare(b.key)),
-    gate: row.gate ?? null,
     mergedSha: t.mergedSha ?? null,
   });
 }
@@ -148,7 +145,7 @@ export function tasksRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
     });
   });
 
-  // 13. PATCH /api/tasks/:id with X-AM-Project. Guards: tenancy, gate (H2 of a fix card), version,
+  // 13. PATCH /api/tasks/:id with X-AM-Project. Guards: tenancy, version,
   // evidence (H2). A move the rules do not allow from the card's column is VALIDATION_FAILED, like
   // H7.
   router.patch("/tasks/:id", async (req, res) => {
@@ -173,20 +170,6 @@ export function tasksRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
     const foreign = edit.criteria?.find((k) => !k.key.startsWith(own));
     if (foreign) {
       return sendError(res, invalid(`H3: ${foreign.key} is not a criterion of ${String(t.key)}.`));
-    }
-    // H2 for a fix card: its G6 must be approved first (stage-machine.md section 6). The gate
-    // guard runs before the version guard (AGENTS.md rule 8).
-    if (edit.column === "Ready" && t.kind === "fix") {
-      const [card] = await readCards(db, graph, projectId, String(t.id));
-      if (card?.gate?.status !== "approved") {
-        const refused = reject(
-          "gate",
-          "GATE_NOT_APPROVED",
-          `H2: ${String(t.key)} is a fix card; approve its G6 first.`,
-          { gateKey: "G6", status: card?.gate?.status ?? null },
-        );
-        return sendError(res, await rejectAndCount(db, projectId, refused, at));
-      }
     }
     // AGENTS.md rule 8: the version guard runs before the evidence guard (H2).
     const stale = version(edit.version, Number(t.version));
@@ -318,7 +301,6 @@ export function tasksRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
       total: number;
       covered: number;
       openAssumptions: number;
-      openDefects: number;
     }>(db, found.graph, "read/progress", { projectId: found.id });
     const cards = row?.cards ?? [];
     res.json({
@@ -331,7 +313,6 @@ export function tasksRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
       })),
       coverage: { covered: row?.covered ?? 0, total: row?.total ?? 0 },
       openAssumptions: row?.openAssumptions ?? 0,
-      openDefects: row?.openDefects ?? 0,
       seq,
     });
   });
@@ -340,10 +321,7 @@ export function tasksRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
   router.get("/projects/:id/progress/:metric", async (req, res) => {
     const metric = ProgressMetric.safeParse(req.params.metric);
     if (!metric.success) {
-      return sendError(
-        res,
-        invalid("metric is lane:<Lane>, coverage, openAssumptions or openDefects."),
-      );
+      return sendError(res, invalid("metric is lane:<Lane>, coverage or openAssumptions."));
     }
     const db = await deps.db();
     const found = await pathProject(db, req.params.id);
@@ -390,5 +368,4 @@ export function tasksRouter(deps: { db: () => Promise<FalkorDB>; events: Events 
 const QUERY_OF = {
   coverage: "read/progress-coverage",
   openAssumptions: "read/progress-assumptions",
-  openDefects: "read/progress-defects",
 } as const;

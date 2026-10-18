@@ -29,8 +29,6 @@ import {
   ClarityBand,
   Column,
   ContradictionStatus,
-  DefectSeverity,
-  DefectStatus,
   Doc,
   DocumentStatus,
   Endpoint,
@@ -72,8 +70,6 @@ export const Project = Stamped.extend({
   rejectedClaims: Count,
   rejectedCompletions: Count,
   rejectedQueries: Count,
-  /** The last backtrace query time (route 19), for the health panel (task 5.6). */
-  backtraceMs: maybe(z.number().nonnegative()),
 });
 export type Project = z.infer<typeof Project>;
 
@@ -220,7 +216,6 @@ export const Gate = BaseNode.extend({
   decidedBy: maybe(Actor),
   decidedAt: maybe(EpochMs),
   reason: maybe(text(300)),
-  override: maybe(z.boolean()), // G5 only
 });
 export type Gate = z.infer<typeof Gate>;
 
@@ -282,20 +277,6 @@ export const CodeChange = BaseNode.extend({
 });
 export type CodeChange = z.infer<typeof CodeChange>;
 
-export const Defect = BaseNode.extend({
-  title: text(120),
-  severity: DefectSeverity,
-  status: DefectStatus,
-});
-export type Defect = z.infer<typeof Defect>;
-
-export const Deployment = BaseNode.extend({
-  environment: text(40),
-  deployedAt: EpochMs,
-  deployedBy: Actor,
-});
-export type Deployment = z.infer<typeof Deployment>;
-
 export const Run = BaseNode.extend({
   agent: AgentId,
   step: text(80),
@@ -313,6 +294,8 @@ export const ReadinessReport = BaseNode.extend({
   passed: z.boolean(),
   checks: jsonString(z.array(ReadinessCheck)),
   override: z.boolean(),
+  /** Why a close went ahead over this failed report (route 29). */
+  reason: maybe(text(300)),
 });
 export type ReadinessReport = z.infer<typeof ReadinessReport>;
 
@@ -373,8 +356,6 @@ export const nodeSchemas = {
   TestCase,
   TestRun,
   CodeChange,
-  Defect,
-  Deployment,
   Run,
   ReadinessReport,
   EstimateRecord,

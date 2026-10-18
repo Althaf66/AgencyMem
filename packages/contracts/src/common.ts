@@ -112,7 +112,7 @@ export const ProjectInfo = z.object({
 export type ProjectInfo = z.infer<typeof ProjectInfo>;
 
 export const ReadinessCheck = z.object({
-  name: z.enum(["cards_done", "coverage", "open_assumptions", "open_defects", "drift"]),
+  name: z.enum(["cards_done", "coverage", "open_assumptions", "drift"]),
   passed: z.boolean(),
   detail: text(200),
   nodeIds: z.array(Id),
@@ -125,7 +125,6 @@ export const CaseMetrics = z.object({
   contradictions: Count,
   changeRequests: Count,
   cardsReopened: Count,
-  defects: Count,
   cards: Count,
   firstPassCards: Count,
   clarityBand: ClarityBand,

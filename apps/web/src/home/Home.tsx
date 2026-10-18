@@ -28,7 +28,6 @@ const GATE_AFTER: Partial<Record<Stage, GateKey>> = {
   discovery: "G1",
   proposal: "G2",
   design: "G3",
-  launch: "G5",
 };
 const STAGES: readonly Stage[] = Stage.options.filter((name) => name !== "closed");
 

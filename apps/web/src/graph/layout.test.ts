@@ -59,12 +59,20 @@ describe("graph layout", () => {
     expect(merge(all, path).links).toHaveLength(all.links.length);
   });
 
-  it("puts Flow columns in trace order, from Document to Defect", () => {
-    const order = ["Document", "Episode", "Fact", "Question", "Requirement", "Endpoint", "Task"];
+  it("puts Flow columns in trace order, from Document to CodeChange", () => {
+    const order = [
+      "Document",
+      "Episode",
+      "Fact",
+      "Question",
+      "Requirement",
+      "Endpoint",
+      "Task",
+      "CodeChange",
+    ];
     const cols = order.map(flowColumn);
     expect(cols).toEqual([...cols].sort((a, b) => a - b));
     expect(flowColumn("Contradiction")).toBe(flowColumn("Question"));
-    expect(flowColumn("Defect")).toBeGreaterThan(flowColumn("CodeChange"));
   });
 
   it("counts Orbit hops from the focus either way along the links", () => {

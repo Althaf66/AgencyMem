@@ -1,5 +1,5 @@
 // `pnpm sim:run` runs SIM_PROJECTS demo projects in a row (sets A, B, C, at most 3), each to closed.
-// `pnpm sim:run --set A --live-demo` starts one project (projectIndex 3) and stops before G5, with
+// `pnpm sim:run --set A --live-demo` starts one project (projectIndex 3) and stops once launch is ready, with
 // no change requests (stage-machine.md section 9). Hidden numbers go to sim-state/, never the graph.
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";

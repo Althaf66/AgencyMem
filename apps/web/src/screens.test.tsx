@@ -82,7 +82,6 @@ const gate = (over: Partial<GateView> = {}): GateView => ({
   reason: null,
   canDecide: false,
   blockedBy: ["2 questions still open"],
-  task: null,
   ...over,
 });
 
@@ -200,7 +199,7 @@ describe("gates", () => {
   });
 });
 
-describe("G5 deploy (task 5.2)", () => {
+describe("launch readiness", () => {
   const check = (name: ReadinessCheck["name"], passed: boolean): ReadinessCheck => ({
     name,
     passed,
@@ -216,35 +215,26 @@ describe("G5 deploy (task 5.2)", () => {
       check("cards_done", passed),
       check("coverage", true),
       check("open_assumptions", true),
-      check("open_defects", true),
       check("drift", true),
     ],
   });
-  const g5 = gate({ key: "G5", canDecide: true, blockedBy: [] });
 
-  it("shows the five readiness checks with pass or fail, the failing node count, and the environment field", () => {
+  it("shows the four readiness checks with pass or fail and the failing node count", () => {
     const html = renderToString(
-      <GatesView s={state({ gates: ready([g5]), readiness: ready(report(false)) })} />,
+      <GatesView s={state({ gates: ready([gate()]), readiness: ready(report(false)) })} />,
     );
-    for (const name of ["cards_done", "coverage", "open_assumptions", "open_defects", "drift"]) {
+    for (const name of ["cards_done", "coverage", "open_assumptions", "drift"]) {
       expect(html).toContain(name);
     }
-    expect(html.match(/>pass</g)).toHaveLength(4);
+    expect(html.match(/>pass</g)).toHaveLength(3);
     expect(html.match(/>fail</g)).toHaveLength(1);
     expect(html).toContain("cards_done failed · 2 nodes");
-    expect(html).toContain('name="environment"');
-    expect(html).toContain("Approve anyway");
+    expect(html).not.toContain("G5");
   });
 
-  it("asks for no override when the report passed", () => {
-    const html = renderToString(
-      <GatesView s={state({ gates: ready([g5]), readiness: ready(report(true)) })} />,
-    );
-    expect(html.match(/>pass</g)).toHaveLength(5);
-    expect(html).not.toContain("Approve anyway");
-    // ui.md: never a silent grey button, also when only the form is incomplete.
-    expect(html).toContain("blocked: needs an environment");
-    expect(html).toMatch(/<button[^>]*disabled[^>]*>Approve<\/button>/);
+  it("says when there is no readiness report yet", () => {
+    const html = renderToString(<GatesView s={state({ gates: ready([gate()]) })} />);
+    expect(html).toContain("No readiness report yet.");
   });
 });
 
@@ -400,7 +390,6 @@ const cardView = (over: Partial<CardView> = {}): CardView => ({
       testCaseCount: 0,
     },
   ],
-  gate: null,
   mergedSha: null,
   ...over,
 });
@@ -422,7 +411,6 @@ const progress: Progress = {
   ],
   coverage: { covered: 0, total: 2 },
   openAssumptions: 1,
-  openDefects: 0,
 };
 
 describe("board", () => {
@@ -514,19 +502,6 @@ describe("board", () => {
       <CardDrawer s={state({})} card={cardView({ blocked: true, attempts: 2 })} close={() => {}} />,
     );
     expect(blocked).toMatch(/<button[^>]*>Unblock<\/button>/);
-    const covered = [{ ...cardView().criteria[0]!, testCaseCount: 1 }];
-    const fix = renderToString(
-      <CardDrawer
-        s={state({})}
-        card={cardView({
-          kind: "fix",
-          criteria: covered,
-          gate: { id: "01JA00000000000000000000G6", key: "G6", status: "waiting" },
-        })}
-        close={() => {}}
-      />,
-    );
-    expect(fix).toContain("H2: a fix card needs its G6 approved first.");
   });
 });
 
@@ -657,7 +632,7 @@ describe("graph panel", () => {
     const html = renderToString(
       <GraphPanelView s={state({ graph: ready(data) })} view="why" focus={data.focus} />,
     );
-    for (const b of ["Network", "Flow", "Orbit", "All", "Why", "Impact", "Backtrace"]) {
+    for (const b of ["Network", "Flow", "Orbit", "All", "Why", "Impact", "Read"]) {
       expect(html).toMatch(new RegExp(`<button[^>]*>${b}</button>`));
     }
     expect(html).toContain("focus: CARD-01");
@@ -688,12 +663,12 @@ describe("graph panel", () => {
     const failed = {
       ...ready(data),
       status: "error" as const,
-      error: { code: "NOT_FOUND" as const, reason: "Unknown Defect." },
+      error: { code: "NOT_FOUND" as const, reason: "Unknown Fact." },
     };
     const html = renderToString(
-      <GraphPanelView s={state({ graph: failed })} view="backtrace" focus={data.focus} />,
+      <GraphPanelView s={state({ graph: failed })} view="read" focus={data.focus} />,
     );
-    expect(html).toContain("Unknown Defect.");
+    expect(html).toContain("Unknown Fact.");
     expect(html).not.toContain("REQ-01");
   });
 });
@@ -731,7 +706,6 @@ describe("health panel (task 5.6)", () => {
         price: null,
       },
     ],
-    backtraceMs: 3,
   };
   const row = (name: string, order: number, estimateError: number | null) => ({
     projectId: `01JA00000000000000000000P${order}`,
@@ -768,7 +742,7 @@ describe("health panel (task 5.6)", () => {
     expect(html).toContain("Questions 15 · Contradictions 6");
     expect(html).toContain("Cards reopened per CR 3.0");
     expect(html).toContain("Rejected: claims 4 · writes 2 · completions 1 · queries 1");
-    expect(html).toContain("Coverage 12/12 · Backtrace 3 ms");
+    expect(html).toContain("Coverage 12/12");
     expect(html).toContain("Tokens 412k · Cost $3.10");
     expect(html.match(/<circle/g)).toHaveLength(2); // the open project has no point
     expect(html).toContain("calendar (low)"); // a point's tooltip lists its lessons

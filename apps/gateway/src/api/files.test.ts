@@ -285,7 +285,7 @@ describe("GET /api/projects/:id/documents (route 5)", () => {
 });
 
 describe("T1: creating a project creates its gates", () => {
-  it("writes G1, G2, G3 and G5, each waiting", async () => {
+  it("writes G1, G2 and G3, each waiting", async () => {
     const project = await create();
     expect(
       await rows(project.id, q("MATCH", "(g:Gate)", "RETURN", "g.key, g.status ORDER BY g.key")),
@@ -293,7 +293,6 @@ describe("T1: creating a project creates its gates", () => {
       ["G1", "waiting"],
       ["G2", "waiting"],
       ["G3", "waiting"],
-      ["G5", "waiting"],
     ]);
   });
 });

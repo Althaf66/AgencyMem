@@ -7,7 +7,7 @@ import type { AddressInfo } from "node:net";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { loadConfig, type CaseMetrics, type GateView } from "@agencymem/contracts";
+import { loadConfig, type CaseMetrics } from "@agencymem/contracts";
 import {
   AGENCY_GRAPH,
   REGISTRY_GRAPH,
@@ -21,6 +21,7 @@ import {
   createProject,
   deleteTestAgency,
   deleteTestClient,
+  openItem,
   setStage,
   writeCards,
   writeDocument,
@@ -107,10 +108,11 @@ let shas = 0;
 const nextSha = () => (++shas).toString(16).padStart(40, "e");
 
 /**
- * A project in maintenance: the client "Sunrise Dental" (alias SDG) as an Entity, REQ-01 and
- * FEAT-01 (calendar, raw 4 h, estimate 5 h), and CARD-01 Done with one linked build commit.
+ * A project in launch: the client "Sunrise Dental" (alias SDG) as an Entity, REQ-01 and FEAT-01
+ * (calendar, raw 4 h, estimate 5 h), and CARD-01 Done with one linked build commit. With `report`,
+ * the Launch agent has also written a passing readiness report.
  */
-async function inMaintenance() {
+async function inLaunch(report = true) {
   const now = Date.now();
   const { project, client } = await createProject(db, {
     clientName: `test-client-${randomUUID()}`,
@@ -122,8 +124,8 @@ async function inMaintenance() {
   const ctx: Ctx = { db, graph: `client_${client.id}`, projectId: project.id };
   graphs.add(ctx.graph);
   projectIds.push(project.id);
-  await setStage(db, project.id, "intake", "maintenance");
-  await createGates(ctx, { keys: ["G1", "G2", "G3", "G5"], createdBy: "human:test", now });
+  await setStage(db, project.id, "intake", "launch");
+  await createGates(ctx, { keys: ["G1", "G2", "G3"], createdBy: "human:test", now });
   const { episodeIds } = await writeDocument(ctx, {
     name: "kickoff-notes.pdf",
     mime: "application/pdf",
@@ -205,41 +207,33 @@ async function inMaintenance() {
   const [feature] = await readQuery<{ id: string }>(db, ctx.graph, "read/features", {
     projectId: project.id,
   });
+  if (report) await readinessReport(ctx);
   return { ctx, card, codeChangeId, featureId: feature!.id };
 }
 
-/** Route 28, then report_defect and propose_fix: CARD-02 waits for G6. */
-async function waitingFix(ctx: Ctx, codeChangeId: string) {
-  const report = await rest(ctx.projectId, "POST", `/api/projects/${ctx.projectId}/bug-reports`, {
-    text: "A slot at 1:20 pm.",
+/** The Launch agent's run, with every check passing. */
+async function readinessReport(ctx: Ctx) {
+  const item = await openItem(ctx, { kind: "launch", createdBy: "test", now: Date.now() });
+  const launch = await session(ctx.projectId, "launch", "launch-1");
+  await call(launch, "claim_item", { itemId: item!.id, kinds: ["launch"] });
+  const checks = (["cards_done", "coverage", "open_assumptions", "drift"] as const).map((name) => ({
+    name,
+    passed: true,
+    detail: "none",
+    nodeIds: [],
+  }));
+  await call(launch, "write_handoff", {
+    itemId: item!.id,
+    summary: "Readiness",
+    outputIds: [],
+    report: { checks },
   });
-  const { episodeId, workItemId } = report.body as { episodeId: string; workItemId: string };
-  const maintenance = await session(ctx.projectId, "maintenance", "maintenance-1");
-  await call(maintenance, "claim_item", { itemId: workItemId, kinds: ["maintenance"] });
-  const { out: defect } = await call(maintenance, "report_defect", {
-    itemId: workItemId,
-    title: "A lunch slot",
-    severity: "high",
-    codeChangeId,
-    reportEpisodeId: episodeId,
-    reasoning: "REQ-01.",
+  await call(launch, "complete_item", {
+    itemId: item!.id,
+    outcome: "done",
+    summary: "Readiness",
+    runs: [],
   });
-  const { out } = await call(maintenance, "propose_fix", {
-    itemId: workItemId,
-    defectId: (defect as { defectId: string }).defectId,
-    card: {
-      key: "CARD-02",
-      title: "Hide lunch slots",
-      description: "No lunch slot.",
-      lane: "Backend",
-      order: 20,
-      requirementKey: "REQ-01",
-      designKeys: [],
-      dependsOn: [],
-      criteria: [{ key: "AC-02-1", text: "Given, when `a`, then.", testIds: ["a"] }],
-    },
-  });
-  return (out as { gateId: string }).gateId;
 }
 
 const closeRoute = (projectId: string, actuals: { featureId: string; actualHours: number }[]) =>
@@ -267,7 +261,7 @@ const lesson = async (featureKind: string, clarityBand: string) =>
 
 /** Closes the project with FEAT-01 at `actual` hours and claims its curator item. */
 async function closed(actual: number) {
-  const setup = await inMaintenance();
+  const setup = await inLaunch();
   const res = await closeRoute(setup.ctx.projectId, [
     { featureId: setup.featureId, actualHours: actual },
   ]);
@@ -286,27 +280,20 @@ const caseStudy = (itemId: string, metrics: CaseMetrics, lessonText: string, act
 });
 
 describe("closing a project (route 29, T28)", () => {
-  it("refuses before maintenance, with a waiting fix card, and with actuals that miss a feature", async () => {
-    const { ctx, codeChangeId, featureId } = await inMaintenance();
-    await setStage(db, ctx.projectId, "maintenance", "launch");
+  it("refuses outside launch, before the readiness report, and with actuals that miss a feature", async () => {
+    const { ctx, featureId } = await inLaunch(false);
+    await setStage(db, ctx.projectId, "launch", "e2e");
     expect((await closeRoute(ctx.projectId, [{ featureId, actualHours: 6 }])).status).toBe(409);
-    await setStage(db, ctx.projectId, "launch", "maintenance");
+    await setStage(db, ctx.projectId, "e2e", "launch");
 
-    const gateId = await waitingFix(ctx, codeChangeId);
-    const waiting = await closeRoute(ctx.projectId, [{ featureId, actualHours: 6 }]);
-    expect(waiting.status).toBe(409);
-    expect(waiting.body.error).toMatchObject({ guard: "gate" });
-    expect((waiting.body.error as { reason: string }).reason).toMatch(/CARD-02/);
-
-    // A fix rejected at G6 no longer holds the close back.
-    const gates = (await rest(ctx.projectId, "GET", `/api/projects/${ctx.projectId}/gates`)).body
-      .gates as GateView[];
-    const g6 = gates.find((g) => g.id === gateId)!;
-    await rest(ctx.projectId, "POST", `/api/gates/${gateId}/decision`, {
-      version: g6.version,
-      decision: "reject",
-      reason: "Not a bug.",
+    const early = await closeRoute(ctx.projectId, [{ featureId, actualHours: 6 }]);
+    expect(early.status).toBe(409);
+    expect(early.body.error).toMatchObject({
+      guard: "gate",
+      reason: "There is no readiness report yet.",
     });
+
+    await readinessReport(ctx);
     expect((await closeRoute(ctx.projectId, [])).status).toBe(400);
     expect(
       (
@@ -328,14 +315,14 @@ describe("closing a project (route 29, T28)", () => {
       kind: "curator",
       status: "claimed",
     });
-    // A second close is refused: the project is no longer in maintenance.
+    // A second close is refused: the project is no longer in launch.
     expect((await closeRoute(ctx.projectId, [{ featureId, actualHours: 7 }])).status).toBe(409);
   });
 });
 
 describe("the Curator's case study (task 5.4)", () => {
   it("recalls the metrics (an H4 reopen counts), the features with actual hours and the entities", async () => {
-    const { ctx, card, featureId } = await inMaintenance();
+    const { ctx, card, featureId } = await inLaunch();
     const { version } = await props(ctx.graph, card);
     const reopened = await rest(ctx.projectId, "PATCH", `/api/tasks/${card}`, {
       version,
@@ -343,6 +330,9 @@ describe("the Curator's case study (task 5.4)", () => {
     });
     expect(reopened.status).toBe(200);
     expect(await props(ctx.graph, card)).toMatchObject({ reopened: 1 });
+    // T30 sent the project back to build; the reopen still counts once it is in launch again.
+    expect(await stage(ctx.projectId)).toMatchObject({ stage: "build" });
+    await setStage(db, ctx.projectId, "build", "launch");
 
     const res = await closeRoute(ctx.projectId, [{ featureId, actualHours: 6 }]);
     const workItemId = res.body.workItemId as string;
@@ -356,7 +346,6 @@ describe("the Curator's case study (task 5.4)", () => {
       contradictions: 0,
       changeRequests: 0,
       cardsReopened: 1,
-      defects: 0,
       cards: 1,
       firstPassCards: 0, // its commit has no test run
       clarityBand: "high",

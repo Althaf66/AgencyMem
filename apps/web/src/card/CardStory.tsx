@@ -41,7 +41,7 @@ function Step(props: { icon: LucideIcon; title: string; done: boolean; children:
 
 function Story({ s, card }: { s: AppState; card: CardView }) {
   const project = s.projectId ?? "";
-  const g5 = s.gates.data?.find((g) => g.key === "G5");
+  const report = s.readiness.data;
   const commits = [...card.commits].sort((a, b) => a.committedAt - b.committedAt);
   return (
     <>
@@ -119,11 +119,11 @@ function Story({ s, card }: { s: AppState; card: CardView }) {
             <p className="muted">Not merged yet.</p>
           )}
         </Step>
-        <Step icon={Rocket} title="Launch" done={g5?.status === "approved"}>
+        <Step icon={Rocket} title="Launch" done={!!report?.passed}>
           <p className="muted">
-            {g5
-              ? `G5 ${g5.status}${g5.decidedBy ? ` by ${g5.decidedBy}` : ""}`
-              : "G5 not open yet."}
+            {report
+              ? `Readiness ${report.passed ? "passed" : report.override ? "failed, closed anyway" : "failed"}`
+              : "No readiness report yet."}
           </p>
           <a className="button" href={`#/p/${project}/preview`}>
             <Monitor className="icon" aria-hidden="true" />

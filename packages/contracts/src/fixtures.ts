@@ -32,7 +32,6 @@ export const TruthSheet = z.object({
       newValue: z.string(),
     }),
   ),
-  defect: z.object({ text: z.string(), subject: z.string(), attribute: z.string() }),
 });
 export type TruthSheet = z.infer<typeof TruthSheet>;
 

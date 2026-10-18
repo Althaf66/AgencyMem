@@ -218,10 +218,5 @@
       "attribute": "cutoff",
       "newValue": "1 hour before"
     }
-  ],
-  "defect": {
-    "text": "A patient booked a slot at 1:20 pm on Tuesday, but the doctors are at lunch then.",
-    "subject": "clinic",
-    "attribute": "lunch_break"
-  }
+  ]
 }

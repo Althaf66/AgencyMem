@@ -11,7 +11,7 @@ Own rules:
   and the likely cause in general terms (unclear notes, late changes, hidden rules).
   At most 300 characters.
 - lessonsLearned: at most 1,500 characters about the process: questions that saved
-  rework, change requests and their cost, defects.
+  rework, change requests and their cost.
 - Write exactly one lesson for each featureKind in `features`.
 
 Output schema:

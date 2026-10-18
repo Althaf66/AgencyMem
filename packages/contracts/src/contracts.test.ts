@@ -38,8 +38,6 @@ import {
   WriteCardsInput,
   WriteQuestionInput,
   AnswerResponse,
-  BugReportBody,
-  BugReportResponse,
   ChangeRequestBody,
   ChangeRequestResponse,
   ChatBody,
@@ -114,7 +112,6 @@ const metrics = {
   contradictions: 5,
   changeRequests: 1,
   cardsReopened: 2,
-  defects: 1,
   cards: 8,
   firstPassCards: 6,
   clarityBand: "medium",
@@ -189,7 +186,6 @@ const gateView = {
   reason: null,
   canDecide: true,
   blockedBy: [],
-  task: null,
 };
 const documentInfo = {
   id: ID,
@@ -467,7 +463,6 @@ const toolFixtures: Record<ToolName, { input: unknown; output: unknown }> = {
       episodes: [
         { documentName: "notes.md", page: 1, lineStart: 1, lineEnd: 2, excerpt: "Book online" },
       ],
-      defect: null,
       conventions: { testIdRule: "kebab-case data-testid", stack: "Node 22, node:sqlite" },
       truncated: false,
       chars: 900,
@@ -476,21 +471,6 @@ const toolFixtures: Record<ToolName, { input: unknown; output: unknown }> = {
   complete_task: {
     input: { taskId: ID, version: 3 },
     output: { task: { id: ID, key: "CARD-01", column: "Done", version: 4 } },
-  },
-  report_defect: {
-    input: {
-      itemId: ID,
-      title: "Booking fails on Saturday",
-      severity: "high",
-      codeChangeId: ID2,
-      reportEpisodeId: ID,
-      reasoning: "The commit changed the day check",
-    },
-    output: { defectId: ID },
-  },
-  propose_fix: {
-    input: { itemId: ID, defectId: ID2, card },
-    output: { taskId: ID, gateId: ID2 },
   },
   write_case_study: {
     input: {
@@ -627,8 +607,6 @@ const nodeFixtures: Record<NodeLabel, unknown> = {
     committedAt: NOW,
     linked: true,
   },
-  Defect: { ...base, title: "Saturday bug", severity: "high", status: "open" },
-  Deployment: { ...base, environment: "staging", deployedAt: NOW, deployedBy: "human:ana" },
   Run: { ...base, ...run, agent: "intake", itemId: ID2 },
   ReadinessReport: { ...base, passed: true, checks: JSON.stringify([check]), override: false },
   EstimateRecord: {
@@ -839,7 +817,6 @@ const restFixtures: [string, z.ZodType, unknown][] = [
       lanes: [{ lane: "Frontend", done: 1, total: 3 }],
       coverage: { covered: 1, total: 4 },
       openAssumptions: 0,
-      openDefects: 0,
       seq: 7,
     },
   ],
@@ -907,7 +884,6 @@ const restFixtures: [string, z.ZodType, unknown][] = [
           price: { inPerMillion: 0.1, outPerMillion: 0.5 },
         },
       ],
-      backtraceMs: null,
       seq: 9,
     },
   ],
@@ -917,8 +893,6 @@ const restFixtures: [string, z.ZodType, unknown][] = [
     ReadinessResponse,
     { report: { id: ID, passed: true, override: false, checks: [check], createdAt: NOW } },
   ],
-  ["BugReportBody", BugReportBody, { text: "Saturday booking fails" }],
-  ["BugReportResponse", BugReportResponse, { episodeId: ID, workItemId: ID2 }],
   ["CloseProjectBody", CloseProjectBody, { actuals: [{ featureId: ID, actualHours: 9 }] }],
   ["CloseProjectResponse", CloseProjectResponse, { project: projectInfo, workItemId: ID }],
   ["RetryItemBody", RetryItemBody, {}],
@@ -991,8 +965,8 @@ const restFixtures: [string, z.ZodType, unknown][] = [
 ];
 
 describe("contracts fixtures", () => {
-  it("define all 21 MCP tools", () => {
-    expect(ToolName.options).toHaveLength(21);
+  it("define all 19 MCP tools", () => {
+    expect(ToolName.options).toHaveLength(19);
     expect(Object.keys(tools).sort()).toEqual([...ToolName.options].sort());
   });
 

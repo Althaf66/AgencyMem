@@ -223,10 +223,5 @@
       "attribute": "limit",
       "newValue": "3 per phone per week"
     }
-  ],
-  "defect": {
-    "text": "A patient booked a third session this week. The limit is two.",
-    "subject": "booking",
-    "attribute": "limit"
-  }
+  ]
 }

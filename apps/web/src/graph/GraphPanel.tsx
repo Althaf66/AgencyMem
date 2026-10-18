@@ -19,14 +19,12 @@ const DEFAULT_LAYOUT: Record<GraphViewName, Layout> = {
   all: "Network",
   why: "Orbit",
   impact: "Flow",
-  backtrace: "Flow",
   read: "Orbit",
 };
 const VIEWS: { view: GraphViewName; name: string; labels: string[] | null }[] = [
   { view: "all", name: "All", labels: null },
   { view: "why", name: "Why", labels: null },
   { view: "impact", name: "Impact", labels: ["Fact"] },
-  { view: "backtrace", name: "Backtrace", labels: ["Defect"] },
   // What a work item or card read from the graph (its RECALLED edges).
   { view: "read", name: "Read", labels: ["WorkItem", "Task"] },
 ];

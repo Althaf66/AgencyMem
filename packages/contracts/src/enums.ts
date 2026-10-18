@@ -9,7 +9,6 @@ export const AgentId = z.enum([
   "planner",
   "test",
   "launch",
-  "maintenance",
   "curator",
   "build",
 ]);
@@ -27,7 +26,6 @@ export const Stage = z.enum([
   "build",
   "e2e",
   "launch",
-  "maintenance",
   "case_study",
   "closed",
 ]);
@@ -48,7 +46,6 @@ export const WorkItemKind = z.enum([
   "e2e",
   "merge",
   "launch",
-  "maintenance",
   "curator",
 ]);
 export type WorkItemKind = z.infer<typeof WorkItemKind>;
@@ -62,22 +59,16 @@ export type Column = z.infer<typeof Column>;
 export const Lane = z.enum(["Frontend", "Backend", "UI", "Tests", "Deployment"]);
 export type Lane = z.infer<typeof Lane>;
 
-export const TaskKind = z.enum(["build", "fix"]);
+export const TaskKind = z.enum(["build"]);
 export type TaskKind = z.infer<typeof TaskKind>;
 
-export const GateKey = z.enum(["G1", "G2", "G3", "G5", "G6"]);
+export const GateKey = z.enum(["G1", "G2", "G3"]);
 export type GateKey = z.infer<typeof GateKey>;
 
 export const GateStatus = z.enum(["waiting", "approved", "rejected"]);
 export type GateStatus = z.infer<typeof GateStatus>;
 
-export const EpisodeKind = z.enum([
-  "file_chunk",
-  "answer",
-  "human_edit",
-  "change_request",
-  "bug_report",
-]);
+export const EpisodeKind = z.enum(["file_chunk", "answer", "human_edit", "change_request"]);
 export type EpisodeKind = z.infer<typeof EpisodeKind>;
 
 export const QuestionKind = z.enum(["contradiction", "open", "unclear"]);
@@ -100,12 +91,6 @@ export type Priority = z.infer<typeof Priority>;
 
 export const ChangeRequestStatus = z.enum(["open", "applied", "no_change", "needs_scope"]);
 export type ChangeRequestStatus = z.infer<typeof ChangeRequestStatus>;
-
-export const DefectSeverity = z.enum(["low", "medium", "high"]);
-export type DefectSeverity = z.infer<typeof DefectSeverity>;
-
-export const DefectStatus = z.enum(["open", "fixing", "fixed", "wont_fix"]);
-export type DefectStatus = z.infer<typeof DefectStatus>;
 
 export const Doc = z.enum(["prd", "tdd", "plan"]);
 export type Doc = z.infer<typeof Doc>;

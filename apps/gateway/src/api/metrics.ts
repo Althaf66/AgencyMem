@@ -1,6 +1,6 @@
 // Routes 24 and 25 of contracts.md section 8: the health panel's numbers, all read from the graph.
 // Counts come from read/case-metrics (approved decision 15), coverage from read/progress (as the
-// progress header), rejection counters and backtraceMs from the registry Project, tokens and cost
+// progress header), rejection counters from the registry Project, tokens and cost
 // from the Run nodes by agent and model, priced from the meter's table. Project names come from the registry, so the agency graph stays anonymous.
 import express, { type Router } from "express";
 import { AgencyMetrics, FeatureKind, PRICES, ProjectMetrics, costOf } from "@agencymem/contracts";
@@ -23,7 +23,6 @@ type Counters = {
   rejectedClaims?: number;
   rejectedCompletions?: number;
   rejectedQueries?: number;
-  backtraceMs?: number;
 };
 
 const perCR = (reopened: number, crs: number) => (crs ? reopened / crs : null);
@@ -87,7 +86,6 @@ export function metricsRouter(deps: { db: () => Promise<FalkorDB>; events: Event
         tokensOut: sum("tokensOut"),
         cost: sum("cost"),
         models,
-        backtraceMs: p.backtraceMs ?? null,
         seq,
       }),
     );

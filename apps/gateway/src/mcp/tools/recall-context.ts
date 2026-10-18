@@ -19,14 +19,13 @@ type ReadinessRow = {
   cards: number;
   notDone: string[];
   openAssumptions: string[];
-  openDefects: string[];
   requirements: number;
 };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 /**
- * The Launch agent's four graph checks (agent-prompts.md section 10). A check passes when no node
+ * The Launch agent's three graph checks (agent-prompts.md section 10). A check passes when no node
  * fails it; `uncovered` are coverage.cypher's rows (task 5.1).
  */
 export function readinessChecks(row: ReadinessRow, uncovered: string[]): ReadinessCheck[] {
@@ -60,7 +59,6 @@ export function readinessChecks(row: ReadinessRow, uncovered: string[]): Readine
       plural(row.openAssumptions.length, "open assumption"),
       "none",
     ),
-    check("open_defects", row.openDefects, plural(row.openDefects.length, "open defect"), "none"),
   ];
 }
 
@@ -371,39 +369,6 @@ export async function recallContextTool(
       committedAt: c.committedAt,
       linked: c.linked,
     }));
-  }
-
-  // agent-prompts.md section 8: the bug report, the product, every card with its criteria, the
-  // linked commits and the design.
-  if (item.kind === "maintenance" && item.subjectId) {
-    const report = await findOwn(ctx, item.subjectId, "Episode");
-    if (report.ok) {
-      context.defect = { reportEpisodeId: item.subjectId, text: String(report.output.text) };
-    }
-    context.requirements = (await currentProduct()).requirements;
-    context.tasks = await readQuery<Ctx["tasks"][number]>(ctx.db, graph, "read/task", {
-      projectId,
-      taskId: null,
-    });
-    const changes = await readQuery<NonNullable<Context["codeChanges"]>[number]>(
-      ctx.db,
-      graph,
-      "read/code-change",
-      { projectId, id: null },
-    );
-    context.codeChanges = changes
-      .filter((c) => c.linked)
-      .map((c) => ({
-        id: c.id,
-        sha: c.sha,
-        branch: c.branch,
-        taskKey: c.taskKey,
-        files: c.files,
-        message: c.message,
-        committedAt: c.committedAt,
-        linked: c.linked,
-      }));
-    context.design = await readDesign(ctx.db, graph, projectId);
   }
 
   // agent-prompts.md section 9: the case metrics, the features with their actual hours, and the

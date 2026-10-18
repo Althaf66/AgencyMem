@@ -28,7 +28,6 @@ export async function readCase(
     questions: 0,
     contradictions: 0,
     changeRequests: 0,
-    defects: 0,
     features: [],
     cards: [],
   };

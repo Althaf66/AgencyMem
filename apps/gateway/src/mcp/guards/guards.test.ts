@@ -146,9 +146,9 @@ describe("ownership", () => {
       reasonCode: "ITEM_KIND_NOT_OWNED",
       details: { kind: "intake" },
     });
-    // planner owns Task, but propose_fix is for maintenance items.
+    // planner owns Task, but write_cards is for planner and replan items.
     const planner = { kind: "agent", agent: "planner" } as const;
-    expect(ownership(planner, "propose_fix", { itemKind: "planner" })?.reasonCode).toBe(
+    expect(ownership(planner, "write_cards", { itemKind: "write_tests" })?.reasonCode).toBe(
       "ITEM_KIND_NOT_OWNED",
     );
     // A tool pinned to item kinds needs the item's kind.

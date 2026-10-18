@@ -5,14 +5,12 @@ import { completeItemTool } from "./complete-item";
 import { completeTaskTool } from "./complete-task";
 import type { Outcome, ToolCtx } from "./common";
 import { findImpactTool } from "./find-impact";
-import { proposeFixTool } from "./propose-fix";
 import { getTaskContextTool } from "./get-task-context";
 import { heartbeatTool } from "./heartbeat";
 import { readQueryTool } from "./read-query";
 import { recordChangeRequestTool } from "./record-change-request";
 import { recallContextTool } from "./recall-context";
 import { recorded } from "./recalled";
-import { reportDefectTool } from "./report-defect";
 import { submitTestRunTool } from "./submit-test-run";
 import { writeCardsTool } from "./write-cards";
 import { writeCaseStudyTool } from "./write-case-study";
@@ -45,8 +43,6 @@ export const HANDLERS: { [K in ToolName]?: Handler<K> } = {
   write_cards: writeCardsTool,
   write_tests: writeTestsTool,
   submit_test_run: submitTestRunTool,
-  report_defect: reportDefectTool,
-  propose_fix: proposeFixTool,
   write_case_study: writeCaseStudyTool,
   find_impact: findImpactTool,
   read_query: readQueryTool,

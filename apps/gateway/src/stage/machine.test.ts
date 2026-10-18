@@ -29,13 +29,10 @@ const fresh: StageState = {
   buildCards: { total: 0, merged: 0 },
   buildBlockers: 0,
   lastE2e: null,
-  g5: null,
-  unopenedBugs: [],
-  approvedFixes: [],
   closedAt: null,
   curatorDone: false,
 };
-const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3", "G5"];
+const ALL_GATES: StageState["gates"] = ["G1", "G2", "G3"];
 const intakeDone = (over: Partial<StageState> = {}): StageState => ({
   ...fresh,
   gates: ALL_GATES,
@@ -64,14 +61,14 @@ const answerDone = {
 
 const rows: [string, StageState, StageEvent, StageResult][] = [
   [
-    "T1 project created: gates G1, G2, G3 and G5, stage intake",
+    "T1 project created: gates G1, G2 and G3, stage intake",
     fresh,
     { type: "project_created", actor: ana },
-    { effects: [{ type: "create_gates", keys: ["G1", "G2", "G3", "G5"], createdBy: ana }] },
+    { effects: [{ type: "create_gates", keys: ["G1", "G2", "G3"], createdBy: ana }] },
   ],
   [
     "T2 files uploaded: an intake item per processed Document, none for no_text or failed",
-    { ...fresh, gates: ["G1", "G2", "G3", "G5"] },
+    { ...fresh, gates: ["G1", "G2", "G3"] },
     {
       type: "files_uploaded",
       actor: ana,
@@ -100,7 +97,7 @@ const rows: [string, StageState, StageEvent, StageResult][] = [
     { type: "startup" },
     {
       effects: [
-        { type: "create_gates", keys: ["G2", "G5"], createdBy: ana },
+        { type: "create_gates", keys: ["G2"], createdBy: ana },
         {
           type: "open_item",
           kind: "intake",
@@ -209,7 +206,7 @@ const rows: [string, StageState, StageEvent, StageResult][] = [
   ],
   [
     "startup with nothing half done does nothing",
-    { ...fresh, gates: ["G1", "G2", "G3", "G5"] },
+    { ...fresh, gates: ["G1", "G2", "G3"] },
     { type: "startup" },
     { effects: [] },
   ],
@@ -715,12 +712,6 @@ rows.push(
     { effects: [] },
   ],
   [
-    "T20 does not apply to a fix card merged in maintenance",
-    merged({ stage: "maintenance" }),
-    mergeDone,
-    { effects: [] },
-  ],
-  [
     "T20 a change request that flagged nothing finishes after the last merge: opens e2e",
     merged(),
     { ...crDone, subjectId: "01JA00000000000000000000C9" },
@@ -792,75 +783,14 @@ rows.push(
   ],
 );
 
-// T23 (task 5.2): G5 approved records the Deployment (the route) and starts maintenance.
-const approveG5 = { type: "gate_decided", key: "G5", decision: "approve", actor: ana } as const;
-rows.push(
-  [
-    "T23 G5 approved: stage maintenance",
-    merged({ stage: "launch", g5: "approved" }),
-    approveG5,
-    { stage: "maintenance", effects: [] },
-  ],
-  [
-    "startup repairs a missed T23: in launch with G5 approved",
-    merged({ stage: "launch", g5: "approved" }),
-    { type: "startup" },
-    { stage: "maintenance", effects: [] },
-  ],
-  [
-    "startup leaves launch alone while G5 waits",
-    merged({ stage: "launch", g5: "waiting" }),
-    { type: "startup" },
-    { effects: [] },
-  ],
-);
-
-// T24 and T26 (task 5.3): a bug report opens maintenance; G6 approved opens the fix card's tests.
-const BUG = "01JA00000000000000000000B1";
-const FIX = "01JA00000000000000000000X1";
-const maintaining = (over: Partial<StageState> = {}) =>
-  merged({ stage: "maintenance", g5: "approved", ...over });
-const openMaintenance = (createdBy: Actor) =>
-  ({ type: "open_item", kind: "maintenance", subjectId: BUG, createdBy }) as const;
-rows.push(
-  [
-    "T24 a bug report: opens maintenance for its Episode",
-    maintaining(),
-    { type: "bug_reported", episodeId: BUG, actor: ana },
-    { effects: [openMaintenance(ana)] },
-  ],
-  [
-    "startup repairs a missed T24: a bug_report Episode with no maintenance item",
-    maintaining({ unopenedBugs: [{ episodeId: BUG, createdBy: ana }] }),
-    { type: "startup" },
-    { effects: [openMaintenance(ana)] },
-  ],
-  [
-    "T26 G6 approved: opens write_tests for the fix card",
-    maintaining(),
-    { type: "gate_decided", key: "G6", decision: "approve", taskId: FIX, actor: ana },
-    { effects: [{ type: "open_item", kind: "write_tests", subjectId: FIX, createdBy: ana }] },
-  ],
-  [
-    "startup repairs a missed T26: an approved G6 whose fix card got no write_tests item",
-    maintaining({ approvedFixes: [{ taskId: FIX, createdBy: ana }] }),
-    { type: "startup" },
-    { effects: [{ type: "open_item", kind: "write_tests", subjectId: FIX, createdBy: ana }] },
-  ],
-  [
-    "T27 G6 rejected: nothing more (the route wrote the Defect and the card note)",
-    maintaining(),
-    {
-      type: "gate_decided",
-      key: "G6",
-      decision: "reject",
-      reason: "Not a bug.",
-      taskId: FIX,
-      actor: ana,
-    },
-    { effects: [] },
-  ],
-);
+// The close (route 29) runs in launch: only a project_closed or closedAt moves it on (T28).
+const launched = (over: Partial<StageState> = {}) => merged({ stage: "launch", ...over });
+rows.push([
+  "startup leaves launch alone until the project is closed",
+  launched(),
+  { type: "startup" },
+  { effects: [] },
+]);
 
 // T28 and T29 (task 5.4): the close route starts the Curator; its item done closes the project.
 const openCurator = (createdBy: Actor) =>
@@ -868,43 +798,43 @@ const openCurator = (createdBy: Actor) =>
 rows.push(
   [
     "T28 the project closed: case_study, and the Curator starts",
-    maintaining(),
+    launched(),
     { type: "project_closed", actor: ana },
     { stage: "case_study", effects: [openCurator(ana)] },
   ],
   [
-    "startup repairs a missed T28: closedAt is written, the stage is still maintenance",
-    maintaining({ closedAt: 1 }),
+    "startup repairs a missed T28: closedAt is written, the stage is still launch",
+    launched({ closedAt: 1 }),
     { type: "startup" },
     { stage: "case_study", effects: [openCurator(ana)] },
   ],
   [
     "T29 the curator item done: closed",
-    maintaining({ stage: "case_study", closedAt: 1 }),
+    launched({ stage: "case_study", closedAt: 1 }),
     { type: "item_completed", kind: "curator", outcome: "done", actor: "curator" },
     { stage: "closed", effects: [] },
   ],
   [
     "startup repairs a missed T29: a curator item is done, the stage is still case_study",
-    maintaining({ stage: "case_study", closedAt: 1, curatorDone: true }),
+    launched({ stage: "case_study", closedAt: 1, curatorDone: true }),
     { type: "startup" },
     { stage: "closed", effects: [] },
   ],
   [
-    "a late project_closed changes nothing once the project left maintenance",
-    maintaining({ stage: "closed", closedAt: 1, curatorDone: true }),
+    "a late project_closed changes nothing once the project left launch",
+    launched({ stage: "closed", closedAt: 1, curatorDone: true }),
     { type: "project_closed", actor: ana },
     { effects: [] },
   ],
   [
     "a curator item done outside case_study changes nothing",
-    maintaining({ stage: "closed", closedAt: 1, curatorDone: true }),
+    launched({ stage: "closed", closedAt: 1, curatorDone: true }),
     { type: "item_completed", kind: "curator", outcome: "done", actor: "curator" },
     { effects: [] },
   ],
   [
     "a failed curator item leaves the project in case_study",
-    maintaining({ stage: "case_study", closedAt: 1 }),
+    launched({ stage: "case_study", closedAt: 1 }),
     { type: "item_completed", kind: "curator", outcome: "failed", actor: "curator" },
     { effects: [] },
   ],

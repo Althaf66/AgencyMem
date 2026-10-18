@@ -79,19 +79,20 @@ export async function setStage(
   return rows.length > 0;
 }
 
-/** Route 19: the last backtrace query time on the Project (approved decision 5, task 5.6). */
-export async function setBacktraceMs(db: FalkorDB, projectId: string, ms: number): Promise<void> {
-  await writeQuery(db, REGISTRY_GRAPH, "write/backtrace-ms", { projectId, ms });
-}
-
 /**
- * Route 29 (T28): the actual hours on each Feature (client graph), then closedAt on the Project
- * (registry). Two graphs, so two queries; a crash between them leaves the project in maintenance
- * and the route can run again. Returns the Features written, and whether closedAt was set.
+ * Route 29 (T28): the actual hours on each Feature and, over a failed readiness report, the override
+ * reason on that report (client graph), then closedAt on the Project (registry). Two graphs, so
+ * separate queries; a crash between them leaves the project in launch and the route can run again.
+ * Returns the Features written, and whether closedAt was set.
  */
 export async function closeProject(
   ctx: Ctx,
-  input: { actuals: { featureId: string; actualHours: number }[]; now: number },
+  input: {
+    actuals: { featureId: string; actualHours: number }[];
+    /** Set only when the newest readiness report failed. */
+    overrideReason: string | null;
+    now: number;
+  },
 ): Promise<{ features: { id: string; version: number }[]; closed: boolean }> {
   const features = await writeQuery<{ id: string; version: number }>(
     ctx.db,
@@ -99,6 +100,12 @@ export async function closeProject(
     "write/feature-actuals",
     { projectId: ctx.projectId, actuals: input.actuals },
   );
+  if (input.overrideReason !== null) {
+    await writeQuery(ctx.db, ctx.graph, "write/override-readiness", {
+      projectId: ctx.projectId,
+      reason: input.overrideReason,
+    });
+  }
   const closed = await writeQuery(ctx.db, REGISTRY_GRAPH, "write/close-project", {
     projectId: ctx.projectId,
     now: input.now,

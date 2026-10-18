@@ -193,10 +193,5 @@
       "attribute": "max_days_ahead",
       "newValue": "14"
     }
-  ],
-  "defect": {
-    "text": "The calendar lets parents pick a slot on Saturday, but the clinic is closed.",
-    "subject": "clinic",
-    "attribute": "open_days"
-  }
+  ]
 }

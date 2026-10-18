@@ -16,6 +16,7 @@
     "check:cypher": "tsx scripts/no-inline-cypher.ts",
     "test": "vitest run",
     "seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
+    "migrate:scope-cut": "tsx --env-file-if-exists=.env scripts/migrate-scope-cut.ts",
     "sim:run": "tsx --env-file-if-exists=.env apps/simulator/src/main.ts",
     "cost:report": "tsx --env-file-if-exists=.env scripts/cost-report.ts",
     "list:cypher": "tsx scripts/list-cypher.ts",

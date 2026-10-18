@@ -125,7 +125,11 @@ export function DocsView({ s, doc }: { s: AppState; doc: Doc }) {
       <h2>Documents</h2>
       <nav className="tabs">
         {TABS.map(([key, name]) => (
-          <a key={key} href={`#/p/${s.projectId}/docs/${key}`} className={key === doc ? "active" : ""}>
+          <a
+            key={key}
+            href={`#/p/${s.projectId}/docs/${key}`}
+            className={key === doc ? "active" : ""}
+          >
             {name}
           </a>
         ))}

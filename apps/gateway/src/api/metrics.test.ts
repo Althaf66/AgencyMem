@@ -14,7 +14,6 @@ import {
   deleteTestAgency,
   deleteTestClient,
   setStage,
-  setBacktraceMs,
   writeCaseStudy,
   writeDocument,
   writeFacts,
@@ -55,8 +54,8 @@ const get = async (path: string) => {
   return { status: res.status, body: (await res.json()) as unknown };
 };
 
-/** A closed project: FEAT-01 (estimate 5 h, actual 4 h) that used one Lesson, two Runs, three
- * rejections and a backtrace time. */
+/** A closed project: FEAT-01 (estimate 5 h, actual 4 h) that used one Lesson, two Runs and three
+ * rejections. */
 async function closedProject() {
   const now = Date.now();
   const { project, client } = await createProject(db, {
@@ -79,7 +78,6 @@ async function closedProject() {
       contradictions: 0,
       changeRequests: 0,
       cardsReopened: 0,
-      defects: 0,
       cards: 0,
       firstPassCards: 0,
       clarityBand: "medium",
@@ -135,8 +133,12 @@ async function closedProject() {
     createdBy: "proposal",
     now,
   }))!;
-  await setStage(db, project.id, "intake", "maintenance");
-  await closeProject(ctx, { actuals: [{ featureId: featureIds[0]!, actualHours: 4 }], now });
+  await setStage(db, project.id, "intake", "launch");
+  await closeProject(ctx, {
+    actuals: [{ featureId: featureIds[0]!, actualHours: 4 }],
+    overrideReason: null,
+    now,
+  });
 
   const run = (tokensIn: number, tokensOut: number, cost: number, model = "m") =>
     writeRun(ctx, {
@@ -152,7 +154,6 @@ async function closedProject() {
   await countRejection(db, project.id, "rejectedClaims");
   await countRejection(db, project.id, "rejectedClaims");
   await countRejection(db, project.id, "rejectedWrites");
-  await setBacktraceMs(db, project.id, 7);
   return { projectId: project.id, lessonId };
 }
 
@@ -170,7 +171,6 @@ describe("health metrics (routes 24 and 25)", () => {
       coverage: { covered: 0, total: 1 },
       tokensIn: 1_000_400,
       tokensOut: 1_000_060,
-      backtraceMs: 7,
     });
     const m = ProjectMetrics.parse(body);
     expect(m.cost).toBeCloseTo(1.35); // 0.75 recorded + 0.10 + 0.50 priced

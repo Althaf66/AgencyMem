@@ -24,8 +24,6 @@ CREATE INDEX FOR (n:Task) ON (n.id);
 CREATE INDEX FOR (n:TestCase) ON (n.id);
 CREATE INDEX FOR (n:TestRun) ON (n.id);
 CREATE INDEX FOR (n:CodeChange) ON (n.id);
-CREATE INDEX FOR (n:Defect) ON (n.id);
-CREATE INDEX FOR (n:Deployment) ON (n.id);
 CREATE INDEX FOR (n:Run) ON (n.id);
 CREATE INDEX FOR (n:ReadinessReport) ON (n.id);
 

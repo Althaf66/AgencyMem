@@ -141,8 +141,6 @@ export function createApi(opts: ApiOptions) {
       call(PathResponse, "GET", `/api/projects/${id}/impact/${nodeId}`),
     recalled: (id: string, nodeId: string) =>
       call(PathResponse, "GET", `/api/projects/${id}/recalled/${nodeId}`),
-    backtrace: (id: string, nodeId: string) =>
-      call(PathResponse, "GET", `/api/projects/${id}/backtrace/${nodeId}`),
     events: (id: string) => call(EventsResponse, "GET", `/api/projects/${id}/events`),
     commitDiff: (id: string, sha: string) =>
       call(CommitDiffResponse, "GET", `/api/projects/${id}/commits/${sha}/diff`),
@@ -192,8 +190,5 @@ export type DecisionInput = {
   version: number;
   decision: "approve" | "reject";
   reason?: string;
-  /** G5 only. */
-  environment?: string;
-  override?: boolean;
 };
 export type Api = ReturnType<typeof createApi>;

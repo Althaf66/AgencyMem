@@ -94,7 +94,7 @@ async function setup() {
   });
   const ctx: Ctx = { db, graph: `client_${client.id}`, projectId: project.id };
   graphs.add(ctx.graph);
-  await createGates(ctx, { keys: ["G1", "G2", "G3", "G5"], createdBy: "human:test", now });
+  await createGates(ctx, { keys: ["G1", "G2", "G3"], createdBy: "human:test", now });
   await setStage(db, project.id, "intake", "build");
   const { episodeIds } = await writeDocument(ctx, {
     name: "kickoff-notes.pdf",
@@ -440,7 +440,6 @@ describe("board, progress and retry (routes 12, 14, 15, 31)", () => {
       leaseHolder: null,
       requirementKey: "REQ-01",
       commits: [],
-      gate: null,
     });
     expect(one.criteria.map((k) => k.testCaseCount)).toEqual([1, 1]);
     expect(snapshot.cards.find((c) => c.key === "CARD-04")).toMatchObject({
@@ -503,7 +502,7 @@ describe("board, progress and retry (routes 12, 14, 15, 31)", () => {
     const res = await fetch(`${base}/api/projects/${ctx.projectId}/progress`, { headers: ui });
     const progress = (await res.json()) as ProgressView;
     expect(progress.stage).toBe("build");
-    expect(progress.gates.map((g) => g.key)).toEqual(["G1", "G2", "G3", "G5"]);
+    expect(progress.gates.map((g) => g.key)).toEqual(["G1", "G2", "G3"]);
     expect(progress.lanes).toEqual(
       expect.arrayContaining([
         { lane: "Backend", done: 1, total: 3 },
@@ -511,7 +510,6 @@ describe("board, progress and retry (routes 12, 14, 15, 31)", () => {
       ]),
     );
     expect(progress.coverage).toEqual({ covered: 0, total: 2 });
-    expect(progress.openDefects).toBe(0);
     const lane = await fetch(`${base}/api/projects/${ctx.projectId}/progress/lane:Backend`, {
       headers: ui,
     });

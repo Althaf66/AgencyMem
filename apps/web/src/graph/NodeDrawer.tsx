@@ -1,6 +1,6 @@
 // The node drawer (ui.md graph panel): one node from route 6 with its label, properties and links,
-// and the views that fit its label: Why (any node), Impact (a Fact), Backtrace (a Defect). An ended
-// fact names the fact that replaced it.
+// and the views that fit its label: Why (any node), Impact (a Fact). An ended fact names the fact
+// that replaced it.
 import { useEffect, useState } from "react";
 import { graphHash } from "../shell/router";
 import type { AppState } from "../store";
@@ -54,7 +54,6 @@ export function NodeDrawer(props: {
           <nav className="row">
             <a href={graphHash(project, "why", nodeId)}>Why</a>
             {label === "Fact" && <a href={graphHash(project, "impact", nodeId)}>Impact</a>}
-            {label === "Defect" && <a href={graphHash(project, "backtrace", nodeId)}>Backtrace</a>}
             {(label === "WorkItem" || label === "Task") && (
               <a href={graphHash(project, "read", nodeId)}>What it read</a>
             )}

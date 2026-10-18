@@ -67,7 +67,6 @@ function big(): Out {
       lineEnd: i,
       excerpt: `${i}${long(1999)}`,
     })),
-    defect: null,
     conventions: { testIdRule: "r", stack: "s" },
     truncated: false,
     chars: 0,
@@ -377,7 +376,6 @@ describe("get_task_context", () => {
       expect(e.page).toBe(1);
     }
     expect(context.codeChanges).toEqual([]);
-    expect(context.defect).toBeNull();
     expect(context.conventions.testIdRule).toContain("data-testid");
   });
 

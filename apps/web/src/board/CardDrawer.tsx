@@ -14,15 +14,12 @@ function moves(card: CardView): Move[] {
   const out: Move[] = [];
   if (card.column === "Backlog" || card.column === "Rework") {
     const missing = card.criteria.filter((k) => k.testCaseCount === 0).map((k) => k.key);
-    const fixWaits = card.kind === "fix" && card.gate?.status !== "approved";
     out.push({
       label: "Move to Ready",
       patch: { column: "Ready" },
       refused: missing.length
         ? `H2: every criterion needs a TestCase first (${missing.join(", ")}).`
-        : fixWaits
-          ? "H2: a fix card needs its G6 approved first."
-          : null,
+        : null,
     });
   }
   if (card.column === "Ready") {

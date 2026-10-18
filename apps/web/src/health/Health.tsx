@@ -66,7 +66,7 @@ function Numbers({ m }: { m: Metrics }) {
       <li>{`Questions ${m.questions} · Contradictions ${m.contradictions}`}</li>
       <li>{`Cards reopened per CR ${m.cardsReopenedPerCR === null ? "none" : m.cardsReopenedPerCR.toFixed(1)}`}</li>
       <li>{`Rejected: claims ${r.claims} · writes ${r.writes} · completions ${r.completions} · queries ${r.queries}`}</li>
-      <li>{`Coverage ${m.coverage.covered}/${m.coverage.total} · Backtrace ${m.backtraceMs === null ? "none" : `${m.backtraceMs} ms`}`}</li>
+      <li>{`Coverage ${m.coverage.covered}/${m.coverage.total}`}</li>
       <li>{`Tokens ${Math.round((m.tokensIn + m.tokensOut) / 1000)}k · Cost $${m.cost.toFixed(2)}`}</li>
     </ul>
   );
