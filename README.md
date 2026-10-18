@@ -56,7 +56,7 @@ client, the simulator and git hooks reach the graph only through the gateway.
 | `packages/llm`       | The OpenAI SDK client, the OpenRouter fallback, thin and deep tiers, and the token and cost meter |
 | `packages/ingest`    | PDF, DOCX, TXT and MD text extraction and the split into episodes                                 |
 
-Rules CI enforces (`pnpm deps`, `pnpm check:cypher`): the runner imports only contracts and llm;
+Rules the checks enforce (`pnpm deps`, `pnpm check:cypher`): the runner imports only contracts and llm;
 the web client and simulator talk to the gateway over HTTP and WebSocket; only `packages/memory`
 sends write Cypher; and no TypeScript file holds a Cypher string, so the list below is every query
 the product runs.
