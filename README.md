@@ -1,35 +1,42 @@
 # AgencyMem
 
-AgencyMem helps the delivery lead of a small software agency turn client meeting notes into an
-approved plan, a live Kanban board and tested code. Every result traces back to the client's
-words, and the graph remembers every turn the client had with the project.
+**Client meeting notes in, tested code out, and every step traced back to what the client said.**
 
-Nine agents share one memory: a FalkorDB graph that only one gateway may touch. Meeting notes
-become sourced facts; facts become questions, a proposal, design documents and cards; OpenCode
-builds each card through MCP; and the gateway closes a card only on the evidence of a real commit
-and a passing Playwright test.
+Nine AI agents share one memory: a FalkorDB graph. They turn agency's client notes into
+questions, a proposal, design documents, a Kanban board and working code. A card closes only on a
+real commit and a passing Playwright test.
 
-Four proof moments carry the demo:
+<!-- Demo GIF goes here -->
 
-1. **A contradiction question with its sources.** Discovery shows the two lines from two different
-   client files that disagree.
-2. **A change request flags only the linked cards.** One superseded fact moves exactly the cards
-   and document sections built on it to Rework.
-3. **A card is rejected without evidence.** No commit, or a failing test, and the card cannot close.
-4. **The project remembers what the client said, and when.** The Memory screen lists every file,
-   question, answer and change request in time order; pick one and it shows the facts the project
-   knew right after it, with the facts a change request ended struck through. Ask the project a
-   question there and the Discovery agent answers from the graph, cites its facts, and reads the
-   earlier questions and answers for a follow-up.
+## The problem
 
-## Tracks
+Software agencies or freelancers lose the client's words between the meeting and the code. Two client files
+disagree and nobody notices. A change request breaks cards nobody linked to it. Tickets reach
+"Done" with no commit or test. AI agents start every run blank and overwrite each other.
 
-- **Track 02 (Agent Memory and Coordination)**, primary: nine agents and up to two OpenCode workers
-  claim, lease and hand off work on one shared graph, behind guards that reject stale, foreign or
-  unproven writes. The graph is their memory: episodic, semantic and procedural, kept per client
-  and across sessions (see [How AgencyMem remembers](#how-agencymem-remembers)).
-- **Track 03 (Company Brain)**, secondary: every fact, question, requirement, card and test traces
-  back to the client's words (the why path), so the lead can ask where anything came from.
+**Who it's for:** the delivery lead of agency or freelancers who needs to answer "where did this come
+from?" and "what does this change break?" in seconds.
+
+**Four proof moments:**
+
+1. **Contradiction with sources.** Discovery shows the two lines from two client files that disagree.
+2. **Change request flags only linked cards.** One superseded fact moves exactly the cards and
+   document sections built on it to Rework.
+3. **No evidence, no Done.** No commit, or a failing test, and the card cannot close.
+4. **The project remembers.** The Memory screen replays every file, question, answer and change
+   request with the facts known at that moment. Ask the project a question and it answers with
+   cited facts.
+
+## Hackathon track
+
+Built for the [WeMakeDevs x FalkorDB hackathon](https://www.wemakedevs.org/hackathons/falkordb).
+
+- **Track 02 (Agent Memory and Coordination)**, primary. Agents keep no state of their own. Nine
+  agents and up to two OpenCode workers claim, lease and hand off work on one shared graph, behind
+  guards that reject stale, foreign or unproven writes. Kill the runner mid-card and a new one
+  finishes the project from the graph. That coordination problem is exactly what Track 02 asks for.
+- **Track 03 (Company Brain)**, secondary. Every fact, question, requirement, card and test traces
+  back to the client's words.
 
 ## Demo video
 
@@ -37,68 +44,103 @@ _Link to be added after recording (it shows the four proof moments)._
 
 ## Architecture
 
-One TypeScript monorepo (pnpm workspaces) with 4 apps and 5 packages. **One gateway process is the
-only door to FalkorDB**, and only the memory package sends write Cypher. Agents, OpenCode, the web
-client, the simulator and git hooks reach the graph only through the gateway.
+```
+ web client (React)  /  simulator  /  git post-commit hook
+                     |  REST + WebSocket
+                     v
+ +-----------------------------------------------+  Cypher  +---------------------+
+ | apps/gateway: the only door to FalkorDB       |--------->| FalkorDB            |
+ |   /mcp  /api  /ws  /hooks/commit              |          |   registry          |
+ |   guards: tenancy, ownership, gate, source,   |          |   client_<clientId> |
+ |           version, lease, evidence            |          |   agency            |
+ +-----------------------------------------------+          +---------------------+
+                     ^  MCP
+                     |
+ apps/runner: 7 model agents, Launch agent, 1-2 OpenCode build workers
+```
 
-| App              | Job                                                                                                                                                            | May import                       |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| `apps/gateway`   | Express 5 + `ws` on one server: the MCP endpoint (`/mcp`), the REST API (`/api`), live events (`/ws`), the git hook receiver (`/hooks/commit`) and every guard | contracts, graph, memory, ingest |
-| `apps/runner`    | The loops of the 7 model agents, the rule-based Launch agent, and 1 or 2 OpenCode build workers                                                                | contracts, llm                   |
-| `apps/web`       | Vite + React: board, graph panel, questionnaire, memory timeline, documents, gates and health. It draws only gateway events                                    | contracts                        |
-| `apps/simulator` | Demo mode: synthetic notes, the client persona, gate decisions and actual hours                                                                                | contracts, llm                   |
+- **One door.** Only the gateway talks to FalkorDB, and only `packages/memory` sends write Cypher.
+- **One write, one query.** A claim, version check or lease can never half-apply.
+- **Stages.** intake, discovery, proposal, design, planning, build, e2e, launch, closed, with
+  human gates G1 (questions), G2 (proposal) and G3 (design). A case_study stage exists in the code
+  for future work.
 
-| Package              | Holds                                                                                             |
-| -------------------- | ------------------------------------------------------------------------------------------------- |
-| `packages/contracts` | zod schemas and types for every MCP tool, REST body, WebSocket event and config variable          |
-| `packages/graph`     | The FalkorDB client, the router (project id to graph), the `.cypher` loader and app-side joins    |
-| `packages/memory`    | Every write function, lease and version logic: the only code that sends write Cypher              |
-| `packages/llm`       | The OpenAI SDK client, the OpenRouter fallback, thin and deep tiers, and the token and cost meter |
-| `packages/ingest`    | PDF, DOCX, TXT and MD text extraction and the split into episodes                                 |
+## Setup
 
-Rules the checks enforce (`pnpm deps`, `pnpm check:cypher`): the runner imports only contracts and llm;
-the web client and simulator talk to the gateway over HTTP and WebSocket; only `packages/memory`
-sends write Cypher; and no TypeScript file holds a Cypher string, so the list below is every query
-the product runs.
+**Prerequisites:** Node.js 22.13+, Docker, git, and an OpenAI-compatible LLM key.
 
-Every write goes through the guards, in this order: **tenancy, ownership, gate, source, version,
-lease, evidence**. A rejection is counted on the project and sent as a `write.rejected` event.
-Every write is one Cypher query, so a claim, a version check or a lease can never half-apply.
+```sh
+git clone https://github.com/Althaf66/AgencyMem.git && cd AgencyMem
+corepack enable                        # provides the pinned pnpm 11.28.0
+pnpm i
+npm install -g opencode-ai@1.18.32     # build workers run OpenCode
+npx playwright install chromium        # the Test agent runs Playwright
+cp .env.example .env                   # fill in the required keys below
+docker compose up -d                   # FalkorDB on port 6380
+pnpm seed                              # registry and agency graphs
+pnpm dev                               # gateway :4000, runner, web :5173
+```
 
-A project moves through intake, discovery, proposal, design, planning, build, e2e, launch and
-closed, with three human gates (G1 questions answered, G2 proposal, G3 design). After launch
-writes its readiness report, the lead closes the project with the actual hours of each feature.
-The code also has a case_study stage between launch and closed, where the Curator writes lessons;
-this submission's demo stops at launch, and that loop is future work (see below). Build workers run `opencode run` in a git worktree
-per card; OpenCode reads its card through the gateway's MCP tools, commits, and a post-commit hook
-records the commit in the graph; the Test agent runs the card's Playwright specs on that commit.
+Open **http://localhost:5173**, create a project and upload notes (PDF, DOCX, TXT or MD). Or run
+`pnpm sim:run` to watch three synthetic projects run end to end with a simulated client.
 
-Every MCP tool, REST body, WebSocket event and setting is a zod schema in
-[`packages/contracts/src/`](packages/contracts/src/).
+| Required in `.env`                                                     | What it is                                    |
+| ---------------------------------------------------------------------- | --------------------------------------------- |
+| `AM_AGENT_TOKEN`, `AM_UI_TOKEN`, `AM_HOOK_TOKEN`                       | Any long random strings                       |
+| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL_THIN`, `LLM_MODEL_DEEP`      | The OpenAI-compatible endpoint and its models |
+| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL_THIN`, `OPENROUTER_MODEL_DEEP` | Fallback when the primary endpoint fails      |
+| `TOKENHARBOR_API_KEY`, `BUILD_MODEL`, `ZEN_API_KEY`, `ZEN_BUILD_MODEL` | The models OpenCode builds cards with         |
 
-## Graph model
+`WORKSPACES_DIR` (default `../agencymem-workspaces`) holds the client repos and must sit outside
+this repository. Every other setting has a default: see
+[`packages/contracts/src/config.ts`](packages/contracts/src/config.ts).
 
-FalkorDB holds three kinds of graph. Every node carries a source chain back to an Episode (the
-client's words), and facts carry time, so a replaced fact ends but never disappears.
+## Graph model:
 
-| Graph        | Name                | Holds                                                                             |
-| ------------ | ------------------- | --------------------------------------------------------------------------------- |
-| Registry     | `registry`          | Client and Project nodes, so the router maps a project id to its client graph     |
-| Client graph | `client_<clientId>` | All project content for one client: sources, knowledge, product, design, delivery |
-| Agency graph | `agency`            | Anonymous Lesson, CaseStudy and EstimateRecord nodes. No client names             |
+Three kinds of graph. Every node traces back to an Episode (the client's words), and facts carry
+time (`validFrom`, `validTo`), so a replaced fact ends but never disappears.
 
-Every node has `id` (ULID), `projectId`, `createdBy`, `createdAt` and `version`.
+| Graph    | Name                | Holds                                                 |
+| -------- | ------------------- | ----------------------------------------------------- |
+| Registry | `registry`          | Client and Project nodes: maps a project to its graph |
+| Client   | `client_<clientId>` | All content of one client's projects                  |
+| Agency   | `agency`            | Anonymous Lesson, CaseStudy, EstimateRecord. No names |
 
-| Group     | Labels (client graph)                                                                                                 |
-| --------- | --------------------------------------------------------------------------------------------------------------------- |
-| Sources   | Document, Episode                                                                                                     |
-| Knowledge | Entity, Fact (`validFrom`, `validTo`), Contradiction, Question, Assumption                                            |
-| Product   | Requirement, Feature (`featureKind`), Estimate (`rawHours`, `hours`, `lessonIds`), AcceptanceCriterion, ChangeRequest |
-| Design    | Decision, Component, Screen, DataEntity, Endpoint, Risk, DocSection                                                   |
-| Delivery  | Gate, WorkItem, Task (the card), TestCase, TestRun, CodeChange, Run, ReadinessReport                                  |
+```mermaid
+graph LR
+  Episode -->|PART_OF| Document
+  Fact -->|SOURCED_FROM| Episode
+  Fact -->|ABOUT| Entity
+  NewFact[new Fact] -->|SUPERSEDES| Fact
+  Contradiction -->|BETWEEN| Fact
+  Question -->|RAISED_ON| Contradiction
+  Requirement -->|DERIVED_FROM| Fact
+  Design[design node] -->|DERIVED_FROM| Requirement
+  Criterion[AcceptanceCriterion] -->|OF| Requirement
+  Task -->|IMPLEMENTS| Requirement
+  Task -->|USES| Design
+  Task -->|HAS_CRITERION| Criterion
+  TestCase -->|VERIFIES| Criterion
+  TestRun -->|RUNS| TestCase
+  CodeChange -->|FOR_TASK| Task
+  DocSection -->|RENDERS| Requirement
+  ChangeRequest -->|ENDS| Fact
+  Task -->|FLAGGED_BY| ChangeRequest
+```
 
-Edges point from the derived node to its source. The impact query follows them backward (what a
-fact touches); the why query follows them forward (where a node came from).
+| Group     | Labels (client graph)                                                                |
+| --------- | ------------------------------------------------------------------------------------ |
+| Sources   | Document, Episode                                                                    |
+| Knowledge | Entity, Fact, Contradiction, Question, Assumption                                    |
+| Product   | Requirement, Feature, Estimate, AcceptanceCriterion, ChangeRequest                   |
+| Design    | Decision, Component, Screen, DataEntity, Endpoint, Risk, DocSection                  |
+| Delivery  | Gate, WorkItem, Task (the card), TestCase, TestRun, CodeChange, Run, ReadinessReport |
+
+Edges point from the derived node to its source: impact walks them backward, why walks them
+forward.
+
+<details>
+<summary>All 25 edges</summary>
 
 | Edge            | From → To                                        |
 | --------------- | ------------------------------------------------ |
@@ -128,27 +170,60 @@ fact touches); the why query follows them forward (where a node came from).
 | FLAGGED_BY      | Task or DocSection → ChangeRequest               |
 | RECALLED        | WorkItem or Task → a node its context read named |
 
-Edges cannot cross graphs: an Estimate stores the ids of the agency Lessons it used, and
-[`packages/graph/src/joins.ts`](packages/graph/src/joins.ts) joins the two in the app. Every
-label's properties are in [`packages/contracts/src/nodes.ts`](packages/contracts/src/nodes.ts).
+</details>
+
+## Why FalkorDB is central:
+
+FalkorDB is the only store of project state. The board, documents, guards and traces are all
+views of graph nodes: remove the graph and nothing works. Each feature below is one Cypher query,
+and each has a test.
+
+| Feature                             | The graph query that does it                                                                                | Proven by             |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------- |
+| Change request flags only its cards | [`read/impact`](packages/graph/cypher/read/impact.cypher): variable-length walk back from a fact            | `pnpm test`           |
+| Where did this come from?           | [`read/why`](packages/graph/cypher/read/why.cypher): walk forward to the client's Episode                   | `pnpm test`           |
+| No evidence, no Done                | [`read/evidence`](packages/graph/cypher/read/evidence.cypher): the card's commits and test runs             | `pnpm test`           |
+| Facts change, never vanish          | [`write/supersede-fact`](packages/graph/cypher/write/supersede-fact.cypher): end old, `SUPERSEDES` to new   | `pnpm test`           |
+| Two workers never win one card      | [`write/claim-task`](packages/graph/cypher/write/claim-task.cypher): claim and lease in one atomic query    | `pnpm test:load`      |
+| A dead runner loses nothing         | [`write/expire-task-leases`](packages/graph/cypher/write/expire-task-leases.cypher): expired lease to Ready | `pnpm test:restart`   |
+| Clients never see each other        | One graph per client, routed by [`router.ts`](packages/graph/src/router.ts)                                 | `pnpm test:isolation` |
+
+FalkorDB quirks we solved along the way: no `DELETE` in `FOREACH`, keyless aggregations that
+return a row from zero rows (which undid a version check), `MERGE` after an aggregation matching
+only the first row's node, and integer division. Each fix has a test.
 
 ## How AgencyMem remembers
 
-The agents keep no memory of their own. Every agent and every OpenCode run starts with no state,
-reads what it needs from the graph through the gateway, and leaves what it learned there for the
-next one. Each client has a separate graph, so one client's memory never reaches another's.
+Agents keep no memory of their own: each run reads from the graph and writes back to it.
 
-| Memory                       | Where it lives                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Episodic** (what happened) | `Episode` nodes keep the client's words: each line range of a file, each answer (`ANSWERS` a Question) and each change request. `Run` nodes record every model call of every agent, `CodeChange` and `TestRun` every build attempt, and `RECALLED` edges what each work item or card read, and when                                                                                                                                                                                                                                                                      |
-| **Semantic** (what is true)  | `Fact` nodes with `validFrom` and `validTo`: a change request ends a fact and writes the one that `SUPERSEDES` it, so nothing is deleted. Entities, contradictions, requirements and design nodes all link back to their Episodes, which the why query follows                                                                                                                                                                                                                                                                                                           |
-| **Procedural** (how to work) | Each card's worktree gets its own `AGENTS.md` rules file. The stage machine and the guard order are the rules every agent works under. When a card is rejected (no commit, a failing test, a merge conflict) the reason is written onto the card, and the next attempt's `AGENTS.md` tells OpenCode to read that note first and fix what it names                                                                                                                                                                                                                        |
-| **Conversation history**     | The Memory screen (`GET /api/projects/:id/memory`, [`read/conversation`](packages/graph/cypher/read/conversation.cypher) and [`read/fact-history`](packages/graph/cypher/read/fact-history.cypher)): the client's files, the questions asked, the answers and the change requests in time order, with the facts the project knew after each one                                                                                                                                                                                                                          |
-| **Ask the project**          | `POST /api/projects/:id/ask` writes the question as an `ask` Episode and an `ask` work item in one query ([`write/ask`](packages/graph/cypher/write/ask.cypher)). The Discovery agent claims it like any work item, reads the question, the current facts, product and design, and the earlier asks with their answers ([`read/ask-history`](packages/graph/cypher/read/ask-history.cypher)), and leaves its answer as the item's handoff with the ids of the facts it cites. A follow-up question reads the thread; the answer appears on the timeline with its sources |
-| **Handoffs between agents**  | Each finished work item leaves a handoff (a summary and the ids it wrote). `recall_context` gives every agent the project's handoffs, newest first ([`read/handoffs`](packages/graph/cypher/read/handoffs.cypher)), so the next agent starts from what the last one did                                                                                                                                                                                                                                                                                                  |
-| **Memory across sessions**   | Nothing lives in a process. `pnpm test:restart` kills the runner in the middle of a card: the lease runs out, the card goes back to Ready, and a new runner finishes the project from the graph                                                                                                                                                                                                                                                                                                                                                                          |
+- **Episodic:** `Episode` nodes keep the client's words; `Run`, `CodeChange` and `TestRun` record
+  every model call and build attempt; `RECALLED` edges record what each agent read.
+- **Semantic:** `Fact` nodes with `validFrom` and `validTo`, replaced through `SUPERSEDES`.
+- **Procedural:** each card's worktree gets an `AGENTS.md` rules file; a rejection reason goes onto
+  the card and the next attempt reads it first.
+- **Conversation history:** the Memory screen
+  ([`read/conversation`](packages/graph/cypher/read/conversation.cypher)) lists every turn with the
+  facts known after it.
+- **Handoffs:** each finished work item leaves a summary that the next agent reads
+  ([`read/handoffs`](packages/graph/cypher/read/handoffs.cypher)).
+- **Across sessions:** nothing lives in a process, so a restarted runner picks up where the last
+  one stopped.
 
-## Cypher queries
+## Local development
+
+```sh
+docker compose up -d && pnpm seed  # tests run against a real FalkorDB
+pnpm test                          # unit, contract and integration tests
+pnpm test:load                     # 20 MCP clients, 0 lost writes
+pnpm test:restart                  # runner killed mid-card, project still finishes
+pnpm test:isolation                # 0 foreign nodes across client graphs
+pnpm lint && pnpm typecheck        # ESLint, Prettier, TypeScript
+pnpm deps && pnpm check:cypher     # import rules, no Cypher strings in TypeScript
+pnpm list:cypher                   # regenerate the query list below
+```
+
+<details>
+<summary>Every Cypher query the product runs (generated)</summary>
 
 <!-- cypher:start -->
 
@@ -288,103 +363,20 @@ next one. Each client has a separate graph, so one client's memory never reaches
 
 <!-- cypher:end -->
 
-## Setup
+</details>
 
-You need Node.js 22.13 or later, pnpm 11.28.0, Docker, and git.
+## Future work
 
-```sh
-git clone https://github.com/Althaf66/AgencyMem.git
-cd AgencyMem
-pnpm i
-npm install -g opencode-ai@1.18.32     # the build workers run OpenCode; the runner checks this version
-npx playwright install chromium        # the Test agent runs Playwright specs
-cp .env.example .env                   # then fill it in (below)
-docker compose up -d                   # FalkorDB on host port 6380
-pnpm seed                              # the registry and agency graphs; safe to run twice
-pnpm dev                               # gateway (http://127.0.0.1:4000), runner and web client
-```
-
-`.env` holds every setting; each app checks the variables it needs at start-up and stops with a
-clear message when one is missing. Keys come from environment variables only and never go into a
-file in this repository.
-
-| Variable                                                                                        | What it is |
-| ----------------------------------------------------------------------------------------------- | ---------- |
-| Required (no default; the gateway, runner, simulator and web dev server refuse to start without |
-| the ones they use):                                                                             |
-
-| Variable                                                               | What it is                                                                              |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `AM_AGENT_TOKEN`, `AM_UI_TOKEN`, `AM_HOOK_TOKEN`                       | Any long random strings: the runner's, the web client's and the git hook's tokens       |
-| `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL_THIN`, `LLM_MODEL_DEEP`      | The OpenAI-compatible endpoint the agents call, and its thin and deep models            |
-| `OPENROUTER_API_KEY`, `OPENROUTER_MODEL_THIN`, `OPENROUTER_MODEL_DEEP` | The fallback when the primary endpoint fails (required by the runner and the simulator) |
-| `TOKENHARBOR_API_KEY`, `BUILD_MODEL`                                   | The TokenHarbor key and the model OpenCode builds cards with                            |
-| `ZEN_API_KEY`, `ZEN_BUILD_MODEL`                                       | The OpenCode Zen key and model Build falls back to                                      |
-
-With defaults (set them only to change them):
-
-| Variable                   | Default                   | What it is                                                                                                     |
-| -------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `FALKORDB_URL`             | `redis://localhost:6380`  | FalkorDB, at the compose port                                                                                  |
-| `WORKSPACES_DIR`           | `../agencymem-workspaces` | Where the client project repositories live, **outside this repository**; the runner refuses a folder inside it |
-| `SIM_SEED`, `SIM_PROJECTS` | 100, 3                    | The simulator's seed and number of projects (at most 3)                                                        |
-| `OPENCODE_VERSION`         | 1.18.32                   | The OpenCode version the runner checks at start-up                                                             |
-
-Others with defaults: `AM_PORT` (4000), `GATEWAY_URL`, `BUILD_WORKERS` (1 or 2), `LEASE_MS`,
-`HEARTBEAT_MS`, `LLM_TIMEOUT_MS`, `CONTEXT_MAX_CHARS`, `UPLOADS_DIR`. The full list is
-[`packages/contracts/src/config.ts`](packages/contracts/src/config.ts).
-
-Open http://localhost:5173, create a project and upload meeting notes (PDF, DOCX, TXT or MD), or
-run the simulator below.
-
-## Running the demo
-
-```sh
-pnpm sim:run                    # simulated projects A, B and C, each to closed, with no person involved
-pnpm sim:run --set A --live-demo  # one new project for the live demo; stops before launch
-pnpm pre-run                    # the pre-run: sim:run on an empty graph, the curve check, then a backup
-pnpm backup --name rehearsal    # FalkorDB data, workspaces, uploads and sim-state to ../agencymem-backups/
-pnpm restore rehearsal          # put a backup back (stop the runner and simulator first)
-pnpm migrate:scope-cut          # once, for data from before G5 and maintenance were removed
-pnpm cost:report --project <id> # tokens and cost of one project, by agent and model
-```
-
-## Future work: lessons across projects
-
-The Curator agent, the `write_case_study` tool and the agency graph's Lesson, CaseStudy and
-EstimateRecord nodes are in the code, so that a closed project could leave anonymous lessons and
-the next project's estimate could use them. This submission's demo stops at launch, and that loop
-is not part of it. It is the next step for procedural memory that grows from one project to the
-next.
-
-## Tests
-
-| Command                                                         | Proves                                                                                                                                                                    |
-| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm test`                                                     | Unit, contract and integration tests against a real FalkorDB, including the guards, the evidence guard (no commit, a failing run, a passing run) and this README's checks |
-| `pnpm test:load`                                                | 20 MCP clients claim and edit cards while a person edits them: 0 lost writes                                                                                              |
-| `pnpm test:restart`                                             | A runner killed mid-card loses its lease; the card goes back to Ready and the project finishes                                                                            |
-| `pnpm test:isolation`                                           | Nodes in two client graphs: 0 foreign nodes from either project; an unknown project id fails                                                                              |
-| `pnpm eval:discovery --set A`                                   | Discovery's recall and precision on the planted contradictions, with a real model                                                                                         |
-| `pnpm lint`, `pnpm typecheck`, `pnpm deps`, `pnpm check:cypher` | Style, types, the import rules, no Cypher in TypeScript                                                                                                                   |
-
-## Why FalkorDB is central
-
-FalkorDB is the only store of project state. The board, documents, guards and traces are all
-views of graph nodes: remove the graph and the board has no cards, the documents have no sections,
-the guards have nothing to check a claim, version or source against, and no change request,
-why path or past turn can be traced.
+The Curator agent and the agency graph's Lesson nodes are in the code, so a closed project could
+leave anonymous lessons for the next estimate. The demo stops at launch; that loop is next.
 
 ## Synthetic data
 
-All demo data is synthetic. The three clinics, their meeting notes, the client persona and every
-answer are made up for this project (`apps/simulator/fixtures/`); no real client or person appears.
+All demo data is synthetic: the clinics, notes and client persona in `apps/simulator/fixtures/`
+are made up.
 
 ## AI tool disclosure
 
-- **Claude Code** (Anthropic) built AgencyMem: the code, tests and specs were written with it,
-  task by task, from a written PRD, technical design and implementation plan.
-- **OpenCode** runs inside AgencyMem as the build worker: it writes the client project's code for
-  each card, through AgencyMem's MCP tools.
-- AgencyMem's own agents call language models through an OpenAI-compatible endpoint, with
-  OpenRouter as the fallback.
+- **Claude Code** (Anthropic) wrote AgencyMem's code, tests and specs.
+- **OpenCode** runs inside AgencyMem as the build worker, through its MCP tools.
+- **Agent models** are called through an OpenAI-compatible endpoint with an OpenRouter fallback.
