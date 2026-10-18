@@ -42,6 +42,8 @@ describe("writeCardConfig", () => {
 - Commit only on branch card/CARD-12. Do not push.
 - If the card note starts with "Merge conflict", run git merge main first and fix
   the conflicts.
+- Any other card note is why an earlier attempt failed. Read it first and fix what
+  it names before anything else.
 - Give every element named in an acceptance criterion the data-testid it names.
 - Make the card's Playwright tests pass. Run them with npx playwright test tests/e2e/CARD-12.
 - Do not change the tests unless the card says so.
