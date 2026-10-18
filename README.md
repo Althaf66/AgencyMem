@@ -2,7 +2,7 @@
 
 AgencyMem helps the delivery lead of a small software agency turn client meeting notes into an
 approved plan, a live Kanban board and tested code. Every result traces back to the client's
-words, and each finished project makes the next estimate more accurate.
+words, and the graph remembers every turn the client had with the project.
 
 Nine agents share one memory: a FalkorDB graph that only one gateway may touch. Meeting notes
 become sourced facts; facts become questions, a proposal, design documents and cards; OpenCode
@@ -16,15 +16,18 @@ Four proof moments carry the demo:
 2. **A change request flags only the linked cards.** One superseded fact moves exactly the cards
    and document sections built on it to Rework.
 3. **A card is rejected without evidence.** No commit, or a failing test, and the card cannot close.
-4. **A lesson reused in the next estimate.** Project 2's estimate links to a lesson from project 1.
+4. **The project remembers what the client said, and when.** The Memory screen lists every file,
+   question, answer and change request in time order; pick one and it shows the facts the project
+   knew right after it, with the facts a change request ended struck through.
 
 ## Tracks
 
 - **Track 02 (Agent Memory and Coordination)**, primary: nine agents and up to two OpenCode workers
   claim, lease and hand off work on one shared graph, behind guards that reject stale, foreign or
-  unproven writes.
-- **Track 03 (Company Brain)**, secondary: every project leaves anonymous lessons in the agency
-  graph, and the next proposal reads them.
+  unproven writes. The graph is their memory: episodic, semantic and procedural, kept per client
+  and across sessions (see [How AgencyMem remembers](#how-agencymem-remembers)).
+- **Track 03 (Company Brain)**, secondary: every fact, question, requirement, card and test traces
+  back to the client's words (the why path), so the lead can ask where anything came from.
 
 ## Demo video
 
@@ -40,7 +43,7 @@ client, the simulator and git hooks reach the graph only through the gateway.
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
 | `apps/gateway`   | Express 5 + `ws` on one server: the MCP endpoint (`/mcp`), the REST API (`/api`), live events (`/ws`), the git hook receiver (`/hooks/commit`) and every guard | contracts, graph, memory, ingest |
 | `apps/runner`    | The loops of the 7 model agents, the rule-based Launch agent, and 1 or 2 OpenCode build workers                                                                | contracts, llm                   |
-| `apps/web`       | Vite + React: board, graph panel, questionnaire, documents, gates and the health panel. It draws only gateway events                                           | contracts                        |
+| `apps/web`       | Vite + React: board, graph panel, questionnaire, memory timeline, documents, gates and health. It draws only gateway events                                    | contracts                        |
 | `apps/simulator` | Demo mode: synthetic notes, the client persona, gate decisions and actual hours                                                                                | contracts, llm                   |
 
 | Package              | Holds                                                                                             |
@@ -60,10 +63,11 @@ Every write goes through the guards, in this order: **tenancy, ownership, gate, 
 lease, evidence**. A rejection is counted on the project and sent as a `write.rejected` event.
 Every write is one Cypher query, so a claim, a version check or a lease can never half-apply.
 
-A project moves through intake, discovery, proposal, design, planning, build, e2e, launch,
-case_study (the Curator writes the lessons) and closed, with three human gates (G1 questions
-answered, G2 proposal, G3 design). After launch writes its readiness report, the lead closes the
-project with the actual hours of each feature. Build workers run `opencode run` in a git worktree
+A project moves through intake, discovery, proposal, design, planning, build, e2e, launch and
+closed, with three human gates (G1 questions answered, G2 proposal, G3 design). After launch
+writes its readiness report, the lead closes the project with the actual hours of each feature.
+The code also has a case_study stage between launch and closed, where the Curator writes lessons;
+this submission's demo stops at launch, and that loop is future work (see below). Build workers run `opencode run` in a git worktree
 per card; OpenCode reads its card through the gateway's MCP tools, commits, and a post-commit hook
 records the commit in the graph; the Test agent runs the card's Playwright specs on that commit.
 
@@ -125,6 +129,21 @@ fact touches); the why query follows them forward (where a node came from).
 Edges cannot cross graphs: an Estimate stores the ids of the agency Lessons it used, and
 [`packages/graph/src/joins.ts`](packages/graph/src/joins.ts) joins the two in the app. Every
 label's properties are in [`packages/contracts/src/nodes.ts`](packages/contracts/src/nodes.ts).
+
+## How AgencyMem remembers
+
+The agents keep no memory of their own. Every agent and every OpenCode run starts with no state,
+reads what it needs from the graph through the gateway, and leaves what it learned there for the
+next one. Each client has a separate graph, so one client's memory never reaches another's.
+
+| Memory                       | Where it lives                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Episodic** (what happened) | `Episode` nodes keep the client's words: each line range of a file, each answer (`ANSWERS` a Question) and each change request. `Run` nodes record every model call of every agent, `CodeChange` and `TestRun` every build attempt, and `RECALLED` edges what each work item or card read, and when                                               |
+| **Semantic** (what is true)  | `Fact` nodes with `validFrom` and `validTo`: a change request ends a fact and writes the one that `SUPERSEDES` it, so nothing is deleted. Entities, contradictions, requirements and design nodes all link back to their Episodes, which the why query follows                                                                                    |
+| **Procedural** (how to work) | Each card's worktree gets its own `AGENTS.md` rules file. The stage machine and the guard order are the rules every agent works under. When a card is rejected (no commit, a failing test, a merge conflict) the reason is written onto the card, and the next attempt's `AGENTS.md` tells OpenCode to read that note first and fix what it names |
+| **Conversation history**     | The Memory screen (`GET /api/projects/:id/memory`, [`read/conversation`](packages/graph/cypher/read/conversation.cypher) and [`read/fact-history`](packages/graph/cypher/read/fact-history.cypher)): the client's files, the questions asked, the answers and the change requests in time order, with the facts the project knew after each one   |
+| **Handoffs between agents**  | Each finished work item leaves a handoff (a summary and the ids it wrote). `recall_context` gives every agent the project's handoffs, newest first ([`read/handoffs`](packages/graph/cypher/read/handoffs.cypher)), so the next agent starts from what the last one did                                                                           |
+| **Memory across sessions**   | Nothing lives in a process. `pnpm test:restart` kills the runner in the middle of a card: the lease runs out, the card goes back to Ready, and a new runner finishes the project from the graph                                                                                                                                                   |
 
 ## Cypher queries
 
@@ -325,21 +344,13 @@ pnpm migrate:scope-cut          # once, for data from before G5 and maintenance 
 pnpm cost:report --project <id> # tokens and cost of one project, by agent and model
 ```
 
-## The seed and the curve
+## Future work: lessons across projects
 
-The simulator draws each project's hidden traits (clarity, scope creep, complexity) from
-`SIM_SEED=100` with mulberry32, and a project's actual hours from its raw estimate. The demo uses
-this one fixed seed so every rehearsal gives the same curve:
-
-| Project | Clarity band | Change requests | Estimate error | Lesson match     |
-| ------- | ------------ | --------------- | -------------- | ---------------- |
-| A       | low          | 1               | 45%            | none             |
-| B       | low          | 2               | 12%            | exact (low)      |
-| C       | medium       | 2               | 3%             | featureKind only |
-
-One seed is not proof that lessons help in general. Over seeds 1 to 1,000, project 3's error is
-lower than project 1's in **94%** of seeds, and the curve falls at every step in **48%**. The
-formula is in [`apps/simulator/src/actual-hours.ts`](apps/simulator/src/actual-hours.ts).
+The Curator agent, the `write_case_study` tool and the agency graph's Lesson, CaseStudy and
+EstimateRecord nodes are in the code, so that a closed project could leave anonymous lessons and
+the next project's estimate could use them. This submission's demo stops at launch, and that loop
+is not part of it. It is the next step for procedural memory that grows from one project to the
+next.
 
 ## Tests
 
@@ -357,7 +368,7 @@ formula is in [`apps/simulator/src/actual-hours.ts`](apps/simulator/src/actual-h
 FalkorDB is the only store of project state. The board, documents, guards and traces are all
 views of graph nodes: remove the graph and the board has no cards, the documents have no sections,
 the guards have nothing to check a claim, version or source against, and no change request,
-why path or lesson can be traced.
+why path or past turn can be traced.
 
 ## Synthetic data
 

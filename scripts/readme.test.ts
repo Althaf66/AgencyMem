@@ -121,10 +121,11 @@ describe("Done when: every item on the submission checklist is present", () => {
     expect(section(/^Why FalkorDB is central/)).toMatch(/board.*documents.*guards.*traces/s);
   });
 
-  it("states the seed and the honest curve figures (fixtures.md section 5)", () => {
-    const seed = section(/^The seed and the curve/);
-    expect(seed).toContain("SIM_SEED=100");
-    expect(seed).toContain("94%");
-    expect(seed).toContain("48%");
+  it("says how the agents remember, and that the lessons loop is future work", () => {
+    const memory = section(/^How AgencyMem remembers/);
+    for (const word of ["Episodic", "Semantic", "Procedural", "Conversation history", "Handoffs"]) {
+      expect(memory).toContain(word);
+    }
+    expect(section(/^Future work/)).toContain("Curator");
   });
 });
