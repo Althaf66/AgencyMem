@@ -894,6 +894,18 @@ describe("pipeline", () => {
     expect(html).toContain('href="#/p/P/card/CARD-01"');
   });
 
+  it("puts Retry on a blocked item before any card exists", () => {
+    const html = renderToString(
+      <PipelineView
+        s={state({
+          project: ready({ id: "P", stage: "discovery" } as ProjectInfo),
+          items: ready([item({ kind: "discovery", agent: "discovery", status: "blocked" })]),
+        })}
+      />,
+    );
+    expect(html).toMatch(/<button[^>]*>Retry<\/button>/);
+  });
+
   it("marks phases done, now and later from the project's stage", () => {
     const [intake, , , , planning, build] = PHASES;
     expect(phaseState(intake!, "planning")).toBe("done");

@@ -36,7 +36,8 @@ async function validate<T>(
 ): Promise<{ output?: T; errors: string[] }> {
   let raw: unknown;
   try {
-    raw = JSON.parse(content);
+    // ponytail: the model can wrap its JSON in a ```json fence despite the prompt; strip it
+    raw = JSON.parse(content.trim().replace(/^```(?:json)?\s*|\s*```$/g, ""));
   } catch (e) {
     return { errors: [`Not valid JSON: ${e instanceof Error ? e.message : String(e)}`] };
   }

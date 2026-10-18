@@ -213,6 +213,16 @@ describe("JSON check and one repair (agent-prompts.md, Model request)", () => {
     ]);
   });
 
+  it("reads JSON wrapped in a ```json fence without a repair", async () => {
+    primary.replies.push({
+      status: 200,
+      body: completion("```json\n" + good + "\n```", "primary-deep"),
+    });
+    const { output, runs } = await createModelClient({ chat: chat() }).json(ask);
+    expect(output.facts).toHaveLength(1);
+    expect(runs.map((r) => r.step)).toEqual(["think"]);
+  });
+
   it("repairs a schema error and a reference error from check()", async () => {
     primary.replies.push(
       { status: 200, body: completion(JSON.stringify({ facts: [{ id: 1 }] }), "primary-deep") },

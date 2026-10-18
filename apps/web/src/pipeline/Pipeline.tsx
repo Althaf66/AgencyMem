@@ -103,6 +103,17 @@ function ItemRow({ s, item }: { s: AppState; item: ItemView }) {
           <Chip status={item.status} />
           {item.attempts > 1 && <span className="chip warn">{`attempt ${item.attempts}`}</span>}
           <span className="muted grow">{item.lastStep ?? ""}</span>
+          {item.status === "blocked" && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault(); // inside <summary>: retry, do not toggle the row
+                void s.retry(item);
+              }}
+            >
+              Retry
+            </button>
+          )}
           {item.doneAt && <span className="muted">{time(item.doneAt)}</span>}
         </>
       }
