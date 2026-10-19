@@ -1,0 +1,35 @@
+Call notes: Olive & Ember landing site
+Call with Maria and Paolo, Thursday
+Notes taken by account manager
+
+- Paolo says the site should be in Italian and English. Maria says English
+  only is fine for now. No decision made.
+- They have "some photos on a phone" but none are professional. Maria asked if
+  we can use stock photos. Paolo does not want stock photos.
+- Daily specials: Paolo wants to update them himself every day. Neither of them
+  has used a website editor before. Unclear how they would update the page.
+- Callback form: who receives it? Maria said "the restaurant email", but they
+  share one Gmail account with the supplier orders. Paolo wants an SMS instead.
+- Address: they are moving to a new location "sometime next month". Not sure if
+  the site should show the old address, the new one, or both.
+- Phone: the new number was not shared on the call. Maria will "check with the
+  phone company".
+- Domain: they think a nephew bought a domain two years ago. Nobody knows
+  the name or the login.
+- Deadline: Maria still says "before the weekend". Paolo said "no rush,
+  get it right".
+
+Open questions to send back to the client:
+1. Which opening hours are correct, and is Sunday or Monday the closed day?
+2. Black and gold or dark green and cream?
+3. Show prices or not? Do daily specials show prices?
+4. Callback form: email or SMS, and to which address or number?
+5. One language or two?
+6. Which address goes on the site, and when does it switch?
+7. What is the new phone number?
+8. Menu as a page, a PDF, or both?
+9. Who owns the domain, and who handles hosting?
+10. Real deadline?
+
+Scope note: one static page (HTML/CSS), callback form at most. No CMS,
+no booking system, no login.

@@ -1,0 +1,26 @@
+Client brief: landing site for "Olive & Ember" (small family restaurant)
+From: Maria, owner
+Sent: Monday morning
+
+Hi team,
+
+We need a simple one-page website. Nothing fancy, we just want people to find us.
+
+What it needs:
+- Our name and logo at the top, with a big photo of the dining room.
+- A short "About us" paragraph (I'll send the text later).
+- The menu. Just show the main dishes with prices.
+- Opening hours: Tuesday to Sunday, 12:00 to 22:00. Closed Monday.
+- Address and a map so people can find us.
+- A phone number for reservations.
+- Links to our Instagram and Facebook.
+
+Style: warm and cozy. Our colors are dark green and cream.
+It must look good on phones, most of our customers find us on mobile.
+
+We want online reservations too, so people can book a table directly on the site.
+
+Budget is small, so please keep it simple. We'd like it live before the weekend.
+
+Thanks,
+Maria

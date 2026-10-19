@@ -31,12 +31,10 @@ from?" and "what does this change break?" in seconds.
 
 Built for the [WeMakeDevs x FalkorDB hackathon](https://www.wemakedevs.org/hackathons/falkordb).
 
-- **Track 02 (Agent Memory and Coordination)**, primary. Agents keep no state of their own. Nine
+- **Track 02 (Agent Memory and Coordination)**, Agents keep no state of their own. Nine
   agents and up to two OpenCode workers claim, lease and hand off work on one shared graph, behind
   guards that reject stale, foreign or unproven writes. Kill the runner mid-card and a new one
   finishes the project from the graph. That coordination problem is exactly what Track 02 asks for.
-- **Track 03 (Company Brain)**, secondary. Every fact, question, requirement, card and test traces
-  back to the client's words.
 
 ## Demo video
 
@@ -44,19 +42,36 @@ Built for the [WeMakeDevs x FalkorDB hackathon](https://www.wemakedevs.org/hacka
 
 ## Architecture
 
-```
- web client (React)  /  simulator  /  git post-commit hook
-                     |  REST + WebSocket
-                     v
- +-----------------------------------------------+  Cypher  +---------------------+
- | apps/gateway: the only door to FalkorDB       |--------->| FalkorDB            |
- |   /mcp  /api  /ws  /hooks/commit              |          |   registry          |
- |   guards: tenancy, ownership, gate, source,   |          |   client_<clientId> |
- |           version, lease, evidence            |          |   agency            |
- +-----------------------------------------------+          +---------------------+
-                     ^  MCP
-                     |
- apps/runner: 7 model agents, Launch agent, 1-2 OpenCode build workers
+```mermaid
+flowchart TD
+    web["Web client (React)"]
+    sim["Simulator"]
+    hook["git post-commit hook"]
+
+    subgraph gateway["apps/gateway: the only door to FalkorDB"]
+        routes["/mcp · /api · /ws · /hooks/commit"]
+        guards["Guards: tenancy, ownership, gate,<br/>source, version, lease, evidence"]
+        memory["packages/memory<br/>(only sender of write Cypher)"]
+        routes --> guards --> memory
+    end
+
+    subgraph runner["apps/runner"]
+        agents["7 model agents"]
+        launch["Launch agent"]
+        workers["OpenCode build workers"]
+    end
+
+    subgraph db["FalkorDB"]
+        registry[("registry")]
+        client[("client_#lt;clientId#gt;")]
+        agency[("agency")]
+    end
+
+    web -->|REST + WebSocket| routes
+    sim -->|REST + WebSocket| routes
+    hook -->|REST| routes
+    runner -->|MCP| routes
+    memory -->|Cypher| db
 ```
 
 - **One door.** Only the gateway talks to FalkorDB, and only `packages/memory` sends write Cypher.
@@ -64,6 +79,21 @@ Built for the [WeMakeDevs x FalkorDB hackathon](https://www.wemakedevs.org/hacka
 - **Stages.** intake, discovery, proposal, design, planning, build, e2e, launch, closed, with
   human gates G1 (questions), G2 (proposal) and G3 (design). A case_study stage exists in the code
   for future work.
+
+### MCP: how agents touch memory
+
+Every agent, including the OpenCode workers,
+ reads and writes the graph only through its 19 tools,
+and every call passes the guards first.
+
+| Group | Tools |
+|---|---|
+| Coordinate | `claim_item`, `claim_task`, `heartbeat`, `complete_item`, `complete_task`, `write_handoff` |
+| Recall | `recall_context`, `get_task_context`, `find_impact`, `read_query` |
+| Write | `write_fact`, `write_question`, `write_product`, `write_design`, `write_cards`, `write_tests`, `record_change_request`, `submit_test_run`, `write_case_study` |
+
+`recall_context` and `get_task_context` also leave a RECALLED edge to every node they return,
+so you can see what each agent read before it acted.
 
 ## Setup
 
@@ -81,7 +111,6 @@ Built for the [WeMakeDevs x FalkorDB hackathon](https://www.wemakedevs.org/hacka
 ```sh
 git clone https://github.com/Althaf66/AgencyMem.git
 cd AgencyMem
-corepack enable                      # provides the pinned pnpm 11.28.0
 pnpm install
 ```
 
@@ -106,7 +135,7 @@ Fill in the keys below. Every other setting has a default (see
 | `AM_AGENT_TOKEN`, `AM_UI_TOKEN`, `AM_HOOK_TOKEN`                       | Any long random strings                              |
 | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL_THIN`, `LLM_MODEL_DEEP`      | The OpenAI-compatible endpoint and its models        |
 | `OPENROUTER_API_KEY`, `OPENROUTER_MODEL_THIN`, `OPENROUTER_MODEL_DEEP` | The fallback when the primary endpoint fails         |
-| `TOKENHARBOR_API_KEY`, `BUILD_MODEL`, `ZEN_API_KEY`, `ZEN_BUILD_MODEL` | The models OpenCode builds cards with (and fallback) |
+| `TOKENHARBOR_API_KEY`, `BUILD_MODEL`(primary),`ZEN_API_KEY`, `ZEN_BUILD_MODEL`(fallback) | The models OpenCode builds cards with (and fallback) |
 
 > [!NOTE]
 > `WORKSPACES_DIR` (default `../agencymem-workspaces`) holds the client repositories the agents
@@ -115,8 +144,8 @@ Fill in the keys below. Every other setting has a default (see
 ### 4. Start FalkorDB and seed it
 
 ```sh
-docker compose up -d                 # FalkorDB on localhost:6380
-pnpm seed                            # creates the registry and agency graphs
+docker compose up -d                 
+pnpm seed                            # (optional)creates the registry and agency graphs
 ```
 
 ### 5. Run AgencyMem
@@ -135,11 +164,8 @@ pnpm dev
 
 - **Your own project:** open **http://localhost:5173**, create a project and upload client notes
   (PDF, DOCX, TXT or MD).
-- **A simulated client:** run `pnpm sim:run` to watch three synthetic projects run end to end.
+- **A simulated client**: run `pnpm sim:run` to watch synthetic projects run end to end.
 
-> [!TIP]
-> If cards are picked up by something you did not start, an earlier `pnpm dev` may still be
-> running. Check that nothing else is listening on port 4000 before you start.
 
 ## Graph model:
 
@@ -245,7 +271,7 @@ Agents keep no memory of their own: each run reads from the graph and writes bac
 - **Episodic:** `Episode` nodes keep the client's words; `Run`, `CodeChange` and `TestRun` record
   every model call and build attempt; `RECALLED` edges record what each agent read.
 - **Semantic:** `Fact` nodes with `validFrom` and `validTo`, replaced through `SUPERSEDES`.
-- **Procedural:** each card's worktree gets an `AGENTS.md` rules file; a rejection reason goes onto
+- **Procedural:** each card's worktree gets a rules file; a rejection reason goes onto
   the card and the next attempt reads it first.
 - **Conversation history:** the Memory screen
   ([`read/conversation`](packages/graph/cypher/read/conversation.cypher)) lists every turn with the
@@ -413,11 +439,8 @@ pnpm list:cypher                   # regenerate the query list below
 
 ## AI tool disclosure
 
-- **Claude** Helps to write code and docs.
+- **Claude Code** - Helps to write code and docs.
 
-## Future work
 
-The Curator agent and the agency graph's Lesson nodes are in the code, so a closed project could
-leave anonymous lessons for the next estimate. The demo stops at launch; that loop is next.
 
 
